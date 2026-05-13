@@ -79,7 +79,7 @@ export interface ParsedEmail {
 export async function fetchMessagesFromHistory(
   channelConfigId: string,
   historyId: string,
-  email: string
+  _email: string
 ): Promise<ParsedEmail[]> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })

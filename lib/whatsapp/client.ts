@@ -41,6 +41,7 @@ export function validateTwilioSignature(
 ): boolean {
   // Twilio signature validation using HMAC-SHA1
   // https://www.twilio.com/docs/usage/webhooks/webhooks-security
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const crypto = require('crypto') as typeof import('crypto')
   const sortedParams = Object.keys(params)
     .sort()
