@@ -1,0 +1,132 @@
+// Domain types and joined query result types for Phases 2-3.
+// The Database type used by the Supabase client lives in types/supabase.ts.
+
+export type Channel = 'gmail' | 'whatsapp' | 'facebook' | 'instagram' | 'form' | 'chat'
+export type ConversationStatus = 'open' | 'in_progress' | 'waiting' | 'closed'
+export type Department = 'Reps' | 'Comps' | 'LTP' | 'Other'
+export type Priority = 'low' | 'medium' | 'high' | 'urgent'
+export type SenderType = 'staff' | 'contact' | 'ai'
+export type LabelType = 'department' | 'priority' | 'custom'
+
+export interface Contact {
+  id: string
+  full_name: string | null
+  email: string | null
+  phone: string | null
+  social_id: string | null
+  channel: Channel | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ChannelConfig {
+  id: string
+  channel_type: Channel
+  display_name: string
+  identifier: string
+  credentials: Record<string, unknown>
+  is_active: boolean
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface Conversation {
+  id: string
+  contact_id: string
+  assigned_to: string | null
+  channel: Channel
+  status: ConversationStatus
+  department: Department | null
+  priority: Priority
+  subject: string | null
+  is_read: boolean
+  created_at: string
+  updated_at: string
+  closed_at: string | null
+  last_message_at: string
+  external_thread_id: string | null
+  channel_config_id: string | null
+}
+
+export interface Message {
+  id: string
+  conversation_id: string
+  sender_type: SenderType
+  sender_id: string | null
+  content: string
+  is_internal_note: boolean
+  created_at: string
+}
+
+export interface Label {
+  id: string
+  name: string
+  colour: string
+  type: LabelType
+  created_at: string
+}
+
+export interface Feedback {
+  id: string
+  conversation_id: string
+  rating: number
+  comment: string | null
+  submitted_at: string
+}
+
+// Joined result types for common queries
+export interface ConversationListItem extends Conversation {
+  contact: Pick<Contact, 'id' | 'full_name' | 'email' | 'phone'>
+  assigned_user: {
+    id: string
+    full_name: string | null
+    avatar_url: string | null
+  } | null
+}
+
+export interface MessageWithSender extends Message {
+  sender: {
+    id: string
+    full_name: string | null
+    avatar_url: string | null
+  } | null
+}
+
+export interface ConversationDetail extends Conversation {
+  contact: Contact
+  assigned_user: {
+    id: string
+    full_name: string | null
+    avatar_url: string | null
+  } | null
+}
+
+export interface ContactWithConversationCount extends Contact {
+  conversation_count: number
+}
+
+export interface StaffUser {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  email: string
+}
+
+export interface InboxFilters {
+  status: string
+  department: string
+  priority: string
+  channel: string
+  assignedTo: string
+  search: string
+}
+
+export const DEFAULT_FILTERS: InboxFilters = {
+  status: 'all',
+  department: '',
+  priority: '',
+  channel: '',
+  assignedTo: '',
+  search: '',
+}

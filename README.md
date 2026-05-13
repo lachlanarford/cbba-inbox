@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CBBA Inbox
 
-## Getting Started
+Internal customer communications platform for the City of Blacktown Basketball Association (CBBA Storm Basketball).
 
-First, run the development server:
+A staff-only inbox tool that consolidates customer messages from multiple channels (email, WhatsApp, social DMs, web forms) into a single interface, with AI-assisted responses powered by Claude.
+
+## Local Setup
+
+### 1. Clone and install
+
+```bash
+git clone <repo-url>
+cd cbba-inbox
+npm install
+```
+
+### 2. Configure environment variables
+
+Copy the example and fill in your Supabase credentials:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Open `.env.local` and set:
+
+| Variable | Where to find it |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase dashboard > Project Settings > API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard > Project Settings > API |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard > Project Settings > API |
+
+### 3. Run database migrations
+
+Apply the migration files in `supabase/migrations/` using the Supabase CLI or the SQL editor in the Supabase dashboard.
+
+### 4. Configure Google OAuth
+
+In the Supabase dashboard:
+1. Go to Authentication > Providers > Google
+2. Enable the Google provider
+3. Add your Google OAuth Client ID and Secret (from Google Cloud Console)
+4. Add `https://your-project.supabase.co/auth/v1/callback` as an authorised redirect URI in Google Cloud Console
+
+### 5. Start the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). You will be redirected to `/login`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Links
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Supabase dashboard: [https://supabase.com/dashboard](https://supabase.com/dashboard) _(add your project URL here)_
+- Vercel project: [https://vercel.com/dashboard](https://vercel.com/dashboard) _(add your project URL here)_
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- **Framework:** Next.js 14 (App Router, TypeScript)
+- **Database + Auth:** Supabase (PostgreSQL, Google OAuth, Row-Level Security)
+- **Styling:** Tailwind CSS
+- **Hosting:** Vercel
+- **AI:** Anthropic Claude API (Phase 4)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Phase Status
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Phase | Description | Status |
+|---|---|---|
+| 1 | Project setup, auth, app shell | Complete |
+| 2 | Core inbox UI | Pending |
+| 3 | Channel integrations | Pending |
+| 4 | AI features and chatbot | Pending |
+| 5 | Settings and access control | Pending |
+| 6 | Feedback and reporting | Pending |
