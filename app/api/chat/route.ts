@@ -4,6 +4,16 @@ import aiClient, { AI_MODEL, AI_MAX_TOKENS } from '@/lib/ai/client'
 import { searchKnowledge } from '@/lib/knowledge/search'
 import { processIncomingMessage } from '@/lib/channels/processor'
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
 interface ChatRequest {
   message: string
   session_id: string
@@ -18,12 +28,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400, headers: CORS_HEADERS })
   }
 
   const { message, session_id, contact_info } = body
   if (!message?.trim() || !session_id) {
-    return NextResponse.json({ error: 'Missing message or session_id' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing message or session_id' }, { status: 400, headers: CORS_HEADERS })
   }
 
   const supabase = createServiceClient()
@@ -87,8 +97,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       mode: 'live',
-      message: 'You are now connected to our team. We will reply shortly.',
-    })
+      reply: 'You are now connected to our team. We will reply shortly.',
+    }, { headers: CORS_HEADERS })
   }
 
   // AI mode
@@ -129,7 +139,7 @@ export async function POST(request: Request) {
     aiResponse = response.content[0].type === 'text' ? response.content[0].text.trim() : 'Sorry, I could not generate a response.'
   } catch (err) {
     console.error('[api/chat] AI error:', err)
-    return NextResponse.json({ error: 'AI unavailable' }, { status: 500 })
+    return NextResponse.json({ error: 'AI unavailable' }, { status: 500, headers: CORS_HEADERS })
   }
 
   // Save AI response
@@ -140,5 +150,5 @@ export async function POST(request: Request) {
     conversation_id: null,
   })
 
-  return NextResponse.json({ mode: 'ai', message: aiResponse })
+  return NextResponse.json({ mode: 'ai', reply: aiResponse }, { headers: CORS_HEADERS })
 }

@@ -6,5 +6,5 @@ const client = new Anthropic({
 
 export default client
 
-export const AI_MODEL = 'claude-sonnet-4-20250514'
+export const AI_MODEL = 'claude-sonnet-4-6'
 export const AI_MAX_TOKENS = 1024
