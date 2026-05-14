@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { validateTwilioSignature } from '@/lib/whatsapp/client'
 import { processIncomingMessage } from '@/lib/channels/processor'
+import { triggerCategorise } from '@/lib/ai/categorise'
 
 export async function POST(request: Request) {
   const supabase = createServiceClient()
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
   if (!from || !messageBody) return new Response('', { status: 200 })
 
   try {
-    await processIncomingMessage({
+    const result = await processIncomingMessage({
       channel: 'whatsapp',
       channelConfigId: config.id,
       contactFullName: profileName,
@@ -44,8 +45,9 @@ export async function POST(request: Request) {
       contactSocialId: null,
       subject: `WhatsApp from ${from}`,
       content: messageBody,
-      externalThreadId: from, // Group by phone number (one conversation per contact)
+      externalThreadId: from,
     })
+    triggerCategorise(result.conversationId, messageBody)
   } catch (err) {
     console.error('[webhook/whatsapp]', err)
   }

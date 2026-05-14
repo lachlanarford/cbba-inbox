@@ -124,6 +124,7 @@ export type Database = {
           priority: string
           subject: string | null
           is_read: boolean
+          needs_review: boolean
           created_at: string
           updated_at: string
           closed_at: string | null
@@ -141,6 +142,7 @@ export type Database = {
           priority?: string
           subject?: string | null
           is_read?: boolean
+          needs_review?: boolean
           created_at?: string
           updated_at?: string
           closed_at?: string | null
@@ -158,6 +160,7 @@ export type Database = {
           priority?: string
           subject?: string | null
           is_read?: boolean
+          needs_review?: boolean
           created_at?: string
           updated_at?: string
           closed_at?: string | null
@@ -175,6 +178,7 @@ export type Database = {
           sender_id: string | null
           content: string
           is_internal_note: boolean
+          is_ai_suggested: boolean
           created_at: string
         }
         Insert: {
@@ -184,6 +188,7 @@ export type Database = {
           sender_id?: string | null
           content: string
           is_internal_note?: boolean
+          is_ai_suggested?: boolean
           created_at?: string
         }
         Update: {
@@ -193,6 +198,121 @@ export type Database = {
           sender_id?: string | null
           content?: string
           is_internal_note?: boolean
+          is_ai_suggested?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      ai_logs: {
+        Row: {
+          id: string
+          conversation_id: string | null
+          action: string
+          input: string
+          output: string
+          model: string
+          confidence: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id?: string | null
+          action: string
+          input: string
+          output: string
+          model: string
+          confidence?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string | null
+          action?: string
+          input?: string
+          output?: string
+          model?: string
+          confidence?: number | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      knowledge_base: {
+        Row: {
+          id: string
+          title: string
+          content: string
+          source_type: string
+          source_url: string | null
+          last_scraped_at: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          content: string
+          source_type?: string
+          source_url?: string | null
+          last_scraped_at?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          content?: string
+          source_type?: string
+          source_url?: string | null
+          last_scraped_at?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          key: string
+          value: string
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          value: string
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          id: string
+          session_id: string
+          role: string
+          content: string
+          conversation_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          role: string
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          role?: string
+          content?: string
+          conversation_id?: string | null
           created_at?: string
         }
         Relationships: []

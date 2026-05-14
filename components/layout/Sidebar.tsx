@@ -5,9 +5,11 @@ import { usePathname } from 'next/navigation'
 import type { AppUser } from '@/types/supabase'
 import { isAdmin } from '@/lib/auth'
 import SignOutButton from './SignOutButton'
+import ChatModeToggle from './ChatModeToggle'
 
 interface SidebarProps {
   user: AppUser
+  chatMode: string
 }
 
 const navItems = [
@@ -33,7 +35,7 @@ const navItems = [
   },
 ]
 
-export default function Sidebar({ user }: SidebarProps) {
+export default function Sidebar({ user, chatMode }: SidebarProps) {
   const pathname = usePathname()
 
   function isActive(href: string) {
@@ -94,6 +96,21 @@ export default function Sidebar({ user }: SidebarProps) {
               Channels
             </Link>
             <Link
+              href="/settings/knowledge"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
+                pathname === '/settings/knowledge'
+                  ? 'bg-cbba-purple text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <KnowledgeIcon
+                className={`w-4 h-4 flex-shrink-0 ${
+                  pathname === '/settings/knowledge' ? 'text-cbba-gold' : 'text-current'
+                }`}
+              />
+              Knowledge
+            </Link>
+            <Link
               href="/settings/admin"
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
                 pathname === '/settings/admin'
@@ -111,6 +128,12 @@ export default function Sidebar({ user }: SidebarProps) {
           </>
         )}
       </nav>
+
+      {/* Chat mode toggle */}
+      <div className="px-3 pb-2 border-t border-white/5 pt-3">
+        <p className="text-xs text-gray-600 px-3 mb-1">Chat widget</p>
+        <ChatModeToggle initialMode={chatMode} />
+      </div>
 
       {/* User area */}
       <div className="px-4 py-4 border-t border-white/5 space-y-3">
@@ -177,6 +200,14 @@ function ChannelsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+    </svg>
+  )
+}
+
+function KnowledgeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
     </svg>
   )
 }

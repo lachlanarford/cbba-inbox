@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { processIncomingMessage } from '@/lib/channels/processor'
+import { triggerCategorise } from '@/lib/ai/categorise'
 
 // Webhook verification challenge (Meta requires GET handler)
 export async function GET(request: Request) {
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
       if (!sender || !text) continue
 
       try {
-        await processIncomingMessage({
+        const result = await processIncomingMessage({
           channel: 'facebook',
           channelConfigId: config.id,
           contactFullName: null,
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
           content: text,
           externalThreadId: sender,
         })
+        triggerCategorise(result.conversationId, text)
       } catch (err) {
         console.error('[webhook/facebook]', err)
       }

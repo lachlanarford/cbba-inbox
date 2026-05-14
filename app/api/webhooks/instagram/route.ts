@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { processIncomingMessage } from '@/lib/channels/processor'
+import { triggerCategorise } from '@/lib/ai/categorise'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
       if (!sender || !text) continue
 
       try {
-        await processIncomingMessage({
+        const result = await processIncomingMessage({
           channel: 'instagram',
           channelConfigId: config.id,
           contactFullName: null,
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
           content: text,
           externalThreadId: sender,
         })
+        triggerCategorise(result.conversationId, text)
       } catch (err) {
         console.error('[webhook/instagram]', err)
       }

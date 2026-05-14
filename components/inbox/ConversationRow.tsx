@@ -11,7 +11,7 @@ interface ConversationRowProps {
 }
 
 export default function ConversationRow({ conversation, isSelected, onClick }: ConversationRowProps) {
-  const { contact, assigned_user, is_read, subject, channel, department, priority, last_message_at } = conversation
+  const { contact, assigned_user, is_read, needs_review, subject, channel, department, priority, last_message_at } = conversation
 
   return (
     <button
@@ -49,6 +49,11 @@ export default function ConversationRow({ conversation, isSelected, onClick }: C
             <ChannelIcon channel={channel} className="w-3.5 h-3.5" />
             {department && <DepartmentBadge department={department} />}
             <PriorityBadge priority={priority} />
+            {needs_review && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                Review
+              </span>
+            )}
             {assigned_user && (
               <span className="ml-auto flex-shrink-0">
                 {assigned_user.avatar_url ? (

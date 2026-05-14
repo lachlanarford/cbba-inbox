@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { fetchMessagesFromHistory, markAsRead } from '@/lib/gmail/client'
 import { processIncomingMessage } from '@/lib/channels/processor'
+import { triggerCategorise } from '@/lib/ai/categorise'
 
 export async function POST(request: Request) {
   // Validate webhook secret via query param (set in Pub/Sub push subscription URL)
@@ -34,7 +35,6 @@ export async function POST(request: Request) {
   if (!emailAddress || !historyId) return new Response('', { status: 200 })
 
   const supabase = createServiceClient()
-
   // Find the channel_config for this inbox
   const { data: config } = await supabase
     .from('channel_configs')
@@ -53,16 +53,31 @@ export async function POST(request: Request) {
     return new Response('', { status: 200 })
   }
 
-  // Respond immediately -- Pub/Sub requires acknowledgement within 10s
-  // Processing happens synchronously here (small volume expected)
   try {
-    const metadata = config.metadata as Record<string, string>
+    const metadata = (config.metadata ?? {}) as Record<string, string>
     const defaultDepartment = metadata?.default_department ?? null
+    // Use stored historyId as startHistoryId -- the notification historyId IS the
+    // current state, so querying from it returns nothing. The stored id predates the
+    // change and lets history.list return the new message.
+    const storedHistoryId = metadata.history_id ?? null
 
-    const emails = await fetchMessagesFromHistory(config.id, historyId, emailAddress)
+    if (!storedHistoryId) {
+      // No stored historyId yet -- save the notification's historyId for next time
+      await supabase
+        .from('channel_configs')
+        .update({ metadata: { ...metadata, history_id: historyId } })
+        .eq('id', config.id)
+      return new Response('', { status: 200 })
+    }
+
+    const { messages: emails, newHistoryId } = await fetchMessagesFromHistory(
+      config.id,
+      storedHistoryId,
+      emailAddress
+    )
 
     for (const email of emails) {
-      await processIncomingMessage({
+      const result = await processIncomingMessage({
         channel: 'gmail',
         channelConfigId: config.id,
         contactFullName: email.fromName,
@@ -74,8 +89,16 @@ export async function POST(request: Request) {
         department: defaultDepartment,
         externalThreadId: email.threadId,
       })
+      triggerCategorise(result.conversationId, email.body, email.subject)
 
       await markAsRead(config.id, email.messageId)
+    }
+
+    if (newHistoryId && newHistoryId !== storedHistoryId) {
+      await supabase
+        .from('channel_configs')
+        .update({ metadata: { ...metadata, history_id: newHistoryId } })
+        .eq('id', config.id)
     }
   } catch (err) {
     console.error('[webhook/gmail] processing error:', err)

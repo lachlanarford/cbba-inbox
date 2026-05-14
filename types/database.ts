@@ -41,6 +41,7 @@ export interface Conversation {
   priority: Priority
   subject: string | null
   is_read: boolean
+  needs_review: boolean
   created_at: string
   updated_at: string
   closed_at: string | null
@@ -49,14 +50,16 @@ export interface Conversation {
   channel_config_id: string | null
 }
 
-export interface Message {
+export interface KnowledgeBaseEntry {
   id: string
-  conversation_id: string
-  sender_type: SenderType
-  sender_id: string | null
+  title: string
   content: string
-  is_internal_note: boolean
+  source_type: 'url' | 'manual'
+  source_url: string | null
+  last_scraped_at: string | null
+  is_active: boolean
   created_at: string
+  updated_at: string
 }
 
 export interface Label {
@@ -73,6 +76,17 @@ export interface Feedback {
   rating: number
   comment: string | null
   submitted_at: string
+}
+
+export interface Message {
+  id: string
+  conversation_id: string
+  sender_type: SenderType
+  sender_id: string | null
+  content: string
+  is_internal_note: boolean
+  is_ai_suggested: boolean
+  created_at: string
 }
 
 // Joined result types for common queries

@@ -15,14 +15,14 @@ export async function POST(
   const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
   if (!appUser) return NextResponse.json({ error: 'User not found' }, { status: 401 })
 
-  let body: { content: string; isNote: boolean }
+  let body: { content: string; isNote: boolean; isAiSuggested?: boolean }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { content, isNote } = body
+  const { content, isNote, isAiSuggested } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
   // Fetch conversation to determine channel and thread context
@@ -71,6 +71,7 @@ export async function POST(
       sender_id: user.id,
       content: content.trim(),
       is_internal_note: isNote,
+      is_ai_suggested: isAiSuggested ?? false,
     })
     .select('id')
     .single()

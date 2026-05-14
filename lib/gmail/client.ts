@@ -76,11 +76,16 @@ export interface ParsedEmail {
   internalDate: string
 }
 
+export interface FetchMessagesResult {
+  messages: ParsedEmail[]
+  newHistoryId: string | null
+}
+
 export async function fetchMessagesFromHistory(
   channelConfigId: string,
   historyId: string,
   _email: string
-): Promise<ParsedEmail[]> {
+): Promise<FetchMessagesResult> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
 
@@ -110,7 +115,14 @@ export async function fetchMessagesFromHistory(
     }
   }
 
-  return messages
+  return { messages, newHistoryId: historyRes.data.historyId ?? null }
+}
+
+export async function getCurrentHistoryId(channelConfigId: string): Promise<string> {
+  const auth = await getAuthenticatedClient(channelConfigId)
+  const gmail = google.gmail({ version: 'v1', auth })
+  const profile = await gmail.users.getProfile({ userId: 'me' })
+  return profile.data.historyId ?? ''
 }
 
 function parseMessage(msg: import('googleapis').gmail_v1.Schema$Message): ParsedEmail | null {
@@ -186,14 +198,15 @@ export async function markAsRead(channelConfigId: string, messageId: string): Pr
   })
 }
 
-export async function watchInbox(channelConfigId: string): Promise<void> {
+export async function watchInbox(channelConfigId: string): Promise<string> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
-  await gmail.users.watch({
+  const res = await gmail.users.watch({
     userId: 'me',
     requestBody: {
       topicName: process.env.GMAIL_PUBSUB_TOPIC ?? '',
       labelIds: ['INBOX'],
     },
   })
+  return res.data.historyId ?? ''
 }

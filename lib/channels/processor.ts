@@ -166,12 +166,5 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
     .single()
   if (!message) throw new Error(`Failed to create message: ${msgError?.message}`)
 
-  // 4. Placeholder for Phase 4 auto-categorisation
-  console.log('[channel-processor] message created, auto-categorisation pending Phase 4', {
-    channel: msg.channel,
-    conversationId,
-    messageId: message.id,
-  })
-
   return { contactId, conversationId, messageId: message.id }
 }

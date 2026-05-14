@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { AppUserProvider } from '@/contexts/AppUserContext'
 import Sidebar from '@/components/layout/Sidebar'
 import TopBar from '@/components/layout/TopBar'
@@ -58,10 +59,18 @@ export default async function AppLayout({
     }
   }
 
+  const service = createServiceClient()
+  const { data: chatModeSetting } = await service
+    .from('settings')
+    .select('value')
+    .eq('key', 'chat_mode')
+    .single()
+  const chatMode = chatModeSetting?.value ?? 'ai'
+
   return (
     <AppUserProvider user={appUser}>
       <div className="flex h-screen overflow-hidden bg-cbba-navy">
-        <Sidebar user={appUser} />
+        <Sidebar user={appUser} chatMode={chatMode} />
         <div className="flex flex-col flex-1 min-w-0">
           <TopBar />
           <main className="flex-1 overflow-auto p-6">
