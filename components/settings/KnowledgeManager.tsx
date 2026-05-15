@@ -55,16 +55,22 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: trimmed }),
         })
-        const data = await res.json()
+        let data: Record<string, unknown> = {}
+        try {
+          data = await res.json()
+        } catch {
+          setScrapeError(`Server error (HTTP ${res.status}) — try refreshing the page`)
+          return
+        }
         if (!res.ok) {
-          setScrapeError(data.error ?? 'Scrape failed')
+          setScrapeError((data.error as string) ?? `Scrape failed (${res.status})`)
           return
         }
         setScrapeSuccess(`Saved ${data.chunks_saved} chunks from "${data.title}"`)
         setUrlInput('')
         await refreshEntries()
-      } catch {
-        setScrapeError('Network error')
+      } catch (err) {
+        setScrapeError(`Network error: ${String(err)}`)
       }
     })
   }
@@ -111,15 +117,16 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: manualForm.title.trim(), content: manualForm.content.trim() }),
         })
-        const data = await res.json()
+        let data: Record<string, unknown> = {}
+        try { data = await res.json() } catch { /* ignore */ }
         if (!res.ok) {
-          setManualError(data.error ?? 'Save failed')
+          setManualError((data.error as string) ?? `Save failed (HTTP ${res.status})`)
           return
         }
         setShowManualModal(false)
         await refreshEntries()
-      } catch {
-        setManualError('Network error')
+      } catch (err) {
+        setManualError(`Network error: ${String(err)}`)
       }
     })
   }
