@@ -1,4 +1,4 @@
-import * as cheerio from 'cheerio'
+import { load } from 'cheerio'
 
 export interface ScrapeResult {
   title: string
@@ -17,7 +17,7 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult> {
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
 
   const html = await res.text()
-  const $ = cheerio.load(html)
+  const $ = load(html)
 
   // Remove noise
   $('script, style, nav, footer, header, aside, iframe, noscript, [aria-hidden="true"]').remove()
