@@ -58,7 +58,8 @@ export async function updateSession(request: NextRequest) {
     pathname === '/api/gmail/poll' ||
     pathname === '/api/gmail/watch/renew' ||
     pathname === '/api/chat' ||
-    pathname.startsWith('/widget')
+    pathname.startsWith('/widget') ||
+    pathname.startsWith('/api/feedback/')
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()

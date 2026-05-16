@@ -380,6 +380,45 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_requests: {
+        Row: {
+          id: string
+          conversation_id: string
+          token: string
+          contact_email: string | null
+          contact_name: string | null
+          rating: number | null
+          comment: string | null
+          sent_at: string
+          responded_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          token?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          rating?: number | null
+          comment?: string | null
+          sent_at?: string
+          responded_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          token?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          rating?: number | null
+          comment?: string | null
+          sent_at?: string
+          responded_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

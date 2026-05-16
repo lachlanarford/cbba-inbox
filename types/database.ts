@@ -70,12 +70,17 @@ export interface Label {
   created_at: string
 }
 
-export interface Feedback {
+export interface FeedbackRequest {
   id: string
   conversation_id: string
-  rating: number
+  token: string
+  contact_email: string | null
+  contact_name: string | null
+  rating: number | null
   comment: string | null
-  submitted_at: string
+  sent_at: string
+  responded_at: string | null
+  created_at: string
 }
 
 export interface Message {

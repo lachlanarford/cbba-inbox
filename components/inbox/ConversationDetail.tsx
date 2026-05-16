@@ -11,7 +11,7 @@ import ChannelIcon from '@/components/ui/ChannelIcon'
 import MessageThread from './MessageThread'
 import ReplyBox from './ReplyBox'
 import ConversationSidebar from './ConversationSidebar'
-import type { ConversationDetail as ConversationDetailType } from '@/types/database'
+import type { ConversationDetail as ConversationDetailType, FeedbackRequest } from '@/types/database'
 import type { Database } from '@/types/supabase'
 
 type ConversationUpdate = Database['public']['Tables']['conversations']['Update']
@@ -36,6 +36,8 @@ export default function ConversationDetail({
   const [conversation, setConversation] = useState<ConversationDetailType | null>(null)
   const [loading, setLoading] = useState(true)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [feedbackRequest, setFeedbackRequest] = useState<FeedbackRequest | null>(null)
+  const [closing, setClosing] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -57,6 +59,16 @@ export default function ConversationDetail({
       .eq('id', conversationId)
       .eq('is_read', false)
       .then(() => {})
+
+    // Fetch feedback request for this conversation
+    supabase
+      .from('feedback_requests')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setFeedbackRequest(data as FeedbackRequest | null)
+      })
 
     // Realtime: refresh when this conversation is updated
     const channel = supabase
@@ -85,6 +97,26 @@ export default function ConversationDetail({
       .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url)')
       .single()
     if (data) setConversation(data as unknown as ConversationDetailType)
+  }
+
+  async function closeConversation() {
+    setClosing(true)
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}/close`, { method: 'POST' })
+      if (res.ok) {
+        setConversation((prev) => prev ? { ...prev, status: 'closed' } : prev)
+        // Refresh feedback request
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('feedback_requests')
+          .select('*')
+          .eq('conversation_id', conversationId)
+          .maybeSingle()
+        setFeedbackRequest(data as FeedbackRequest | null)
+      }
+    } finally {
+      setClosing(false)
+    }
   }
 
   if (loading || !conversation) {
@@ -137,8 +169,16 @@ export default function ConversationDetail({
             {/* Status */}
             <select
               value={conversation.status}
-              onChange={(e) => updateConversation({ status: e.target.value })}
-              className="text-xs bg-transparent border-0 p-0 focus:outline-none cursor-pointer"
+              onChange={(e) => {
+                const newStatus = e.target.value
+                if (newStatus === 'closed') {
+                  closeConversation()
+                } else {
+                  updateConversation({ status: newStatus })
+                }
+              }}
+              disabled={closing}
+              className="text-xs bg-transparent border-0 p-0 focus:outline-none cursor-pointer disabled:opacity-50"
               style={{ appearance: 'none' }}
             >
               {STATUSES.map((s) => (
@@ -189,6 +229,20 @@ export default function ConversationDetail({
               ))}
             </select>
 
+            {/* Feedback badge */}
+            {conversation.status === 'closed' && feedbackRequest && (
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 text-xs">
+                {feedbackRequest.rating ? (
+                  <>
+                    <span className="text-[#FBB33F]">{'★'.repeat(feedbackRequest.rating)}{'☆'.repeat(5 - feedbackRequest.rating)}</span>
+                    <span className="text-gray-400">{feedbackRequest.rating}/5</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500">Feedback pending</span>
+                )}
+              </div>
+            )}
+
             {/* More menu */}
             <div className="ml-auto relative">
               <button
@@ -204,12 +258,13 @@ export default function ConversationDetail({
                 <div className="absolute right-0 top-8 w-40 bg-cbba-navy-light border border-white/10 rounded-lg shadow-xl z-10 py-1">
                   <button
                     onClick={() => {
-                      updateConversation({ status: 'closed' })
+                      closeConversation()
                       setShowMoreMenu(false)
                     }}
-                    className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                    disabled={closing}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors disabled:opacity-50"
                   >
-                    Mark as closed
+                    {closing ? 'Closing...' : 'Mark as closed'}
                   </button>
                   <button
                     onClick={() => setShowMoreMenu(false)}
