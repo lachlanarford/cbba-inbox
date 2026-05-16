@@ -1,10 +1,34 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAdmin } from '@/lib/auth'
+import type { Database } from '@/types/supabase'
 
 const CHUNK_SIZE = 1000
 const CHUNK_OVERLAP = 100
+
+function createClientFromRequest(request: Request) {
+  const cookieHeader = request.headers.get('cookie') ?? ''
+  const pairs = cookieHeader.split(';').map((c) => c.trim()).filter(Boolean)
+  const cookieMap: Record<string, string> = {}
+  for (const pair of pairs) {
+    const idx = pair.indexOf('=')
+    if (idx > 0) cookieMap[pair.slice(0, idx)] = decodeURIComponent(pair.slice(idx + 1))
+  }
+
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return Object.entries(cookieMap).map(([name, value]) => ({ name, value }))
+        },
+        setAll() {},
+      },
+    }
+  )
+}
 
 function extractFromHtml(html: string): { title: string; text: string } {
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
@@ -42,11 +66,12 @@ function chunkText(text: string): string[] {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const supabase = createClientFromRequest(request)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
+    const service = createServiceClient()
+    const { data: appUser } = await service.from('users').select('*').eq('id', user.id).single()
     if (!appUser || !isAdmin(appUser)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json() as { url?: string }
@@ -67,9 +92,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No content extracted from URL' }, { status: 422 })
     }
 
-    const service = createServiceClient()
     const now = new Date().toISOString()
-
     await service.from('knowledge_base').delete().eq('source_url', url)
 
     const { error: insertError } = await service.from('knowledge_base').insert(
