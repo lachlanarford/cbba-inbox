@@ -1,7 +1,4 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createServiceClient } from '@/lib/supabase/service'
-import { isAdmin } from '@/lib/auth'
 
 async function scrapeUrl(url: string): Promise<{ title: string; chunks: string[] }> {
   const res = await fetch(url, {
@@ -20,7 +17,7 @@ async function scrapeUrl(url: string): Promise<{ title: string; chunks: string[]
     .replace(/<!--[\s\S]*?-->/g, ' ')
 
   const titleMatch = stripped.match(/<title[^>]*>([^<]+)<\/title>/i)
-  const title = titleMatch ? titleMatch[1].trim().replace(/&amp;/g, '&').replace(/&#39;/g, "'") : url
+  const title = titleMatch ? titleMatch[1].trim() : url
 
   const text = stripped
     .replace(/<br\s*\/?>/gi, '\n')
@@ -51,55 +48,12 @@ async function scrapeUrl(url: string): Promise<{ title: string; chunks: string[]
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
-    if (!appUser || !isAdmin(appUser)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-
-    let body: { url: string }
-    try {
-      body = await request.json()
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-    }
-
-    const { url } = body
+    const body = await request.json()
+    const { url } = body as { url: string }
     if (!url) return NextResponse.json({ error: 'Missing url' }, { status: 400 })
-
-    let title: string
-    let chunks: string[]
-    try {
-      const result = await scrapeUrl(url)
-      title = result.title
-      chunks = result.chunks
-    } catch (err) {
-      return NextResponse.json({ error: `Scrape failed: ${String(err)}` }, { status: 422 })
-    }
-
-    const service = createServiceClient()
-    const now = new Date().toISOString()
-
-    await service.from('knowledge_base').delete().eq('source_url', url)
-
-    if (chunks.length > 0) {
-      const { error: insertError } = await service.from('knowledge_base').insert(
-        chunks.map((chunk, i) => ({
-          title: chunks.length > 1 ? `${title} (${i + 1}/${chunks.length})` : title,
-          content: chunk,
-          source_type: 'url',
-          source_url: url,
-          last_scraped_at: now,
-          is_active: true,
-        }))
-      )
-      if (insertError) return NextResponse.json({ error: `DB error: ${insertError.message}` }, { status: 500 })
-    }
-
+    const { title, chunks } = await scrapeUrl(url)
     return NextResponse.json({ chunks_saved: chunks.length, title })
   } catch (err) {
-    console.error('[knowledge/scrape] unhandled error:', err)
-    return NextResponse.json({ error: `Unexpected error: ${String(err)}` }, { status: 500 })
+    return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }
