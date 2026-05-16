@@ -50,7 +50,7 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
     setScrapeSuccess(null)
     startScrape(async () => {
       try {
-        const res = await fetch('/api/knowledge/scrape', {
+        const res = await fetch('/api/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: trimmed }),
