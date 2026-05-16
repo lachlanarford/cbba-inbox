@@ -55,11 +55,12 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: trimmed }),
         })
+        const raw = await res.text()
         let data: Record<string, unknown> = {}
         try {
-          data = await res.json()
+          data = JSON.parse(raw)
         } catch {
-          setScrapeError(`Server error (HTTP ${res.status}) — try refreshing the page`)
+          setScrapeError(`HTTP ${res.status}: ${raw.slice(0, 200)}`)
           return
         }
         if (!res.ok) {
