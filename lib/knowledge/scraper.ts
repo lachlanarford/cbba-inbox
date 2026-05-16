@@ -1,5 +1,3 @@
-import { load } from 'cheerio'
-
 export interface ScrapeResult {
   title: string
   chunks: string[]
@@ -11,34 +9,64 @@ const CHUNK_OVERLAP = 100
 export async function scrapeUrl(url: string): Promise<ScrapeResult> {
   const res = await fetch(url, {
     headers: { 'User-Agent': 'CBBA-Inbox-Bot/1.0' },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(8000),
   })
 
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
   const html = await res.text()
-  const $ = load(html)
+  const { title, text } = extractText(html)
+  const chunks = chunkText(text)
 
-  // Remove noise
-  $('script, style, nav, footer, header, aside, iframe, noscript, [aria-hidden="true"]').remove()
+  return { title: title || url, chunks }
+}
 
-  const title = $('title').text().trim() || $('h1').first().text().trim() || url
+function extractText(html: string): { title: string; text: string } {
+  // Strip blocks that contain no useful text
+  const stripped = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
+    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ')
+    .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ')
+    .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
 
-  const textParts: string[] = []
+  const titleMatch = stripped.match(/<title[^>]*>([^<]+)<\/title>/i)
+  const title = titleMatch ? decodeEntities(titleMatch[1].trim()) : ''
 
-  $('h1, h2, h3, h4, p, li, td, th, blockquote').each((_, el) => {
-    const text = $(el).text().replace(/\s+/g, ' ').trim()
-    if (text.length > 20) textParts.push(text)
-  })
+  const text = stripped
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 
-  const fullText = textParts.join('\n').replace(/\n{3,}/g, '\n\n').trim()
-  const chunks = chunkText(fullText)
+  return { title, text }
+}
 
-  return { title, chunks }
+function decodeEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
 }
 
 function chunkText(text: string): string[] {
-  if (text.length <= CHUNK_SIZE) return text ? [text] : []
+  if (!text) return []
+  if (text.length <= CHUNK_SIZE) return [text]
 
   const chunks: string[] = []
   let start = 0
