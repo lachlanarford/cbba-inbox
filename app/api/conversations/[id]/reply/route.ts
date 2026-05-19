@@ -46,13 +46,18 @@ export async function POST(
       const contact = conversation.contact as unknown as { email: string | null; full_name: string | null } | null
       const contactEmail = contact?.email
       if (contactEmail) {
+        const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
+        const bodyWithSig = signature?.trim()
+          ? `${content.trim()}\n\n--\n${signature.trim()}`
+          : content.trim()
+
         try {
           await sendGmailReply(conversation.channel_config_id, {
             threadId: conversation.external_thread_id,
             to: contactEmail,
             from: channelConfig.identifier,
             subject: conversation.subject ?? '(no subject)',
-            body: content.trim(),
+            body: bodyWithSig,
           })
         } catch (err) {
           console.error('[reply] Gmail send failed:', err)

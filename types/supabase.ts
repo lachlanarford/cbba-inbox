@@ -380,6 +380,33 @@ export type Database = {
         }
         Relationships: []
       }
+      canned_responses: {
+        Row: {
+          id: string
+          title: string
+          content: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          content: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          content?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       feedback_requests: {
         Row: {
           id: string

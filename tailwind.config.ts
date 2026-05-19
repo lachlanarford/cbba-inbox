@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -14,9 +15,9 @@ const config: Config = {
           'purple-light': '#7a5a9e',
           'purple-dark': '#4a3368',
           gold: '#FBB33F',
-          navy: '#21222C',
-          'navy-light': '#2c2d3a',
-          'navy-dark': '#181920',
+          navy: 'var(--cbba-navy)',
+          'navy-light': 'var(--cbba-navy-light)',
+          'navy-dark': 'var(--cbba-navy-dark)',
           orange: '#F58945',
         },
       },

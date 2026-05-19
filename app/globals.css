@@ -2,41 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme variables ─────────────────────────────────────────────── */
 :root {
-  --cbba-purple: #604484;
-  --cbba-purple-light: #7a5a9e;
-  --cbba-purple-dark: #4a3368;
-  --cbba-gold: #FBB33F;
   --cbba-navy: #21222C;
   --cbba-navy-light: #2c2d3a;
   --cbba-navy-dark: #181920;
-  --cbba-orange: #F58945;
 }
 
-html,
-body {
-  background-color: #21222C;
+.light {
+  --cbba-navy: #f0f2f5;
+  --cbba-navy-light: #ffffff;
+  --cbba-navy-dark: #e2e5ea;
+}
+
+html, body {
+  background-color: var(--cbba-navy);
   color: #ffffff;
 }
 
-* {
-  box-sizing: border-box;
+.light body {
+  color: #111827;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-}
+/* ── Light mode text overrides ───────────────────────────────────── */
+.light .text-white           { color: #111827 !important; }
+.light .text-gray-100        { color: #1f2937 !important; }
+.light .text-gray-200        { color: #374151 !important; }
+.light .text-gray-300        { color: #4b5563 !important; }
+.light .text-gray-400        { color: #6b7280 !important; }
+.light .text-gray-500        { color: #9ca3af !important; }
+.light .text-gray-600        { color: #d1d5db !important; }
 
-::-webkit-scrollbar-track {
-  background: #21222C;
-}
+/* ── Light mode border overrides ─────────────────────────────────── */
+.light .border-white\/5      { border-color: rgba(0,0,0,0.06) !important; }
+.light .border-white\/10     { border-color: rgba(0,0,0,0.1)  !important; }
+.light .border-white\/20     { border-color: rgba(0,0,0,0.15) !important; }
 
-::-webkit-scrollbar-thumb {
-  background: #604484;
-  border-radius: 3px;
-}
+/* ── Light mode background overrides ─────────────────────────────── */
+.light .bg-white\/5          { background-color: rgba(0,0,0,0.04) !important; }
+.light .bg-white\/10         { background-color: rgba(0,0,0,0.06) !important; }
+.light .bg-white\/\[0\.02\]  { background-color: rgba(0,0,0,0.02) !important; }
+.light .bg-white\/\[0\.03\]  { background-color: rgba(0,0,0,0.03) !important; }
+.light .hover\:bg-white\/5:hover   { background-color: rgba(0,0,0,0.04) !important; }
+.light .hover\:bg-white\/10:hover  { background-color: rgba(0,0,0,0.06) !important; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #7a5a9e;
-}
+/* ── Scrollbar ───────────────────────────────────────────────────── */
+::-webkit-scrollbar          { width: 6px; }
+::-webkit-scrollbar-track    { background: var(--cbba-navy); }
+::-webkit-scrollbar-thumb    { background: #604484; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #7a5a9e; }

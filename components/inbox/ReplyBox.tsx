@@ -1,6 +1,12 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+
+interface CannedResponse {
+  id: string
+  title: string
+  content: string
+}
 
 interface ReplyBoxProps {
   conversationId: string
@@ -13,6 +19,9 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
   const [error, setError] = useState<string | null>(null)
   const [suggesting, setSuggesting] = useState(false)
   const [aiSuggested, setAiSuggested] = useState(false)
+  const [showCanned, setShowCanned] = useState(false)
+  const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([])
+  const [cannedSearch, setCannedSearch] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const MAX_CHARS = 5000
 
@@ -41,6 +50,21 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     setSending(false)
     textareaRef.current?.focus()
   }, [content, conversationId, isNote, sending, aiSuggested])
+
+  useEffect(() => {
+    fetch('/api/canned-responses')
+      .then((r) => r.json())
+      .then((d: CannedResponse[]) => setCannedResponses(d))
+      .catch(() => {})
+  }, [])
+
+  function insertCanned(item: CannedResponse) {
+    setContent(item.content)
+    setShowCanned(false)
+    setCannedSearch('')
+    setAiSuggested(false)
+    textareaRef.current?.focus()
+  }
 
   const handleSuggestReply = useCallback(async () => {
     setSuggesting(true)
@@ -129,6 +153,51 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
             {error && <span className="text-xs text-red-400">{error}</span>}
           </div>
           <div className="flex items-center gap-2">
+            {!isNote && cannedResponses.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => { setShowCanned((v) => !v); setCannedSearch('') }}
+                  title="Insert a template"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 text-gray-400 text-xs hover:text-white hover:border-white/20 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                  </svg>
+                  Templates
+                </button>
+                {showCanned && (
+                  <div className="absolute bottom-full left-0 mb-2 w-72 bg-cbba-navy border border-white/10 rounded-xl shadow-2xl z-10 overflow-hidden">
+                    <div className="p-2 border-b border-white/5">
+                      <input
+                        type="text"
+                        value={cannedSearch}
+                        onChange={(e) => setCannedSearch(e.target.value)}
+                        placeholder="Search templates..."
+                        autoFocus
+                        className="w-full bg-white/5 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {cannedResponses
+                        .filter((c) => !cannedSearch || c.title.toLowerCase().includes(cannedSearch.toLowerCase()))
+                        .map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => insertCanned(item)}
+                            className="w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+                          >
+                            <p className="text-xs font-medium text-white">{item.title}</p>
+                            <p className="text-[11px] text-gray-500 truncate mt-0.5">{item.content}</p>
+                          </button>
+                        ))}
+                      {cannedResponses.filter((c) => !cannedSearch || c.title.toLowerCase().includes(cannedSearch.toLowerCase())).length === 0 && (
+                        <p className="text-xs text-gray-600 px-3 py-4 text-center">No templates match</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {!isNote && (
               <button
                 onClick={handleSuggestReply}

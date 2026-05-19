@@ -6,6 +6,7 @@ import type { AppUser } from '@/types/supabase'
 import { isAdmin } from '@/lib/auth'
 import SignOutButton from './SignOutButton'
 import ChatModeToggle from './ChatModeToggle'
+import ThemeToggle from './ThemeToggle'
 
 interface SidebarProps {
   user: AppUser
@@ -111,6 +112,21 @@ export default function Sidebar({ user, chatMode }: SidebarProps) {
               Knowledge
             </Link>
             <Link
+              href="/settings/canned"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
+                pathname === '/settings/canned'
+                  ? 'bg-cbba-purple text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <CannedIcon
+                className={`w-4 h-4 flex-shrink-0 ${
+                  pathname === '/settings/canned' ? 'text-cbba-gold' : 'text-current'
+                }`}
+              />
+              Templates
+            </Link>
+            <Link
               href="/settings/admin"
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
                 pathname === '/settings/admin'
@@ -133,6 +149,11 @@ export default function Sidebar({ user, chatMode }: SidebarProps) {
       <div className="px-3 pb-2 border-t border-white/5 pt-3">
         <p className="text-xs text-gray-600 px-3 mb-1">Chat widget</p>
         <ChatModeToggle initialMode={chatMode} />
+      </div>
+
+      {/* Theme toggle */}
+      <div className="px-3 pb-1">
+        <ThemeToggle />
       </div>
 
       {/* User area */}
@@ -216,6 +237,14 @@ function AdminIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    </svg>
+  )
+}
+
+function CannedIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
     </svg>
   )
 }
