@@ -38,6 +38,7 @@ export default function ConversationDetail({
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [feedbackRequest, setFeedbackRequest] = useState<FeedbackRequest | null>(null)
   const [closing, setClosing] = useState(false)
+  const [feedbackEmailReady, setFeedbackEmailReady] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -104,8 +105,18 @@ export default function ConversationDetail({
     try {
       const res = await fetch(`/api/conversations/${conversationId}/close`, { method: 'POST' })
       if (res.ok) {
+        const json = await res.json() as {
+          ok: boolean
+          feedbackToken: string | null
+          contactEmail: string | null
+          contactName: string | null
+          subject: string | null
+        }
         setConversation((prev) => prev ? { ...prev, status: 'closed' } : prev)
-        // Refresh feedback request
+        if (json.feedbackToken && json.contactEmail) {
+          setFeedbackEmailReady(true)
+        }
+        // Refresh feedback request from DB
         const supabase = createClient()
         const { data } = await supabase
           .from('feedback_requests')
@@ -117,6 +128,19 @@ export default function ConversationDetail({
     } finally {
       setClosing(false)
     }
+  }
+
+  function buildMailtoLink(): string {
+    if (!feedbackRequest || !feedbackRequest.contact_email) return '#'
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const feedbackUrl = `${origin}/api/feedback/${feedbackRequest.token}`
+    const name = feedbackRequest.contact_name ?? 'there'
+    const to = feedbackRequest.contact_email
+    const subject = encodeURIComponent('How did we go? Share your feedback')
+    const body = encodeURIComponent(
+      `Hi ${name},\n\nThank you for contacting CBBA Storm Basketball. We hope we were able to help you today.\n\nWe'd love to hear how your experience was. It only takes 30 seconds:\n\n${feedbackUrl}\n\nThanks,\nCBBA Storm Basketball Team`
+    )
+    return `mailto:${to}?subject=${subject}&body=${body}`
   }
 
   if (loading || !conversation) {
@@ -229,16 +253,30 @@ export default function ConversationDetail({
               ))}
             </select>
 
-            {/* Feedback badge */}
+            {/* Feedback */}
             {conversation.status === 'closed' && feedbackRequest && (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 text-xs">
+              <div className="flex items-center gap-2">
                 {feedbackRequest.rating ? (
-                  <>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 text-xs">
                     <span className="text-[#FBB33F]">{'★'.repeat(feedbackRequest.rating)}{'☆'.repeat(5 - feedbackRequest.rating)}</span>
                     <span className="text-gray-400">{feedbackRequest.rating}/5</span>
-                  </>
+                  </div>
+                ) : feedbackRequest.contact_email ? (
+                  <a
+                    href={buildMailtoLink()}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                      feedbackEmailReady
+                        ? 'bg-[#604484] text-white hover:bg-[#7a5ba0]'
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                    </svg>
+                    Send feedback email
+                  </a>
                 ) : (
-                  <span className="text-gray-500">Feedback pending</span>
+                  <span className="text-xs text-gray-600">No email on file</span>
                 )}
               </div>
             )}
