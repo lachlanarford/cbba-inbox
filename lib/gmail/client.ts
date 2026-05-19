@@ -144,20 +144,32 @@ function parseMessage(msg: import('googleapis').gmail_v1.Schema$Message): Parsed
   return { messageId, threadId, from: fromEmail, fromName, subject, body, internalDate }
 }
 
-function extractBody(payload: import('googleapis').gmail_v1.Schema$MessagePart | undefined): string {
+type GmailPart = import('googleapis').gmail_v1.Schema$MessagePart
+
+function extractBody(payload: GmailPart | undefined): string {
   if (!payload) return ''
+  return extractHtmlPart(payload) || extractPlainPart(payload) || ''
+}
 
-  if (payload.mimeType === 'text/plain' && payload.body?.data) {
-    return Buffer.from(payload.body.data, 'base64').toString('utf-8')
+function extractHtmlPart(part: GmailPart): string {
+  if (part.mimeType === 'text/html' && part.body?.data) {
+    return Buffer.from(part.body.data, 'base64').toString('utf-8')
   }
-
-  if (payload.parts) {
-    for (const part of payload.parts) {
-      const text = extractBody(part)
-      if (text) return text
-    }
+  for (const child of part.parts ?? []) {
+    const html = extractHtmlPart(child)
+    if (html) return html
   }
+  return ''
+}
 
+function extractPlainPart(part: GmailPart): string {
+  if (part.mimeType === 'text/plain' && part.body?.data) {
+    return Buffer.from(part.body.data, 'base64').toString('utf-8')
+  }
+  for (const child of part.parts ?? []) {
+    const plain = extractPlainPart(child)
+    if (plain) return plain
+  }
   return ''
 }
 
