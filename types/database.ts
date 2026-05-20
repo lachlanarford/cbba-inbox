@@ -142,7 +142,7 @@ export interface InboxFilters {
 }
 
 export const DEFAULT_FILTERS: InboxFilters = {
-  status: 'all',
+  status: 'open',
   department: '',
   priority: '',
   channel: '',

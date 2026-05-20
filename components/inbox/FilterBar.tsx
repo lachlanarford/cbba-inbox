@@ -4,11 +4,11 @@ import { useUsers } from '@/lib/hooks/useUsers'
 import type { InboxFilters } from '@/types/database'
 
 const STATUS_TABS = [
-  { value: 'all',         label: 'All' },
   { value: 'open',        label: 'Open' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'waiting',     label: 'Waiting' },
   { value: 'closed',      label: 'Closed' },
+  { value: 'all',         label: 'All' },
 ]
 
 const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other']

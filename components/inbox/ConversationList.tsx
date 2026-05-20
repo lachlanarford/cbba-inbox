@@ -7,11 +7,20 @@ import type { InboxFilters } from '@/types/database'
 interface ConversationListProps {
   filters: InboxFilters
   selectedId: string | null
+  checkedIds: Set<string>
   onSelect: (id: string) => void
+  onCheck: (id: string) => void
 }
 
-export default function ConversationList({ filters, selectedId, onSelect }: ConversationListProps) {
+export default function ConversationList({
+  filters,
+  selectedId,
+  checkedIds,
+  onSelect,
+  onCheck,
+}: ConversationListProps) {
   const { conversations, loading, error } = useConversations(filters)
+  const hasAnyChecked = checkedIds.size > 0
 
   if (loading) {
     return (
@@ -54,7 +63,10 @@ export default function ConversationList({ filters, selectedId, onSelect }: Conv
           key={conversation.id}
           conversation={conversation}
           isSelected={selectedId === conversation.id}
+          isChecked={checkedIds.has(conversation.id)}
+          hasAnyChecked={hasAnyChecked}
           onClick={() => onSelect(conversation.id)}
+          onCheck={() => onCheck(conversation.id)}
         />
       ))}
     </div>

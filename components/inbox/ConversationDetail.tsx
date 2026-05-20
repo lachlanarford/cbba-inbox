@@ -25,12 +25,14 @@ interface ConversationDetailProps {
   conversationId: string
   sidebarOpen: boolean
   onToggleSidebar: () => void
+  onDeleted?: () => void
 }
 
 export default function ConversationDetail({
   conversationId,
   sidebarOpen,
   onToggleSidebar,
+  onDeleted,
 }: ConversationDetailProps) {
   const currentUser = useAppUser()
   const users = useUsers()
@@ -318,22 +320,26 @@ export default function ConversationDetail({
                   >
                     {closing ? 'Closing...' : 'Mark as closed'}
                   </button>
-                  {conversation.channel === 'gmail' && (
-                    <button
-                      onClick={async () => {
-                        setShowMoreMenu(false)
-                        await fetch(`/api/conversations/${conversationId}/archive`, { method: 'POST' })
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
-                    >
-                      Archive in Gmail
-                    </button>
-                  )}
                   <button
-                    onClick={() => setShowMoreMenu(false)}
+                    onClick={async () => {
+                      setShowMoreMenu(false)
+                      await fetch(`/api/conversations/${conversationId}/archive`, { method: 'POST' })
+                      onDeleted?.()
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    Archive{conversation.channel === 'gmail' ? ' (and Gmail)' : ''}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Delete this conversation? This cannot be undone.')) return
+                      setShowMoreMenu(false)
+                      await fetch(`/api/conversations/${conversationId}`, { method: 'DELETE' })
+                      onDeleted?.()
+                    }}
                     className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
                   >
-                    Mark as spam
+                    Delete{conversation.channel === 'gmail' ? ' (and Gmail trash)' : ''}
                   </button>
                 </div>
               )}

@@ -7,28 +7,54 @@ import PriorityBadge from '@/components/ui/PriorityBadge'
 interface ConversationRowProps {
   conversation: ConversationListItem
   isSelected: boolean
+  isChecked: boolean
+  hasAnyChecked: boolean
   onClick: () => void
+  onCheck: () => void
 }
 
-export default function ConversationRow({ conversation, isSelected, onClick }: ConversationRowProps) {
+export default function ConversationRow({
+  conversation,
+  isSelected,
+  isChecked,
+  hasAnyChecked,
+  onClick,
+  onCheck,
+}: ConversationRowProps) {
   const { contact, assigned_user, is_read, needs_review, subject, channel, department, priority, last_message_at } = conversation
 
   return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left px-3 py-3 border-b border-white/5 transition-colors duration-100 focus:outline-none ${
+    <div
+      className={`group relative w-full text-left border-b border-white/5 transition-colors duration-100 cursor-pointer ${
         isSelected
           ? 'bg-cbba-purple/20 border-l-2 border-l-cbba-purple'
           : 'hover:bg-white/5 border-l-2 border-l-transparent'
-      }`}
+      } ${isChecked ? 'bg-cbba-purple/10' : ''}`}
+      onClick={onClick}
     >
-      <div className="flex items-start gap-2.5 min-w-0">
-        {/* Unread indicator */}
-        <div className="flex-shrink-0 mt-1.5">
+      <div className="flex items-start gap-2.5 min-w-0 px-3 py-3">
+        {/* Checkbox / unread dot */}
+        <div
+          className="flex-shrink-0 mt-1 w-4 h-4 flex items-center justify-center"
+          onClick={(e) => { e.stopPropagation(); onCheck() }}
+        >
+          {/* Show checkbox on hover or when any are checked */}
+          <span className={`${hasAnyChecked ? 'flex' : 'hidden group-hover:flex'} w-4 h-4 items-center justify-center rounded border transition-colors ${
+            isChecked
+              ? 'bg-cbba-purple border-cbba-purple'
+              : 'border-gray-500 hover:border-white bg-transparent'
+          }`}>
+            {isChecked && (
+              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </span>
+          {/* Unread dot — shown when not hovering and no items selected */}
           {!is_read ? (
-            <span className="block w-2 h-2 rounded-full bg-cbba-purple" />
+            <span className={`${hasAnyChecked ? 'hidden' : 'block group-hover:hidden'} w-2 h-2 rounded-full bg-cbba-purple`} />
           ) : (
-            <span className="block w-2 h-2" />
+            <span className={`${hasAnyChecked ? 'hidden' : 'block group-hover:hidden'} w-2 h-2`} />
           )}
         </div>
 
@@ -73,6 +99,6 @@ export default function ConversationRow({ conversation, isSelected, onClick }: C
           </div>
         </div>
       </div>
-    </button>
+    </div>
   )
 }

@@ -4,7 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getAuthenticatedClient } from '@/lib/gmail/client'
 import { google } from 'googleapis'
 
-export async function POST(
+export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -23,25 +23,21 @@ export async function POST(
 
   if (!conversation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  // Archive in Gmail if applicable
+  // Trash in Gmail if applicable
   if (conversation.channel === 'gmail' && conversation.channel_config_id && conversation.external_thread_id) {
     try {
       const auth = await getAuthenticatedClient(conversation.channel_config_id)
       const gmail = google.gmail({ version: 'v1', auth })
-      await gmail.users.threads.modify({
+      await gmail.users.threads.trash({
         userId: 'me',
         id: conversation.external_thread_id,
-        requestBody: { removeLabelIds: ['INBOX'] },
       })
     } catch (err) {
-      console.error('[archive] Gmail archive failed:', err)
+      console.error('[delete] Gmail trash failed:', err)
     }
   }
 
-  await service
-    .from('conversations')
-    .update({ status: 'closed' })
-    .eq('id', conversationId)
+  await service.from('conversations').delete().eq('id', conversationId)
 
   return NextResponse.json({ ok: true })
 }
