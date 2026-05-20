@@ -23,6 +23,9 @@
   var sessionId = getSessionId();
   var isOpen = false;
   var container, bubble, panel, messagesEl, inputEl, sendBtn, statusEl;
+  var pollInterval = null;
+  var lastPollTime = null;
+  var currentMode = 'ai';
 
   function injectStyles() {
     var style = document.createElement('style');
@@ -123,8 +126,31 @@
   }
 
   function setStatus(mode) {
+    currentMode = mode;
     if (!statusEl) return;
     statusEl.textContent = mode === 'live' ? 'Live support' : 'AI assistant';
+    if (mode === 'live') startPolling();
+  }
+
+  function startPolling() {
+    if (pollInterval) return;
+    lastPollTime = new Date().toISOString();
+    pollInterval = setInterval(function () {
+      fetch(BASE_URL + '/api/chat/poll?session_id=' + encodeURIComponent(sessionId) + '&since=' + encodeURIComponent(lastPollTime))
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (!data.messages || !data.messages.length) return;
+          data.messages.forEach(function (msg) {
+            appendMessage('ai', msg.content);
+          });
+          lastPollTime = data.messages[data.messages.length - 1].created_at;
+        })
+        .catch(function () {});
+    }, 3000);
+  }
+
+  function stopPolling() {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
   }
 
   function togglePanel() {
@@ -135,6 +161,7 @@
     isOpen = true;
     panel.classList.add('open');
     bubble.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>';
+    if (currentMode === 'live' && !pollInterval) startPolling();
     setTimeout(function () { inputEl && inputEl.focus(); }, 200);
   }
 
