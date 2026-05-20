@@ -20,6 +20,7 @@ interface ChatRequest {
   contact_info?: {
     name?: string
     email?: string
+    department?: string
   }
 }
 
@@ -70,10 +71,37 @@ export async function POST(request: Request) {
           contactEmail: contact_info?.email ?? null,
           contactPhone: null,
           contactSocialId: session_id,
-          subject: 'Live Chat',
+          subject: contact_info?.name ? `Live Chat - ${contact_info.name}` : 'Live Chat',
           content: message,
         })
         conversationId = result.conversationId
+
+        // Set department if provided
+        if (contact_info?.department && conversationId) {
+          await supabase
+            .from('conversations')
+            .update({ department: contact_info.department })
+            .eq('id', conversationId)
+        }
+
+        // Notify all active staff of new live chat
+        if (conversationId) {
+          const { data: staffUsers } = await supabase
+            .from('users')
+            .select('id')
+            .eq('is_active', true)
+          if (staffUsers?.length) {
+            await supabase.from('notifications').insert(
+              staffUsers.map((u) => ({
+                user_id: u.id,
+                type: 'live_chat' as const,
+                title: 'New live chat',
+                body: contact_info?.name ? `${contact_info.name} has started a chat` : 'A visitor has started a chat',
+                conversation_id: conversationId,
+              }))
+            )
+          }
+        }
       } catch (err) {
         console.error('[api/chat] failed to create conversation:', err)
       }

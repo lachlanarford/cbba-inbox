@@ -27,14 +27,22 @@
   var lastPollTime = null;
   var feedbackShown = false;
   var hasSentMessage = false;
-  var container, bubble, panel, messagesEl, inputEl, sendBtn, statusEl, endBtn;
+  var preChatDone = false;
+  var contactInfo = {};
+  var container, bubble, bubbleHint, panel, messagesEl, inputEl, sendBtn, statusEl, endBtn;
+
+  var DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'];
 
   function injectStyles() {
     var style = document.createElement('style');
     style.textContent = [
-      '#cbba-widget-bubble{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:' + COLOR + ';box-shadow:0 4px 16px rgba(0,0,0,0.25);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:9999;border:none;transition:transform 0.15s,box-shadow 0.15s;}',
-      '#cbba-widget-bubble:hover{transform:scale(1.07);box-shadow:0 6px 20px rgba(0,0,0,0.3);}',
-      '#cbba-widget-bubble svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}',
+      '@keyframes cbba-pulse{0%,100%{box-shadow:0 4px 16px rgba(0,0,0,0.25),0 0 0 0 rgba(96,68,132,0.5);}50%{box-shadow:0 4px 16px rgba(0,0,0,0.25),0 0 0 10px rgba(96,68,132,0);}}',
+      '#cbba-widget-bubble{position:fixed;bottom:24px;right:24px;width:68px;height:68px;border-radius:50%;background:' + COLOR + ';box-shadow:0 4px 16px rgba(0,0,0,0.25);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:9999;border:none;transition:transform 0.15s,box-shadow 0.15s;animation:cbba-pulse 2.5s ease-in-out infinite;}',
+      '#cbba-widget-bubble:hover{transform:scale(1.07);animation:none;box-shadow:0 6px 20px rgba(0,0,0,0.3);}',
+      '#cbba-widget-bubble svg{width:30px;height:30px;fill:none;stroke:#fff;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}',
+      '#cbba-widget-hint{position:fixed;bottom:104px;right:24px;background:#fff;color:#21222c;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;font-weight:500;padding:8px 14px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9998;white-space:nowrap;cursor:pointer;animation:cbba-hint-in 0.3s ease;}',
+      '#cbba-widget-hint::after{content:"";position:absolute;bottom:-6px;right:20px;width:12px;height:12px;background:#fff;transform:rotate(45deg);border-radius:0 0 2px 0;}',
+      '@keyframes cbba-hint-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}',
       '#cbba-widget-panel{position:fixed;bottom:92px;right:24px;width:360px;height:520px;background:#21222c;border:1px solid rgba(255,255,255,0.08);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.45);display:flex;flex-direction:column;z-index:9998;overflow:hidden;transform:scale(0.92) translateY(16px);transform-origin:bottom right;opacity:0;pointer-events:none;transition:transform 0.18s cubic-bezier(0.34,1.56,0.64,1),opacity 0.15s;}',
       '#cbba-widget-panel.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all;}',
       '#cbba-widget-header{background:' + COLOR + ';padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}',
@@ -65,6 +73,18 @@
       '#cbba-widget-send{background:' + COLOR + ';border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity 0.15s;}',
       '#cbba-widget-send:disabled{opacity:0.4;cursor:default;}',
       '#cbba-widget-send svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;}',
+      // Pre-chat form
+      '#cbba-prechat{flex:1;display:flex;flex-direction:column;padding:20px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-y:auto;}',
+      '#cbba-prechat h4{color:#fff;font-size:14px;font-weight:600;margin:0 0 4px;}',
+      '#cbba-prechat p{color:rgba(255,255,255,0.5);font-size:12px;margin:0 0 18px;}',
+      '.cbba-field{margin-bottom:12px;}',
+      '.cbba-field label{display:block;font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:5px;}',
+      '.cbba-field input,.cbba-field select{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:9px 11px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:#fff;outline:none;box-sizing:border-box;}',
+      '.cbba-field input:focus,.cbba-field select:focus{border-color:' + COLOR + ';}',
+      '.cbba-field select option{background:#21222c;color:#fff;}',
+      '#cbba-prechat-start{width:100%;background:' + COLOR + ';color:#fff;border:none;border-radius:8px;padding:11px;font-size:13px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;font-weight:500;margin-top:4px;}',
+      '#cbba-prechat-start:hover{opacity:0.9;}',
+      '#cbba-prechat-error{color:#f87171;font-size:11px;margin-bottom:8px;}',
       // Feedback panel
       '#cbba-feedback{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}',
       '#cbba-feedback h4{color:#fff;font-size:15px;font-weight:600;margin-bottom:8px;}',
@@ -89,6 +109,15 @@
     container = document.createElement('div');
     container.id = 'cbba-widget-container';
 
+    // "How can I help?" hint bubble
+    bubbleHint = document.createElement('div');
+    bubbleHint.id = 'cbba-widget-hint';
+    bubbleHint.textContent = 'How can I help? 👋';
+    bubbleHint.addEventListener('click', openPanel);
+    document.body.appendChild(bubbleHint);
+    // Hide hint after 8 seconds or on first open
+    setTimeout(function () { if (bubbleHint) bubbleHint.style.display = 'none'; }, 8000);
+
     bubble = document.createElement('button');
     bubble.id = 'cbba-widget-bubble';
     bubble.setAttribute('aria-label', 'Open chat');
@@ -110,9 +139,27 @@
     footer.id = 'cbba-widget-footer';
     footer.innerHTML = '<textarea id="cbba-widget-input" placeholder="Type a message..." rows="1"></textarea><button id="cbba-widget-send" disabled aria-label="Send"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>';
 
+    // Pre-chat form (shown before first message)
+    var preChatEl = document.createElement('div');
+    preChatEl.id = 'cbba-prechat';
+    var deptOptions = DEPARTMENTS.map(function (d) { return '<option value="' + d + '">' + d + '</option>'; }).join('');
+    preChatEl.innerHTML =
+      '<h4>Before we start</h4>' +
+      '<p>Please share a few details so we can assist you better.</p>' +
+      '<div class="cbba-field"><label>Your name *</label><input id="cbba-pc-name" type="text" placeholder="Jane Smith" autocomplete="name"/></div>' +
+      '<div class="cbba-field"><label>Email address</label><input id="cbba-pc-email" type="email" placeholder="jane@example.com" autocomplete="email"/></div>' +
+      '<div class="cbba-field"><label>Department</label><select id="cbba-pc-dept"><option value="">Select department...</option>' + deptOptions + '</select></div>' +
+      '<div id="cbba-prechat-error" style="display:none"></div>' +
+      '<button id="cbba-prechat-start">Start chat</button>';
+
     panel.appendChild(header);
+    panel.appendChild(preChatEl);
     panel.appendChild(messagesEl);
     panel.appendChild(footer);
+
+    // Initially hide chat view, show pre-chat
+    messagesEl.style.display = 'none';
+    footer.style.display = 'none';
 
     container.appendChild(bubble);
     container.appendChild(panel);
@@ -126,6 +173,11 @@
     bubble.addEventListener('click', togglePanel);
     document.getElementById('cbba-widget-close').addEventListener('click', closePanel);
     endBtn.addEventListener('click', handleEndChat);
+
+    document.getElementById('cbba-prechat-start').addEventListener('click', handlePreChatSubmit);
+    document.getElementById('cbba-pc-name').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') handlePreChatSubmit();
+    });
 
     inputEl.addEventListener('input', function () {
       this.style.height = 'auto';
@@ -141,11 +193,40 @@
     });
 
     sendBtn.addEventListener('click', sendMessage);
+  }
+
+  function handlePreChatSubmit() {
+    var nameEl = document.getElementById('cbba-pc-name');
+    var emailEl = document.getElementById('cbba-pc-email');
+    var deptEl = document.getElementById('cbba-pc-dept');
+    var errEl = document.getElementById('cbba-prechat-error');
+
+    var name = nameEl ? nameEl.value.trim() : '';
+    var email = emailEl ? emailEl.value.trim() : '';
+    var dept = deptEl ? deptEl.value : '';
+
+    if (!name) {
+      errEl.textContent = 'Please enter your name to continue.';
+      errEl.style.display = 'block';
+      if (nameEl) nameEl.focus();
+      return;
+    }
+    errEl.style.display = 'none';
+
+    contactInfo = { name: name, email: email || null, department: dept || null };
+    preChatDone = true;
+
+    // Hide pre-chat, show chat
+    var preChatEl = document.getElementById('cbba-prechat');
+    if (preChatEl) preChatEl.style.display = 'none';
+    messagesEl.style.display = 'flex';
+    footer.style.display = 'flex';
 
     setStatus('ai');
-    appendMessage('system', 'Hi! How can we help you today?');
+    appendMessage('system', 'Hi ' + name + '! How can we help you today?');
     inputEl.disabled = false;
-    sendBtn.disabled = !inputEl.value.trim();
+    sendBtn.disabled = true;
+    setTimeout(function () { inputEl && inputEl.focus(); }, 50);
   }
 
   function setStatus(mode) {
@@ -305,8 +386,17 @@
     isOpen = true;
     panel.classList.add('open');
     bubble.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>';
+    bubble.style.animation = 'none';
+    if (bubbleHint) bubbleHint.style.display = 'none';
     if (currentMode === 'live' && !pollInterval) startPolling();
-    setTimeout(function () { inputEl && !inputEl.disabled && inputEl.focus(); }, 200);
+    setTimeout(function () {
+      if (preChatDone) {
+        inputEl && !inputEl.disabled && inputEl.focus();
+      } else {
+        var nameEl = document.getElementById('cbba-pc-name');
+        if (nameEl) nameEl.focus();
+      }
+    }, 200);
   }
 
   function closePanel() {
@@ -333,7 +423,7 @@
     fetch(BASE_URL + '/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, session_id: sessionId }),
+      body: JSON.stringify({ message: text, session_id: sessionId, contact_info: contactInfo }),
     })
       .then(function (res) { return res.json(); })
       .then(function (data) {

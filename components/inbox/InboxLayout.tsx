@@ -14,7 +14,7 @@ const DEFAULT_PANEL_WIDTH = 320
 
 export default function InboxLayout() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [filters, setFilters] = useState<InboxFilters>(DEFAULT_FILTERS)
   const [listWidth, setListWidth] = useState(DEFAULT_PANEL_WIDTH)

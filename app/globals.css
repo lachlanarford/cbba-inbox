@@ -28,10 +28,14 @@ html, body {
 .light .text-white           { color: #111827 !important; }
 .light .text-gray-100        { color: #1f2937 !important; }
 .light .text-gray-200        { color: #374151 !important; }
-.light .text-gray-300        { color: #4b5563 !important; }
-.light .text-gray-400        { color: #6b7280 !important; }
-.light .text-gray-500        { color: #9ca3af !important; }
-.light .text-gray-600        { color: #d1d5db !important; }
+.light .text-gray-300        { color: #374151 !important; }
+.light .text-gray-400        { color: #4b5563 !important; }
+.light .text-gray-500        { color: #6b7280 !important; }
+.light .text-gray-600        { color: #9ca3af !important; }
+.light .placeholder-gray-600::placeholder { color: #9ca3af !important; }
+.light .placeholder-gray-500::placeholder { color: #6b7280 !important; }
+.light input::placeholder     { color: #9ca3af; }
+.light textarea::placeholder  { color: #9ca3af; }
 
 /* ── Light mode border overrides ─────────────────────────────────── */
 .light .border-white\/5      { border-color: rgba(0,0,0,0.06) !important; }

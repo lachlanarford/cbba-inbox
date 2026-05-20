@@ -446,6 +446,72 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          type: 'assignment' | 'live_chat' | 'app_update'
+          title: string
+          body: string | null
+          read: boolean
+          conversation_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type: 'assignment' | 'live_chat' | 'app_update'
+          title: string
+          body?: string | null
+          read?: boolean
+          conversation_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          type?: 'assignment' | 'live_chat' | 'app_update'
+          title?: string
+          body?: string | null
+          read?: boolean
+          conversation_id?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      bug_reports: {
+        Row: {
+          id: string
+          submitted_by: string | null
+          title: string
+          description: string
+          status: 'open' | 'in_progress' | 'resolved'
+          priority: 'low' | 'medium' | 'high'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          submitted_by?: string | null
+          title: string
+          description: string
+          status?: 'open' | 'in_progress' | 'resolved'
+          priority?: 'low' | 'medium' | 'high'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          submitted_by?: string | null
+          title?: string
+          description?: string
+          status?: 'open' | 'in_progress' | 'resolved'
+          priority?: 'low' | 'medium' | 'high'
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

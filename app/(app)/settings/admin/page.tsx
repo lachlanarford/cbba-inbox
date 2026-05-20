@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth'
 import UserManager from '@/components/settings/UserManager'
+import BugReportsAdmin from '@/components/settings/BugReportsAdmin'
 
 export default async function AdminSettingsPage() {
   try {
@@ -21,12 +22,16 @@ export default async function AdminSettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="mb-6">
+    <div className="p-6 max-w-3xl mx-auto space-y-10">
+      <div>
         <h1 className="text-lg font-semibold text-white">Admin Settings</h1>
         <p className="text-xs text-gray-500 mt-0.5">Manage team members and access</p>
       </div>
       <UserManager />
+      <div>
+        <h2 className="text-sm font-semibold text-white mb-4">Bug Reports</h2>
+        <BugReportsAdmin />
+      </div>
     </div>
   )
 }

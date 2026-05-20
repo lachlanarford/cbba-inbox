@@ -72,7 +72,7 @@ export default async function AppLayout({
       <div className="flex h-screen overflow-hidden bg-cbba-navy">
         <Sidebar user={appUser} chatMode={chatMode} />
         <div className="flex flex-col flex-1 min-w-0">
-          <TopBar />
+          <TopBar userId={appUser.id} />
           <main className="flex-1 overflow-auto p-6">
             {children}
           </main>
