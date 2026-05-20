@@ -29,7 +29,7 @@
   var hasSentMessage = false;
   var preChatDone = false;
   var contactInfo = {};
-  var container, bubble, bubbleHint, panel, messagesEl, inputEl, sendBtn, statusEl, endBtn;
+  var container, bubble, bubbleHint, panel, messagesEl, footerEl, inputEl, sendBtn, statusEl, endBtn;
 
   var DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'];
 
@@ -135,9 +135,9 @@
     messagesEl = document.createElement('div');
     messagesEl.id = 'cbba-widget-messages';
 
-    var footer = document.createElement('div');
-    footer.id = 'cbba-widget-footer';
-    footer.innerHTML = '<textarea id="cbba-widget-input" placeholder="Type a message..." rows="1"></textarea><button id="cbba-widget-send" disabled aria-label="Send"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>';
+    footerEl = document.createElement('div');
+    footerEl.id = 'cbba-widget-footer';
+    footerEl.innerHTML = '<textarea id="cbba-widget-input" placeholder="Type a message..." rows="1"></textarea><button id="cbba-widget-send" disabled aria-label="Send"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>';
 
     // Pre-chat form (shown before first message)
     var preChatEl = document.createElement('div');
@@ -155,11 +155,11 @@
     panel.appendChild(header);
     panel.appendChild(preChatEl);
     panel.appendChild(messagesEl);
-    panel.appendChild(footer);
+    panel.appendChild(footerEl);
 
     // Initially hide chat view, show pre-chat
     messagesEl.style.display = 'none';
-    footer.style.display = 'none';
+    footerEl.style.display = 'none';
 
     container.appendChild(bubble);
     container.appendChild(panel);
@@ -220,7 +220,7 @@
     var preChatEl = document.getElementById('cbba-prechat');
     if (preChatEl) preChatEl.style.display = 'none';
     messagesEl.style.display = 'flex';
-    footer.style.display = 'flex';
+    footerEl.style.display = 'flex';
 
     setStatus('ai');
     appendMessage('system', 'Hi ' + name + '! How can we help you today?');
