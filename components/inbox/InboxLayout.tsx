@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FilterBar from './FilterBar'
 import ConversationList from './ConversationList'
@@ -8,11 +8,18 @@ import ConversationDetail from './ConversationDetail'
 import NewConversationModal from './NewConversationModal'
 import { DEFAULT_FILTERS, type InboxFilters } from '@/types/database'
 
+const MIN_PANEL_WIDTH = 240
+const MAX_PANEL_WIDTH = 560
+const DEFAULT_PANEL_WIDTH = 320
+
 export default function InboxLayout() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [filters, setFilters] = useState<InboxFilters>(DEFAULT_FILTERS)
+  const [listWidth, setListWidth] = useState(DEFAULT_PANEL_WIDTH)
+  const [listCollapsed, setListCollapsed] = useState(false)
+  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null)
 
   const updateFilter = useCallback(
     <K extends keyof InboxFilters>(key: K, value: InboxFilters[K]) => {
@@ -22,6 +29,23 @@ export default function InboxLayout() {
   )
 
   const clearFilters = useCallback(() => setFilters(DEFAULT_FILTERS), [])
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault()
+    dragRef.current = { startX: e.clientX, startWidth: listWidth }
+    function onMouseMove(ev: MouseEvent) {
+      if (!dragRef.current) return
+      const delta = ev.clientX - dragRef.current.startX
+      setListWidth(Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, dragRef.current.startWidth + delta)))
+    }
+    function onMouseUp() {
+      dragRef.current = null
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
 
   async function handleSelect(id: string) {
     setSelectedId(id)
@@ -37,28 +61,65 @@ export default function InboxLayout() {
   return (
     <div className="flex h-full overflow-hidden -m-6">
       {/* Left panel */}
-      <div className="w-80 xl:w-96 flex-shrink-0 flex flex-col bg-cbba-navy-dark border-r border-white/5">
-        {/* Panel header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
-          <span className="text-sm font-semibold text-white">Conversations</span>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            New
-          </button>
+      {!listCollapsed && (
+        <div
+          className="flex-shrink-0 flex flex-col bg-cbba-navy-dark border-r border-white/5"
+          style={{ width: listWidth }}
+        >
+          {/* Panel header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
+            <span className="text-sm font-semibold text-white">Conversations</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setListCollapsed(true)}
+                title="Collapse panel"
+                className="p-1 rounded text-gray-500 hover:text-white transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                New
+              </button>
+            </div>
+          </div>
+
+          <FilterBar filters={filters} onFilterChange={updateFilter} onClearAll={clearFilters} />
+
+          <ConversationList filters={filters} selectedId={selectedId} onSelect={handleSelect} />
         </div>
+      )}
 
-        <FilterBar filters={filters} onFilterChange={updateFilter} onClearAll={clearFilters} />
-
-        <ConversationList filters={filters} selectedId={selectedId} onSelect={handleSelect} />
-      </div>
+      {/* Drag handle */}
+      {!listCollapsed && (
+        <div
+          onMouseDown={startResize}
+          className="w-1 flex-shrink-0 cursor-col-resize hover:bg-cbba-purple/60 transition-colors active:bg-cbba-purple"
+          title="Drag to resize"
+        />
+      )}
 
       {/* Right panel */}
-      <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden relative">
+        {/* Expand list button when collapsed */}
+        {listCollapsed && (
+          <button
+            onClick={() => setListCollapsed(false)}
+            title="Show conversation list"
+            className="absolute top-3 left-3 z-10 p-1.5 rounded-lg bg-cbba-navy-dark border border-white/10 text-gray-400 hover:text-white transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        )}
         {selectedId ? (
           <ConversationDetail
             conversationId={selectedId}

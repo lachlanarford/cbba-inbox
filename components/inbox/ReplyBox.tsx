@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import RichTextEditor from '@/components/ui/RichTextEditor'
 
 interface CannedResponse {
   id: string
@@ -23,11 +24,16 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
   const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([])
   const [cannedSearch, setCannedSearch] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const MAX_CHARS = 5000
+
+  function getTextContent(html: string): string {
+    // Strip HTML tags to get plain text for empty check
+    return html.replace(/<[^>]*>/g, '').trim()
+  }
 
   const handleSend = useCallback(async () => {
     const trimmed = content.trim()
-    if (!trimmed || sending) return
+    const textOnly = getTextContent(trimmed)
+    if (!textOnly || sending) return
 
     setSending(true)
     setError(null)
@@ -87,20 +93,12 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     }
   }, [conversationId])
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
-  function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setContent(e.target.value)
+  function handleContentChange(html: string) {
+    setContent(html)
     if (aiSuggested) setAiSuggested(false)
   }
 
-  const remaining = MAX_CHARS - content.length
-  const isOverLimit = remaining < 0
+  const isEmpty = !getTextContent(content)
 
   return (
     <div className="flex-shrink-0 border-t border-white/5 bg-cbba-navy">
@@ -128,22 +126,28 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
         </button>
       </div>
 
-      {/* Textarea */}
-      <div className={`mx-4 mt-0 rounded-b-lg border ${isNote ? 'border-amber-500/20 bg-amber-500/5' : 'border-white/10 bg-cbba-navy-light'}`}>
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={handleContentChange}
-          onKeyDown={handleKeyDown}
-          placeholder={isNote ? 'Add an internal note...' : 'Type your reply...'}
-          rows={4}
-          className="w-full px-3 pt-3 bg-transparent text-sm text-white placeholder-gray-600 resize-none focus:outline-none"
-        />
+      {/* Editor */}
+      <div className={`mx-4 mt-0 rounded-b-lg border overflow-hidden ${isNote ? 'border-amber-500/20 bg-amber-500/5' : 'border-white/10 bg-cbba-navy-light'}`}>
+        {isNote ? (
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => { setContent(e.target.value); if (aiSuggested) setAiSuggested(false) }}
+            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); handleSend() } }}
+            placeholder="Add an internal note..."
+            rows={4}
+            className="w-full px-3 pt-3 bg-transparent text-sm text-white placeholder-gray-600 resize-none focus:outline-none"
+          />
+        ) : (
+          <RichTextEditor
+            value={content}
+            onChange={handleContentChange}
+            placeholder="Type your reply..."
+            minRows={4}
+          />
+        )}
         <div className="flex items-center justify-between px-3 pb-3">
           <div className="flex items-center gap-3">
-            <span className={`text-xs ${isOverLimit ? 'text-red-400' : remaining < 100 ? 'text-amber-400' : 'text-gray-600'}`}>
-              {remaining.toLocaleString()} chars remaining
-            </span>
             {aiSuggested && (
               <span className="flex items-center gap-1 text-xs text-purple-400">
                 <SparkleIcon className="w-3 h-3" />
@@ -221,7 +225,7 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
             </span>
             <button
               onClick={handleSend}
-              disabled={!content.trim() || sending || isOverLimit}
+              disabled={isEmpty || sending}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {sending ? (

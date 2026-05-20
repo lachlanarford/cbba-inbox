@@ -11,6 +11,7 @@ import ChannelIcon from '@/components/ui/ChannelIcon'
 import MessageThread from './MessageThread'
 import ReplyBox from './ReplyBox'
 import ConversationSidebar from './ConversationSidebar'
+import FeedbackEmailModal from './FeedbackEmailModal'
 import type { ConversationDetail as ConversationDetailType, FeedbackRequest } from '@/types/database'
 import type { Database } from '@/types/supabase'
 
@@ -39,6 +40,7 @@ export default function ConversationDetail({
   const [feedbackRequest, setFeedbackRequest] = useState<FeedbackRequest | null>(null)
   const [closing, setClosing] = useState(false)
   const [feedbackEmailReady, setFeedbackEmailReady] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -130,17 +132,16 @@ export default function ConversationDetail({
     }
   }
 
-  function buildMailtoLink(): string {
-    if (!feedbackRequest || !feedbackRequest.contact_email) return '#'
+  function buildFeedbackEmailContent(): { to: string; subject: string; body: string } | null {
+    if (!feedbackRequest || !feedbackRequest.contact_email) return null
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const feedbackUrl = `${origin}/api/feedback/${feedbackRequest.token}`
     const name = feedbackRequest.contact_name ?? 'there'
-    const to = feedbackRequest.contact_email
-    const subject = encodeURIComponent('How did we go? Share your feedback')
-    const body = encodeURIComponent(
-      `Hi ${name},\n\nThank you for contacting CBBA Storm Basketball. We hope we were able to help you today.\n\nWe'd love to hear how your experience was. It only takes 30 seconds:\n\n${feedbackUrl}\n\nThanks,\nCBBA Storm Basketball Team`
-    )
-    return `mailto:${to}?subject=${subject}&body=${body}`
+    return {
+      to: feedbackRequest.contact_email,
+      subject: 'How did we go? Share your feedback',
+      body: `Hi ${name},\n\nThank you for contacting CBBA Storm Basketball. We hope we were able to help you today.\n\nWe'd love to hear how your experience was. It only takes 30 seconds:\n\n${feedbackUrl}\n\nThanks,\nCBBA Storm Basketball Team`,
+    }
   }
 
   if (loading || !conversation) {
@@ -191,67 +192,80 @@ export default function ConversationDetail({
           {/* Attributes row */}
           <div className="flex items-center gap-2 mt-2.5 flex-wrap">
             {/* Status */}
-            <select
-              value={conversation.status}
-              onChange={(e) => {
-                const newStatus = e.target.value
-                if (newStatus === 'closed') {
-                  closeConversation()
-                } else {
-                  updateConversation({ status: newStatus })
-                }
-              }}
-              disabled={closing}
-              className="text-xs bg-transparent border-0 p-0 focus:outline-none cursor-pointer disabled:opacity-50"
-              style={{ appearance: 'none' }}
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-            <StatusBadge status={conversation.status} />
+            <div className="relative inline-flex items-center">
+              <select
+                value={conversation.status}
+                onChange={(e) => {
+                  const newStatus = e.target.value
+                  if (newStatus === 'closed') {
+                    closeConversation()
+                  } else {
+                    updateConversation({ status: newStatus })
+                  }
+                }}
+                disabled={closing}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full disabled:cursor-not-allowed"
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <StatusBadge status={conversation.status} />
+              <svg className="w-3 h-3 ml-0.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </div>
 
             <span className="text-gray-700">|</span>
 
             {/* Department */}
-            <select
-              value={conversation.department ?? ''}
-              onChange={(e) => updateConversation({ department: e.target.value || null })}
-              className="text-xs bg-transparent border-0 p-0 text-gray-400 focus:outline-none cursor-pointer hover:text-white transition-colors"
-              style={{ appearance: 'none' }}
-            >
-              <option value="">No department</option>
-              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            {conversation.department && <DepartmentBadge department={conversation.department} />}
+            <div className="relative inline-flex items-center">
+              <select
+                value={conversation.department ?? ''}
+                onChange={(e) => updateConversation({ department: e.target.value || null })}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              >
+                <option value="">No department</option>
+                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              {conversation.department
+                ? <DepartmentBadge department={conversation.department} />
+                : <span className="text-xs text-gray-500">No dept</span>}
+              <svg className="w-3 h-3 ml-0.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </div>
 
             <span className="text-gray-700">|</span>
 
             {/* Priority */}
-            <select
-              value={conversation.priority}
-              onChange={(e) => updateConversation({ priority: e.target.value })}
-              className="text-xs bg-transparent border-0 p-0 text-gray-400 focus:outline-none cursor-pointer hover:text-white transition-colors"
-              style={{ appearance: 'none' }}
-            >
-              {PRIORITIES.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-            </select>
-            <PriorityBadge priority={conversation.priority} showLabel />
+            <div className="relative inline-flex items-center">
+              <select
+                value={conversation.priority}
+                onChange={(e) => updateConversation({ priority: e.target.value })}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              >
+                {PRIORITIES.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+              </select>
+              <PriorityBadge priority={conversation.priority} showLabel />
+              <svg className="w-3 h-3 ml-0.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </div>
 
             <span className="text-gray-700">|</span>
 
             {/* Assign to */}
-            <select
-              value={assigned_user?.id ?? ''}
-              onChange={(e) => updateConversation({ assigned_to: e.target.value || null })}
-              className="text-xs bg-transparent border-0 p-0 text-gray-400 focus:outline-none cursor-pointer hover:text-white transition-colors"
-              style={{ appearance: 'none' }}
-            >
-              <option value="">Unassigned</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.full_name ?? u.email}</option>
-              ))}
-            </select>
+            <div className="relative inline-flex items-center">
+              <select
+                value={assigned_user?.id ?? ''}
+                onChange={(e) => updateConversation({ assigned_to: e.target.value || null })}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              >
+                <option value="">Unassigned</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.full_name ?? u.email}</option>
+                ))}
+              </select>
+              <span className="text-xs text-gray-400">
+                {assigned_user ? (assigned_user.full_name ?? 'Assigned') : 'Unassigned'}
+              </span>
+              <svg className="w-3 h-3 ml-0.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </div>
 
             {/* Feedback */}
             {conversation.status === 'closed' && feedbackRequest && (
@@ -262,8 +276,8 @@ export default function ConversationDetail({
                     <span className="text-gray-400">{feedbackRequest.rating}/5</span>
                   </div>
                 ) : feedbackRequest.contact_email ? (
-                  <a
-                    href={buildMailtoLink()}
+                  <button
+                    onClick={() => setShowFeedbackModal(true)}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                       feedbackEmailReady
                         ? 'bg-[#604484] text-white hover:bg-[#7a5ba0]'
@@ -274,7 +288,7 @@ export default function ConversationDetail({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                     </svg>
                     Send feedback email
-                  </a>
+                  </button>
                 ) : (
                   <span className="text-xs text-gray-600">No email on file</span>
                 )}
@@ -293,7 +307,7 @@ export default function ConversationDetail({
                 </svg>
               </button>
               {showMoreMenu && (
-                <div className="absolute right-0 top-8 w-40 bg-cbba-navy-light border border-white/10 rounded-lg shadow-xl z-10 py-1">
+                <div className="absolute right-0 top-8 w-48 bg-cbba-navy-light border border-white/10 rounded-lg shadow-xl z-10 py-1">
                   <button
                     onClick={() => {
                       closeConversation()
@@ -304,6 +318,17 @@ export default function ConversationDetail({
                   >
                     {closing ? 'Closing...' : 'Mark as closed'}
                   </button>
+                  {conversation.channel === 'gmail' && (
+                    <button
+                      onClick={async () => {
+                        setShowMoreMenu(false)
+                        await fetch(`/api/conversations/${conversationId}/archive`, { method: 'POST' })
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      Archive in Gmail
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowMoreMenu(false)}
                     className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
@@ -327,6 +352,26 @@ export default function ConversationDetail({
       {sidebarOpen && (
         <ConversationSidebar conversation={conversation} onClose={onToggleSidebar} />
       )}
+
+      {/* Feedback email modal */}
+      {showFeedbackModal && feedbackRequest && (() => {
+        const emailContent = buildFeedbackEmailContent()
+        return emailContent ? (
+          <FeedbackEmailModal
+            conversationId={conversationId}
+            channelConfigId={conversation.channel_config_id ?? null}
+            initialTo={emailContent.to}
+            initialSubject={emailContent.subject}
+            initialBody={emailContent.body}
+            fromEmail={conversation.channel_config_id ? undefined : undefined}
+            onClose={() => setShowFeedbackModal(false)}
+            onSent={() => {
+              setShowFeedbackModal(false)
+              setFeedbackEmailReady(false)
+            }}
+          />
+        ) : null
+      })()}
     </div>
   )
 }

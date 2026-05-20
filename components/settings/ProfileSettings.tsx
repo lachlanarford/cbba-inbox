@@ -4,6 +4,7 @@ import { useState, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppUser } from '@/contexts/AppUserContext'
 import type { AppUser } from '@/types/supabase'
+import RichTextEditor from '@/components/ui/RichTextEditor'
 
 export default function ProfileSettings() {
   const user = useAppUser()
@@ -138,13 +139,14 @@ export default function ProfileSettings() {
       <div>
         <h3 className="text-sm font-semibold text-white mb-1">Email signature</h3>
         <p className="text-xs text-gray-500 mb-2">Automatically appended to outgoing emails.</p>
-        <textarea
-          value={signature}
-          onChange={(e) => setSignature(e.target.value)}
-          placeholder={`e.g.\n\nJane Smith\nRegistrations Manager\nCBBA Storm Basketball\ninfo@blacktownbasketball.com`}
-          rows={6}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 font-mono resize-y focus:outline-none focus:border-cbba-purple transition-colors"
-        />
+        <div className="w-full bg-white/5 border border-white/10 rounded-lg overflow-hidden focus-within:border-cbba-purple transition-colors">
+          <RichTextEditor
+            value={signature}
+            onChange={setSignature}
+            placeholder="e.g. Jane Smith&#10;Registrations Manager&#10;CBBA Storm Basketball"
+            minRows={5}
+          />
+        </div>
       </div>
 
       {error && <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}

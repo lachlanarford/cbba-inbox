@@ -46,6 +46,21 @@ html, body {
 .light .hover\:bg-white\/5:hover   { background-color: rgba(0,0,0,0.04) !important; }
 .light .hover\:bg-white\/10:hover  { background-color: rgba(0,0,0,0.06) !important; }
 
+/* ── TipTap rich text editor ─────────────────────────────────────── */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #4b5563;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+.tiptap ul { list-style-type: disc; padding-left: 1.25rem; }
+.tiptap ol { list-style-type: decimal; padding-left: 1.25rem; }
+.tiptap li { margin: 0.15rem 0; }
+.tiptap a  { color: #a78bfa; text-decoration: underline; }
+.tiptap strong { font-weight: 600; }
+.tiptap em { font-style: italic; }
+
 /* ── Scrollbar ───────────────────────────────────────────────────── */
 ::-webkit-scrollbar          { width: 6px; }
 ::-webkit-scrollbar-track    { background: var(--cbba-navy); }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import RichTextEditor from '@/components/ui/RichTextEditor'
 
 interface CannedResponse {
   id: string
@@ -151,13 +152,14 @@ export default function CannedResponsesManager() {
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Content *</label>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Type your template message here..."
-                  rows={6}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 resize-y focus:outline-none focus:border-cbba-purple transition-colors"
-                />
+                <div className="w-full bg-white/5 border border-white/10 rounded-lg overflow-hidden focus-within:border-cbba-purple transition-colors">
+                  <RichTextEditor
+                    value={content}
+                    onChange={setContent}
+                    placeholder="Type your template message here..."
+                    minRows={6}
+                  />
+                </div>
               </div>
               {error && <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
             </div>

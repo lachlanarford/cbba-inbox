@@ -139,7 +139,15 @@ function parseMessage(msg: import('googleapis').gmail_v1.Schema$Message): Parsed
   const fromName = fromMatch?.[1]?.trim() || null
   const fromEmail = fromMatch?.[2]?.trim() ?? from
 
-  const body = extractBody(msg.payload)
+  let body = extractBody(msg.payload)
+
+  // Replace cid: references with inline base64 data URIs so images render in the iframe
+  if (body.includes('cid:')) {
+    const inlineImages = collectInlineImages(msg.payload)
+    inlineImages.forEach(({ mimeType, data }, cid) => {
+      body = body.replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g'), `data:${mimeType};base64,${data}`)
+    })
+  }
 
   return { messageId, threadId, from: fromEmail, fromName, subject, body, internalDate }
 }
@@ -173,6 +181,22 @@ function extractPlainPart(part: GmailPart): string {
   return ''
 }
 
+function collectInlineImages(payload: GmailPart | undefined): Map<string, { mimeType: string; data: string }> {
+  const map = new Map<string, { mimeType: string; data: string }>()
+  if (!payload) return map
+  function walk(part: GmailPart) {
+    const headers = part.headers ?? []
+    const contentId = headers.find((h) => h.name?.toLowerCase() === 'content-id')?.value
+    if (contentId && part.body?.data && part.mimeType?.startsWith('image/')) {
+      const cid = contentId.replace(/^<|>$/g, '')
+      map.set(cid, { mimeType: part.mimeType, data: part.body.data })
+    }
+    for (const child of part.parts ?? []) walk(child)
+  }
+  walk(payload)
+  return map
+}
+
 export async function sendReply(
   channelConfigId: string,
   opts: { threadId: string; to: string; from: string; subject: string; body: string }
@@ -181,13 +205,15 @@ export async function sendReply(
   const gmail = google.gmail({ version: 'v1', auth })
 
   const subject = opts.subject.startsWith('Re:') ? opts.subject : `Re: ${opts.subject}`
+  const isHtml = opts.body.trimStart().startsWith('<')
+  const contentType = isHtml ? 'text/html' : 'text/plain'
   const raw = [
     `From: ${opts.from}`,
     `To: ${opts.to}`,
     `Subject: ${subject}`,
     `In-Reply-To: ${opts.threadId}`,
     `References: ${opts.threadId}`,
-    'Content-Type: text/plain; charset=utf-8',
+    `Content-Type: ${contentType}; charset=utf-8`,
     'MIME-Version: 1.0',
     '',
     opts.body,
