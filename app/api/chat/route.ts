@@ -129,7 +129,48 @@ export async function POST(request: Request) {
     }, { headers: CORS_HEADERS })
   }
 
-  // AI mode
+  // AI mode — find or create conversation so it appears in the inbox
+  let aiConversationId: string | null = null
+
+  const { data: existingAiMsg } = await supabase
+    .from('chat_messages')
+    .select('conversation_id')
+    .eq('session_id', session_id)
+    .not('conversation_id', 'is', null)
+    .limit(1)
+    .maybeSingle()
+
+  aiConversationId = existingAiMsg?.conversation_id ?? null
+
+  if (!aiConversationId) {
+    try {
+      const result = await processIncomingMessage({
+        channel: 'chat',
+        channelConfigId: null,
+        contactFullName: contact_info?.name ?? null,
+        contactEmail: contact_info?.email ?? null,
+        contactPhone: null,
+        contactSocialId: session_id,
+        subject: contact_info?.name ? `AI Chat - ${contact_info.name}` : 'AI Chat',
+        content: message,
+      })
+      aiConversationId = result.conversationId
+      if (contact_info?.department && aiConversationId) {
+        await supabase.from('conversations').update({ department: contact_info.department }).eq('id', aiConversationId)
+      }
+    } catch (err) {
+      console.error('[api/chat] AI mode failed to create conversation:', err)
+    }
+  } else {
+    await supabase.from('messages').insert({
+      conversation_id: aiConversationId,
+      sender_type: 'contact',
+      sender_id: null,
+      content: message,
+      is_internal_note: false,
+    })
+  }
+
   const { data: history } = await supabase
     .from('chat_messages')
     .select('role, content')
@@ -142,7 +183,7 @@ export async function POST(request: Request) {
     session_id,
     role: 'user',
     content: message,
-    conversation_id: null,
+    conversation_id: aiConversationId,
   })
 
   const knowledgeContext = await searchKnowledge(message)
@@ -170,13 +211,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'AI unavailable' }, { status: 500, headers: CORS_HEADERS })
   }
 
-  // Save AI response
-  await supabase.from('chat_messages').insert({
-    session_id,
-    role: 'assistant',
-    content: aiResponse,
-    conversation_id: null,
-  })
+  // Save AI response to chat_messages and to the conversation thread
+  await Promise.all([
+    supabase.from('chat_messages').insert({
+      session_id,
+      role: 'assistant',
+      content: aiResponse,
+      conversation_id: aiConversationId,
+    }),
+    aiConversationId
+      ? supabase.from('messages').insert({
+          conversation_id: aiConversationId,
+          sender_type: 'ai',
+          sender_id: null,
+          content: aiResponse,
+          is_internal_note: false,
+        })
+      : Promise.resolve(),
+  ])
 
   return NextResponse.json({ mode: 'ai', reply: aiResponse }, { headers: CORS_HEADERS })
 }

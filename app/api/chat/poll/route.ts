@@ -70,10 +70,14 @@ export async function GET(request: Request) {
 
   const { data: messages } = await query
 
+  function stripHtml(html: string) {
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+  }
+
   return NextResponse.json({
     messages: (messages ?? []).map((m) => ({
       id: m.id,
-      content: m.content,
+      content: stripHtml(m.content),
       created_at: m.created_at,
     })),
     closed: isClosed,
