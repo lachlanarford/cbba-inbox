@@ -45,6 +45,50 @@ function page(title: string, body: string): NextResponse {
   )
 }
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
+// JSON endpoint used by the chat widget to submit rating + comment in one step
+export async function POST(
+  request: Request,
+  { params }: { params: { token: string } }
+) {
+  const supabase = createServiceClient()
+  let body: { rating?: number; comment?: string } = {}
+  try { body = await request.json() } catch { /* ignore */ }
+
+  const { rating, comment } = body
+  if (!rating || rating < 1 || rating > 5) {
+    return NextResponse.json({ error: 'rating must be 1-5' }, { status: 400, headers: CORS_HEADERS })
+  }
+
+  const { data: row } = await supabase
+    .from('feedback_requests')
+    .select('rating')
+    .eq('token', params.token)
+    .single()
+
+  if (!row) {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 404, headers: CORS_HEADERS })
+  }
+
+  const updates: { rating: number; responded_at: string; comment?: string } = {
+    rating,
+    responded_at: new Date().toISOString(),
+  }
+  if (comment?.trim()) updates.comment = comment.trim()
+
+  await supabase.from('feedback_requests').update(updates).eq('token', params.token)
+  return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
+}
+
 export async function GET(
   request: Request,
   { params }: { params: { token: string } }

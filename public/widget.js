@@ -22,10 +22,12 @@
 
   var sessionId = getSessionId();
   var isOpen = false;
-  var container, bubble, panel, messagesEl, inputEl, sendBtn, statusEl;
+  var currentMode = 'ai';
   var pollInterval = null;
   var lastPollTime = null;
-  var currentMode = 'ai';
+  var feedbackShown = false;
+  var hasSentMessage = false;
+  var container, bubble, panel, messagesEl, inputEl, sendBtn, statusEl, endBtn;
 
   function injectStyles() {
     var style = document.createElement('style');
@@ -38,6 +40,9 @@
       '#cbba-widget-header{background:' + COLOR + ';padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}',
       '#cbba-widget-header h3{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;font-weight:600;color:#fff;}',
       '#cbba-widget-status{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:10px;color:rgba(255,255,255,0.7);margin-top:2px;}',
+      '#cbba-widget-header-actions{display:flex;align-items:center;gap:6px;}',
+      '#cbba-widget-end{background:rgba(255,255,255,0.15);border:none;cursor:pointer;padding:4px 8px;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:11px;border-radius:6px;line-height:1;display:none;}',
+      '#cbba-widget-end:hover{background:rgba(255,255,255,0.25);}',
       '#cbba-widget-close{background:none;border:none;cursor:pointer;padding:4px;color:rgba(255,255,255,0.8);line-height:0;}',
       '#cbba-widget-close svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;}',
       '#cbba-widget-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;}',
@@ -60,6 +65,22 @@
       '#cbba-widget-send{background:' + COLOR + ';border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity 0.15s;}',
       '#cbba-widget-send:disabled{opacity:0.4;cursor:default;}',
       '#cbba-widget-send svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;}',
+      // Feedback panel
+      '#cbba-feedback{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}',
+      '#cbba-feedback h4{color:#fff;font-size:15px;font-weight:600;margin-bottom:8px;}',
+      '#cbba-feedback p{color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:20px;}',
+      '.cbba-stars{display:flex;gap:6px;margin-bottom:20px;}',
+      '.cbba-star{font-size:32px;cursor:pointer;color:rgba(255,255,255,0.2);transition:color 0.1s;background:none;border:none;padding:0;line-height:1;}',
+      '.cbba-star.active{color:#FBB33F;}',
+      '.cbba-star:hover{color:#FBB33F;}',
+      '#cbba-feedback-comment{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12px;color:#fff;resize:none;outline:none;min-height:72px;margin-bottom:12px;}',
+      '#cbba-feedback-comment::placeholder{color:rgba(255,255,255,0.3);}',
+      '#cbba-feedback-comment:focus{border-color:' + COLOR + ';}',
+      '#cbba-feedback-submit{background:' + COLOR + ';color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;width:100%;font-weight:500;}',
+      '#cbba-feedback-submit:hover{opacity:0.9;}',
+      '#cbba-feedback-submit:disabled{opacity:0.4;cursor:default;}',
+      '#cbba-feedback-skip{background:none;border:none;color:rgba(255,255,255,0.35);font-size:11px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;margin-top:8px;padding:4px;}',
+      '#cbba-feedback-skip:hover{color:rgba(255,255,255,0.6);}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -80,7 +101,7 @@
 
     var header = document.createElement('div');
     header.id = 'cbba-widget-header';
-    header.innerHTML = '<div><h3>' + escHtml(TITLE) + '</h3><div id="cbba-widget-status">Connecting...</div></div><button id="cbba-widget-close" aria-label="Close chat"><svg viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg></button>';
+    header.innerHTML = '<div><h3>' + escHtml(TITLE) + '</h3><div id="cbba-widget-status">Connecting...</div></div><div id="cbba-widget-header-actions"><button id="cbba-widget-end">End chat</button><button id="cbba-widget-close" aria-label="Close chat"><svg viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg></button></div>';
 
     messagesEl = document.createElement('div');
     messagesEl.id = 'cbba-widget-messages';
@@ -100,9 +121,11 @@
     statusEl = document.getElementById('cbba-widget-status');
     inputEl = document.getElementById('cbba-widget-input');
     sendBtn = document.getElementById('cbba-widget-send');
+    endBtn = document.getElementById('cbba-widget-end');
 
     bubble.addEventListener('click', togglePanel);
     document.getElementById('cbba-widget-close').addEventListener('click', closePanel);
+    endBtn.addEventListener('click', handleEndChat);
 
     inputEl.addEventListener('input', function () {
       this.style.height = 'auto';
@@ -139,11 +162,18 @@
       fetch(BASE_URL + '/api/chat/poll?session_id=' + encodeURIComponent(sessionId) + '&since=' + encodeURIComponent(lastPollTime))
         .then(function (res) { return res.json(); })
         .then(function (data) {
-          if (!data.messages || !data.messages.length) return;
-          data.messages.forEach(function (msg) {
-            appendMessage('ai', msg.content);
-          });
-          lastPollTime = data.messages[data.messages.length - 1].created_at;
+          if (data.messages && data.messages.length) {
+            data.messages.forEach(function (msg) {
+              appendMessage('ai', msg.content);
+            });
+            lastPollTime = data.messages[data.messages.length - 1].created_at;
+          }
+          // Staff closed the conversation
+          if (data.closed && data.feedbackToken && !feedbackShown) {
+            stopPolling();
+            appendMessage('system', 'This conversation has been closed by our team.');
+            setTimeout(function () { showFeedbackForm(data.feedbackToken); }, 800);
+          }
         })
         .catch(function () {});
     }, 3000);
@@ -151,6 +181,120 @@
 
   function stopPolling() {
     if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  }
+
+  function handleEndChat() {
+    if (!hasSentMessage) {
+      closePanel();
+      return;
+    }
+    // Customer-initiated close
+    fetch(BASE_URL + '/api/chat/close', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        stopPolling();
+        disableInput();
+        appendMessage('system', 'Chat ended. Thank you for contacting us!');
+        if (data.feedbackToken) {
+          setTimeout(function () { showFeedbackForm(data.feedbackToken); }, 600);
+        }
+      })
+      .catch(function () {
+        closePanel();
+      });
+  }
+
+  function showFeedbackForm(token) {
+    if (feedbackShown) return;
+    feedbackShown = true;
+
+    // Remove footer
+    var footer = document.getElementById('cbba-widget-footer');
+    if (footer) footer.style.display = 'none';
+
+    // Replace messages with feedback panel
+    messagesEl.style.display = 'none';
+
+    var fb = document.createElement('div');
+    fb.id = 'cbba-feedback';
+
+    var selectedRating = 0;
+
+    fb.innerHTML = '<h4>How did we do?</h4><p>Rate your experience with us today.</p>' +
+      '<div class="cbba-stars">' +
+      '<button class="cbba-star" data-r="1">&#9733;</button>' +
+      '<button class="cbba-star" data-r="2">&#9733;</button>' +
+      '<button class="cbba-star" data-r="3">&#9733;</button>' +
+      '<button class="cbba-star" data-r="4">&#9733;</button>' +
+      '<button class="cbba-star" data-r="5">&#9733;</button>' +
+      '</div>' +
+      '<textarea id="cbba-feedback-comment" placeholder="Any additional comments? (optional)"></textarea>' +
+      '<button id="cbba-feedback-submit" disabled>Submit feedback</button>' +
+      '<button id="cbba-feedback-skip">Skip</button>';
+
+    panel.insertBefore(fb, messagesEl.nextSibling || null);
+    panel.appendChild(fb);
+
+    var stars = fb.querySelectorAll('.cbba-star');
+    var commentEl = document.getElementById('cbba-feedback-comment');
+    var submitBtn = document.getElementById('cbba-feedback-submit');
+    var skipBtn = document.getElementById('cbba-feedback-skip');
+
+    stars.forEach(function (star) {
+      star.addEventListener('mouseenter', function () {
+        var r = parseInt(this.getAttribute('data-r'));
+        stars.forEach(function (s, i) {
+          s.style.color = i < r ? '#FBB33F' : 'rgba(255,255,255,0.2)';
+        });
+      });
+      star.addEventListener('mouseleave', function () {
+        stars.forEach(function (s, i) {
+          s.style.color = i < selectedRating ? '#FBB33F' : 'rgba(255,255,255,0.2)';
+        });
+      });
+      star.addEventListener('click', function () {
+        selectedRating = parseInt(this.getAttribute('data-r'));
+        stars.forEach(function (s, i) {
+          s.style.color = i < selectedRating ? '#FBB33F' : 'rgba(255,255,255,0.2)';
+          if (i < selectedRating) s.classList.add('active'); else s.classList.remove('active');
+        });
+        submitBtn.disabled = false;
+      });
+    });
+
+    submitBtn.addEventListener('click', function () {
+      if (!selectedRating) return;
+      submitBtn.disabled = true;
+      var comment = commentEl ? commentEl.value.trim() : '';
+      fetch(BASE_URL + '/api/feedback/' + encodeURIComponent(token), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: selectedRating, comment: comment }),
+      })
+        .then(function () { showThankYou(); })
+        .catch(function () { showThankYou(); });
+    });
+
+    skipBtn.addEventListener('click', function () {
+      showThankYou();
+    });
+  }
+
+  function showThankYou() {
+    var fb = document.getElementById('cbba-feedback');
+    if (fb) {
+      fb.innerHTML = '<h4>Thank you!</h4><p>We appreciate your feedback. It helps us improve our service.</p>';
+    }
+  }
+
+  function disableInput() {
+    if (inputEl) { inputEl.disabled = true; inputEl.placeholder = 'Chat ended'; }
+    if (sendBtn) sendBtn.disabled = true;
+    if (endBtn) endBtn.style.display = 'none';
   }
 
   function togglePanel() {
@@ -162,7 +306,7 @@
     panel.classList.add('open');
     bubble.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>';
     if (currentMode === 'live' && !pollInterval) startPolling();
-    setTimeout(function () { inputEl && inputEl.focus(); }, 200);
+    setTimeout(function () { inputEl && !inputEl.disabled && inputEl.focus(); }, 200);
   }
 
   function closePanel() {
@@ -177,6 +321,10 @@
     inputEl.value = '';
     inputEl.style.height = 'auto';
     sendBtn.disabled = true;
+    hasSentMessage = true;
+
+    // Show End chat button once a message is sent
+    if (endBtn) endBtn.style.display = 'block';
 
     appendMessage('user', text);
     var typing = appendTyping();

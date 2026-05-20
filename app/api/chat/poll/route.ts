@@ -33,14 +33,33 @@ export async function GET(request: Request) {
     .single()
 
   if (!sessionMsg?.conversation_id) {
-    return NextResponse.json({ messages: [] }, { headers: CORS_HEADERS })
+    return NextResponse.json({ messages: [], closed: false, feedbackToken: null }, { headers: CORS_HEADERS })
   }
+
+  const conversationId = sessionMsg.conversation_id
+
+  // Check conversation status and fetch feedback token in parallel
+  const [convResult, feedbackResult] = await Promise.all([
+    supabase
+      .from('conversations')
+      .select('status')
+      .eq('id', conversationId)
+      .single(),
+    supabase
+      .from('feedback_requests')
+      .select('token')
+      .eq('conversation_id', conversationId)
+      .maybeSingle(),
+  ])
+
+  const isClosed = convResult.data?.status === 'closed'
+  const feedbackToken = feedbackResult.data?.token ?? null
 
   // Fetch staff replies since the given timestamp
   let query = supabase
     .from('messages')
-    .select('id, content, created_at, sender_type')
-    .eq('conversation_id', sessionMsg.conversation_id)
+    .select('id, content, created_at')
+    .eq('conversation_id', conversationId)
     .eq('sender_type', 'staff')
     .eq('is_internal_note', false)
     .order('created_at', { ascending: true })
@@ -57,5 +76,7 @@ export async function GET(request: Request) {
       content: m.content,
       created_at: m.created_at,
     })),
+    closed: isClosed,
+    feedbackToken,
   }, { headers: CORS_HEADERS })
 }
