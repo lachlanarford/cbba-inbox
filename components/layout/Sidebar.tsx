@@ -14,11 +14,15 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { label: 'Inbox',        href: '/inbox',         icon: InboxIcon },
-  { label: 'Contacts',     href: '/contacts',      icon: ContactsIcon },
-  { label: 'Reports',      href: '/reports',       icon: ReportsIcon },
-  { label: 'Settings',     href: '/settings',      icon: SettingsIcon },
-  { label: 'Report Issue', href: '/settings/bugs', icon: BugIcon },
+  { label: 'Inbox',        href: '/inbox',              icon: InboxIcon,     adminOnly: false },
+  { label: 'Contacts',     href: '/contacts',           icon: ContactsIcon,  adminOnly: false },
+  { label: 'Knowledge',    href: '/settings/knowledge', icon: KnowledgeIcon, adminOnly: true  },
+  { label: 'Templates',    href: '/settings/canned',    icon: CannedIcon,    adminOnly: true  },
+  { label: 'Report Issue', href: '/settings/bugs',      icon: BugIcon,       adminOnly: false },
+  { label: 'Reports',      href: '/reports',            icon: ReportsIcon,   adminOnly: false },
+  { label: 'Channels',     href: '/settings/channels',  icon: ChannelsIcon,  adminOnly: true  },
+  { label: 'Admin',        href: '/settings/admin',     icon: AdminIcon,     adminOnly: true  },
+  { label: 'Settings',     href: '/settings',           icon: SettingsIcon,  adminOnly: false },
 ]
 
 export default function Sidebar({ user, chatMode }: SidebarProps) {
@@ -45,89 +49,26 @@ export default function Sidebar({ user, chatMode }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {navItems.map(({ label, href, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
-              isActive(href)
-                ? 'bg-cbba-purple text-white'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Icon
-              className={`w-4 h-4 flex-shrink-0 ${
-                isActive(href) ? 'text-cbba-gold' : 'text-current'
-              }`}
-            />
-            {label}
-          </Link>
-        ))}
-
-        {isAdmin(user) && (
-          <>
+        {navItems
+          .filter(({ adminOnly }) => !adminOnly || isAdmin(user))
+          .map(({ label, href, icon: Icon }) => (
             <Link
-              href="/settings/channels"
+              key={href}
+              href={href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
-                pathname === '/settings/channels'
+                isActive(href)
                   ? 'bg-cbba-purple text-white'
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <ChannelsIcon
+              <Icon
                 className={`w-4 h-4 flex-shrink-0 ${
-                  pathname === '/settings/channels' ? 'text-cbba-gold' : 'text-current'
+                  isActive(href) ? 'text-cbba-gold' : 'text-current'
                 }`}
               />
-              Channels
+              {label}
             </Link>
-            <Link
-              href="/settings/knowledge"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
-                pathname === '/settings/knowledge'
-                  ? 'bg-cbba-purple text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <KnowledgeIcon
-                className={`w-4 h-4 flex-shrink-0 ${
-                  pathname === '/settings/knowledge' ? 'text-cbba-gold' : 'text-current'
-                }`}
-              />
-              Knowledge
-            </Link>
-            <Link
-              href="/settings/canned"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
-                pathname === '/settings/canned'
-                  ? 'bg-cbba-purple text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <CannedIcon
-                className={`w-4 h-4 flex-shrink-0 ${
-                  pathname === '/settings/canned' ? 'text-cbba-gold' : 'text-current'
-                }`}
-              />
-              Templates
-            </Link>
-            <Link
-              href="/settings/admin"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
-                pathname === '/settings/admin'
-                  ? 'bg-cbba-purple text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <AdminIcon
-                className={`w-4 h-4 flex-shrink-0 ${
-                  pathname === '/settings/admin' ? 'text-cbba-gold' : 'text-current'
-                }`}
-              />
-              Admin
-            </Link>
-          </>
-        )}
+          ))}
       </nav>
 
       {/* Chat mode toggle */}

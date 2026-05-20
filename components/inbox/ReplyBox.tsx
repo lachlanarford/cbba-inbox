@@ -14,6 +14,7 @@ interface ReplyBoxProps {
 }
 
 export default function ReplyBox({ conversationId }: ReplyBoxProps) {
+  const [collapsed, setCollapsed] = useState(true)
   const [content, setContent] = useState('')
   const [isNote, setIsNote] = useState(false)
   const [sending, setSending] = useState(false)
@@ -54,7 +55,7 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     setContent('')
     setAiSuggested(false)
     setSending(false)
-    textareaRef.current?.focus()
+    setCollapsed(true)
   }, [content, conversationId, isNote, sending, aiSuggested])
 
   useEffect(() => {
@@ -100,6 +101,19 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
 
   const isEmpty = !getTextContent(content)
 
+  if (collapsed) {
+    return (
+      <div className="flex-shrink-0 border-t border-white/5 bg-cbba-navy px-4 py-3">
+        <button
+          onClick={() => setCollapsed(false)}
+          className="w-full text-left px-3 py-2.5 rounded-lg border border-white/10 bg-cbba-navy-light text-sm text-gray-500 hover:text-gray-300 hover:border-white/20 transition-colors"
+        >
+          Reply to this conversation...
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-shrink-0 border-t border-white/5 bg-cbba-navy">
       {/* Tabs */}
@@ -123,6 +137,15 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
           }`}
         >
           Internal Note
+        </button>
+        <button
+          onClick={() => setCollapsed(true)}
+          className="ml-auto p-1.5 text-gray-600 hover:text-gray-400 transition-colors"
+          title="Collapse"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
       </div>
 
