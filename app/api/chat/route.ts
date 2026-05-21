@@ -74,7 +74,9 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!conversationId) {
+    const isNewConversation = !conversationId
+
+    if (isNewConversation) {
       // Create a new live chat conversation
       let createError: unknown = null
       try {
@@ -152,7 +154,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       mode: 'live',
-      reply: 'You are now connected to our team. We will reply shortly.',
+      reply: isNewConversation ? 'You are now connected to our team. We will reply shortly.' : null,
     }, { headers: CORS_HEADERS })
   }
 
