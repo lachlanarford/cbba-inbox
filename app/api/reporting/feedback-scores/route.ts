@@ -5,15 +5,29 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const from = url.searchParams.get('from') ?? thirtyDaysAgo()
   const to = url.searchParams.get('to') ?? today()
+  const channel = url.searchParams.get('channel') ?? ''
+  const department = url.searchParams.get('department') ?? ''
 
   const supabase = createServiceClient()
 
-  const { data: rows } = await supabase
+  let feedbackQuery = supabase
     .from('feedback_requests')
     .select('rating, responded_at')
     .not('rating', 'is', null)
     .gte('responded_at', from)
     .lte('responded_at', to + 'T23:59:59')
+
+  if (channel || department) {
+    let convQuery = supabase.from('conversations').select('id')
+    if (channel) convQuery = convQuery.eq('channel', channel)
+    if (department) convQuery = convQuery.eq('department', department)
+    const { data: convs } = await convQuery
+    const ids = (convs ?? []).map((c) => c.id)
+    if (!ids.length) return NextResponse.json({ weekly: [], overall: null, total: 0 })
+    feedbackQuery = feedbackQuery.in('conversation_id', ids)
+  }
+
+  const { data: rows } = await feedbackQuery
 
   // Group by week (Monday)
   const byWeek = new Map<string, number[]>()

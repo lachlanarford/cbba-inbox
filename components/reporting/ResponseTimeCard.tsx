@@ -10,24 +10,24 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import type { DateRange } from './DateRangeFilter'
+import { buildParams, type ReportFilters } from './DateRangeFilter'
 
 interface DataPoint {
   date: string
   avg_hours: number
 }
 
-export default function ResponseTimeCard({ range }: { range: DateRange }) {
+export default function ResponseTimeCard({ filters }: { filters: ReportFilters }) {
   const [data, setData] = useState<DataPoint[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/reporting/response-time?from=${range.from}&to=${range.to}`)
+    fetch(`/api/reporting/response-time?${buildParams(filters)}`)
       .then((r) => r.json())
       .then((d: DataPoint[]) => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [range.from, range.to])
+  }, [filters])
 
   const avg =
     data.length > 0

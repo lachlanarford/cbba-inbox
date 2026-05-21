@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import type { DateRange } from './DateRangeFilter'
+import { buildParams, type ReportFilters } from './DateRangeFilter'
 
 interface DataPoint {
   name: string
@@ -11,17 +11,17 @@ interface DataPoint {
 
 const COLORS = ['#604484', '#FBB33F']
 
-export default function StaffVsAiCard({ range }: { range: DateRange }) {
+export default function StaffVsAiCard({ filters }: { filters: ReportFilters }) {
   const [data, setData] = useState<DataPoint[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/reporting/staff-vs-ai?from=${range.from}&to=${range.to}`)
+    fetch(`/api/reporting/staff-vs-ai?${buildParams(filters)}`)
       .then((r) => r.json())
       .then((d: DataPoint[]) => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [range.from, range.to])
+  }, [filters])
 
   const total = data.reduce((a, b) => a + b.value, 0)
 

@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
-import type { DateRange } from './DateRangeFilter'
+import { buildParams, type ReportFilters } from './DateRangeFilter'
 
 interface WeeklyPoint {
   week: string
@@ -25,17 +25,17 @@ interface FeedbackData {
   total: number
 }
 
-export default function FeedbackScoresCard({ range }: { range: DateRange }) {
+export default function FeedbackScoresCard({ filters }: { filters: ReportFilters }) {
   const [data, setData] = useState<FeedbackData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/reporting/feedback-scores?from=${range.from}&to=${range.to}`)
+    fetch(`/api/reporting/feedback-scores?${buildParams(filters)}`)
       .then((r) => r.json())
       .then((d: FeedbackData) => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [range.from, range.to])
+  }, [filters])
 
   const starDisplay = data?.overall
     ? '★'.repeat(Math.round(data.overall)) + '☆'.repeat(5 - Math.round(data.overall))

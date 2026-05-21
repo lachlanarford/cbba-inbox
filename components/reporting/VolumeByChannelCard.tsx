@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
-import type { DateRange } from './DateRangeFilter'
+import { buildParams, type ReportFilters } from './DateRangeFilter'
 
 interface VolumeData {
   data: Record<string, string | number>[]
@@ -28,17 +28,17 @@ const CHANNEL_COLORS: Record<string, string> = {
   unknown: '#6b7280',
 }
 
-export default function VolumeByChannelCard({ range }: { range: DateRange }) {
+export default function VolumeByChannelCard({ filters }: { filters: ReportFilters }) {
   const [volumeData, setVolumeData] = useState<VolumeData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/reporting/volume-by-channel?from=${range.from}&to=${range.to}`)
+    fetch(`/api/reporting/volume-by-channel?${buildParams(filters)}`)
       .then((r) => r.json())
       .then((d: VolumeData) => { setVolumeData(d); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [range.from, range.to])
+  }, [filters])
 
   return (
     <div className="bg-cbba-navy-light rounded-xl p-5 col-span-2">

@@ -5,14 +5,20 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const from = url.searchParams.get('from') ?? thirtyDaysAgo()
   const to = url.searchParams.get('to') ?? today()
+  const channel = url.searchParams.get('channel') ?? ''
+  const department = url.searchParams.get('department') ?? ''
 
   const supabase = createServiceClient()
 
-  const { data: conversations } = await supabase
+  let convQuery = supabase
     .from('conversations')
     .select('id, created_at')
     .gte('created_at', from)
     .lte('created_at', to + 'T23:59:59')
+  if (channel) convQuery = convQuery.eq('channel', channel)
+  if (department) convQuery = convQuery.eq('department', department)
+
+  const { data: conversations } = await convQuery
 
   if (!conversations?.length) {
     return NextResponse.json([])

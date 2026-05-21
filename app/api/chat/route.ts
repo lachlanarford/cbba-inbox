@@ -180,9 +180,10 @@ export async function POST(request: Request) {
       }
     } else {
       // Append to the existing live conversation and reset to open so staff sees it
+      const existingId = conversationId!
       await Promise.all([
         supabase.from('messages').insert({
-          conversation_id: conversationId,
+          conversation_id: existingId,
           sender_type: 'contact',
           sender_id: null,
           content: message,
@@ -190,7 +191,7 @@ export async function POST(request: Request) {
         }),
         supabase.from('conversations')
           .update({ status: 'open', is_read: false })
-          .eq('id', conversationId)
+          .eq('id', existingId)
           .neq('status', 'closed'),
       ])
     }

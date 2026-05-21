@@ -12,36 +12,26 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from('conversations')
-    .select('channel, created_at')
+    .select('created_at')
     .gte('created_at', from)
     .lte('created_at', to + 'T23:59:59')
   if (channel) query = query.eq('channel', channel)
   if (department) query = query.eq('department', department)
 
-  const { data: conversations } = await query
+  const { data } = await query
 
-  const byDay = new Map<string, Map<string, number>>()
-  const channels = new Set<string>()
-
-  for (const conv of conversations ?? []) {
-    const day = conv.created_at.slice(0, 10)
-    const ch = conv.channel ?? 'unknown'
-    channels.add(ch)
-    if (!byDay.has(day)) byDay.set(day, new Map())
-    const dayMap = byDay.get(day)!
-    dayMap.set(ch, (dayMap.get(ch) ?? 0) + 1)
+  const counts = new Array(24).fill(0) as number[]
+  for (const conv of data ?? []) {
+    const hour = new Date(conv.created_at).getUTCHours()
+    counts[hour]++
   }
 
-  const channelList = Array.from(channels).sort()
-  const result = Array.from(byDay.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, chMap]) => {
-      const row: Record<string, string | number> = { date }
-      for (const ch of channelList) row[ch] = chMap.get(ch) ?? 0
-      return row
-    })
-
-  return NextResponse.json({ data: result, channels: channelList })
+  return NextResponse.json(
+    counts.map((count, hour) => ({
+      hour: `${String(hour).padStart(2, '0')}:00`,
+      count,
+    }))
+  )
 }
 
 function today(): string { return new Date().toISOString().slice(0, 10) }
