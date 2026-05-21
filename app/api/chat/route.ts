@@ -49,20 +49,34 @@ export async function POST(request: Request) {
   const chatMode = setting?.value ?? 'ai'
 
   if (chatMode === 'live') {
-    // Find or create conversation for this session
     let conversationId: string | null = null
 
+    // Find an existing live chat conversation for this session — but only if it's
+    // still open and was actually created as a live chat (not an AI session reuse).
     const { data: existingMsg } = await supabase
       .from('chat_messages')
       .select('conversation_id')
       .eq('session_id', session_id)
       .not('conversation_id', 'is', null)
+      .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    conversationId = existingMsg?.conversation_id ?? null
+    if (existingMsg?.conversation_id) {
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id, status, subject')
+        .eq('id', existingMsg.conversation_id)
+        .maybeSingle()
+      // Only reuse if it's an open live chat conversation (not an AI session or closed)
+      if (conv && conv.status !== 'closed' && conv.subject?.startsWith('Live Chat')) {
+        conversationId = conv.id
+      }
+    }
 
     if (!conversationId) {
+      // Create a new live chat conversation
+      let createError: unknown = null
       try {
         const result = await processIncomingMessage({
           channel: 'chat',
@@ -75,17 +89,22 @@ export async function POST(request: Request) {
           content: message,
         })
         conversationId = result.conversationId
+      } catch (err) {
+        createError = err
+        console.error('[api/chat] processIncomingMessage failed:', err)
+      }
 
+      if (conversationId) {
         // Set department if provided
-        if (contact_info?.department && conversationId) {
+        if (contact_info?.department) {
           await supabase
             .from('conversations')
             .update({ department: contact_info.department })
             .eq('id', conversationId)
         }
 
-        // Notify all active staff of new live chat
-        if (conversationId) {
+        // Notify staff (isolated — failure here does not affect the conversation)
+        try {
           const { data: staffUsers } = await supabase
             .from('users')
             .select('id')
@@ -101,12 +120,14 @@ export async function POST(request: Request) {
               }))
             )
           }
+        } catch (notifErr) {
+          console.error('[api/chat] notification insert failed:', notifErr)
         }
-      } catch (err) {
-        console.error('[api/chat] failed to create conversation:', err)
+      } else if (!createError) {
+        console.error('[api/chat] processIncomingMessage returned no conversationId')
       }
     } else {
-      // Add message to existing conversation
+      // Append to the existing live conversation
       await supabase.from('messages').insert({
         conversation_id: conversationId,
         sender_type: 'contact',
