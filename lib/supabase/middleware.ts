@@ -57,7 +57,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/api/gmail/auth/') ||
     pathname === '/api/gmail/poll' ||
     pathname === '/api/gmail/watch/renew' ||
-    pathname === '/api/chat' ||
+    pathname.startsWith('/api/chat') ||
     pathname.startsWith('/widget') ||
     pathname.startsWith('/api/feedback/')
 
