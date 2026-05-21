@@ -45,6 +45,9 @@ export default function FilterBar({ filters, onFilterChange, onClearAll }: Filte
     activeChips.push({ key: 'assignedTo', label: user?.full_name ?? 'Assigned' })
   }
 
+  if (filters.dateFrom) activeChips.push({ key: 'dateFrom', label: `From ${filters.dateFrom}` })
+  if (filters.dateTo)   activeChips.push({ key: 'dateTo',   label: `To ${filters.dateTo}` })
+
   const hasActiveFilters = activeChips.length > 0 || filters.search !== ''
 
   return (
@@ -110,6 +113,28 @@ export default function FilterBar({ filters, onFilterChange, onClearAll }: Filte
           value={filters.assignedTo}
           onChange={(v) => onFilterChange('assignedTo', v)}
           options={users.map((u) => ({ value: u.id, label: u.full_name ?? u.email }))}
+        />
+        <input
+          type="date"
+          value={filters.dateFrom}
+          onChange={(e) => onFilterChange('dateFrom', e.target.value)}
+          title="From date"
+          className={`text-xs px-2 py-1 rounded-lg border transition-colors focus:outline-none focus:border-cbba-purple cursor-pointer ${
+            filters.dateFrom
+              ? 'bg-cbba-purple/20 border-cbba-purple/40 text-white'
+              : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+          }`}
+        />
+        <input
+          type="date"
+          value={filters.dateTo}
+          onChange={(e) => onFilterChange('dateTo', e.target.value)}
+          title="To date"
+          className={`text-xs px-2 py-1 rounded-lg border transition-colors focus:outline-none focus:border-cbba-purple cursor-pointer ${
+            filters.dateTo
+              ? 'bg-cbba-purple/20 border-cbba-purple/40 text-white'
+              : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+          }`}
         />
       </div>
 

@@ -27,6 +27,7 @@
   var shownMessageIds = {};
   var feedbackShown = false;
   var hasSentMessage = false;
+  var pollFailCount = 0;
   var preChatDone = false;
   var contactInfo = {};
   var container, bubble, bubbleHint, panel, messagesEl, footerEl, inputEl, sendBtn, statusEl, endBtn;
@@ -242,6 +243,10 @@
       fetch(BASE_URL + '/api/chat/poll?session_id=' + encodeURIComponent(sessionId))
         .then(function (res) { return res.json(); })
         .then(function (data) {
+          if (pollFailCount >= 5 && preChatDone) {
+            appendMessage('system', 'Reconnected.');
+          }
+          pollFailCount = 0;
           if (data.messages && data.messages.length) {
             data.messages.forEach(function (msg) {
               if (!shownMessageIds[msg.id]) {
@@ -257,12 +262,43 @@
             setTimeout(function () { showFeedbackForm(data.feedbackToken); }, 800);
           }
         })
-        .catch(function () {});
+        .catch(function () {
+          pollFailCount++;
+          if (pollFailCount === 5 && preChatDone) {
+            appendMessage('system', 'Connection lost. Retrying...');
+          }
+        });
     }, 3000);
   }
 
   function stopPolling() {
     if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  }
+
+  function resumeSession(data) {
+    var preChatEl = document.getElementById('cbba-prechat');
+    if (preChatEl) preChatEl.style.display = 'none';
+    messagesEl.style.display = 'flex';
+    footerEl.style.display = 'flex';
+    preChatDone = true;
+    hasSentMessage = true;
+    if (data.contactName) contactInfo = { name: data.contactName };
+    (data.messages || []).forEach(function (msg) {
+      if (msg.role !== 'user' && msg.id) shownMessageIds[msg.id] = true;
+      appendMessage(msg.role, msg.content);
+    });
+    if (data.closed) {
+      disableInput();
+      if (data.feedbackToken && !feedbackShown) {
+        setTimeout(function () { showFeedbackForm(data.feedbackToken); }, 300);
+      }
+    } else {
+      setStatus(data.mode);
+      inputEl.disabled = false;
+      sendBtn.disabled = true;
+      if (endBtn) endBtn.style.display = 'block';
+      startPolling();
+    }
   }
 
   function handleEndChat() {
@@ -389,7 +425,7 @@
     bubble.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>';
     bubble.style.animation = 'none';
     if (bubbleHint) bubbleHint.style.display = 'none';
-    if (currentMode === 'live' && !pollInterval) startPolling();
+    if (preChatDone && !pollInterval) startPolling();
     setTimeout(function () {
       if (preChatDone) {
         inputEl && !inputEl.disabled && inputEl.focus();
@@ -473,13 +509,20 @@
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () {
-      injectStyles();
-      buildWidget();
-    });
-  } else {
+  function initWidget() {
     injectStyles();
     buildWidget();
+    if (sessionStorage.getItem(SESSION_KEY)) {
+      fetch(BASE_URL + '/api/chat/session?session_id=' + encodeURIComponent(sessionId))
+        .then(function (res) { return res.json(); })
+        .then(function (data) { if (data.exists) resumeSession(data); })
+        .catch(function () {});
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWidget);
+  } else {
+    initWidget();
   }
 })();

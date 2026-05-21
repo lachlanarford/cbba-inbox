@@ -3,6 +3,51 @@ import { createServiceClient } from '@/lib/supabase/service'
 import aiClient, { AI_MODEL, AI_MAX_TOKENS } from '@/lib/ai/client'
 import { searchKnowledge } from '@/lib/knowledge/search'
 import { processIncomingMessage } from '@/lib/channels/processor'
+import { getAuthenticatedClient } from '@/lib/gmail/client'
+import { google } from 'googleapis'
+
+async function notifyStaffByEmail(visitorName: string | null): Promise<void> {
+  const supabase = createServiceClient()
+
+  const [channelResult, usersResult] = await Promise.all([
+    supabase
+      .from('channel_configs')
+      .select('id, identifier')
+      .eq('channel_type', 'gmail')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('users')
+      .select('email')
+      .eq('is_active', true)
+      .not('email', 'is', null),
+  ])
+
+  const channel = channelResult.data
+  const staffEmails = (usersResult.data ?? []).map((u) => u.email).filter(Boolean) as string[]
+
+  if (!channel || !staffEmails.length) return
+
+  const auth = await getAuthenticatedClient(channel.id)
+  const gmail = google.gmail({ version: 'v1', auth })
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cbba-inbox.vercel.app'
+
+  const raw = [
+    `From: ${channel.identifier}`,
+    `To: ${staffEmails.join(', ')}`,
+    `Subject: New live chat started`,
+    'Content-Type: text/plain; charset=utf-8',
+    'MIME-Version: 1.0',
+    '',
+    `${visitorName ?? 'A visitor'} has started a live chat.\n\nView it in your inbox: ${appUrl}/inbox`,
+  ].join('\r\n')
+
+  await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: { raw: Buffer.from(raw).toString('base64url') },
+  })
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -125,6 +170,11 @@ export async function POST(request: Request) {
         } catch (notifErr) {
           console.error('[api/chat] notification insert failed:', notifErr)
         }
+
+        // Email notification to staff (isolated)
+        notifyStaffByEmail(contact_info?.name ?? null).catch((err) => {
+          console.error('[api/chat] staff email notification failed:', err)
+        })
       } else if (!createError) {
         console.error('[api/chat] processIncomingMessage returned no conversationId')
       }

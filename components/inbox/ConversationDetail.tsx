@@ -176,6 +176,15 @@ export default function ConversationDetail({
             </div>
 
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Reopen button for closed conversations */}
+              {conversation.status === 'closed' && (
+                <button
+                  onClick={() => updateConversation({ status: 'open' })}
+                  className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  Reopen
+                </button>
+              )}
               {/* Toggle sidebar */}
               <button
                 onClick={onToggleSidebar}

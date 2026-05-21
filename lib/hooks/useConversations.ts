@@ -36,6 +36,12 @@ export function useConversations(filters: InboxFilters) {
     if (filters.assignedTo) {
       query = query.eq('assigned_to', filters.assignedTo)
     }
+    if (filters.dateFrom) {
+      query = query.gte('created_at', filters.dateFrom)
+    }
+    if (filters.dateTo) {
+      query = query.lte('created_at', filters.dateTo + 'T23:59:59')
+    }
 
     const { data, error: fetchError } = await query
 
@@ -67,6 +73,8 @@ export function useConversations(filters: InboxFilters) {
     filters.channel,
     filters.assignedTo,
     filters.search,
+    filters.dateFrom,
+    filters.dateTo,
   ])
 
   useEffect(() => {
