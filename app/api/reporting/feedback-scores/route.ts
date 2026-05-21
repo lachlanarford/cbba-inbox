@@ -46,14 +46,19 @@ export async function GET(request: Request) {
       count: ratings.length,
     }))
 
-  // Also return overall stats
   const allRatings = (rows ?? []).map((r) => r.rating).filter(Boolean) as number[]
   const overall =
     allRatings.length > 0
       ? Math.round((allRatings.reduce((a, b) => a + b, 0) / allRatings.length) * 10) / 10
       : null
 
-  return NextResponse.json({ weekly: result, overall, total: allRatings.length })
+  const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  for (const r of allRatings) {
+    const star = Math.min(5, Math.max(1, Math.round(r)))
+    dist[star]++
+  }
+
+  return NextResponse.json({ weekly: result, overall, total: allRatings.length, distribution: dist })
 }
 
 function getMonday(isoDate: string): string {
