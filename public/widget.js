@@ -432,6 +432,8 @@
         inputEl.disabled = false;
         inputEl.focus();
         if (data.mode) setStatus(data.mode);
+        // Always poll after first message so staff replies are visible in any mode
+        startPolling();
         if (data.reply) {
           appendMessage('ai', data.reply);
         } else if (data.error) {
