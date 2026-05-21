@@ -127,14 +127,20 @@ export async function POST(request: Request) {
         console.error('[api/chat] processIncomingMessage returned no conversationId')
       }
     } else {
-      // Append to the existing live conversation
-      await supabase.from('messages').insert({
-        conversation_id: conversationId,
-        sender_type: 'contact',
-        sender_id: null,
-        content: message,
-        is_internal_note: false,
-      })
+      // Append to the existing live conversation and reset to open so staff sees it
+      await Promise.all([
+        supabase.from('messages').insert({
+          conversation_id: conversationId,
+          sender_type: 'contact',
+          sender_id: null,
+          content: message,
+          is_internal_note: false,
+        }),
+        supabase.from('conversations')
+          .update({ status: 'open', is_read: false })
+          .eq('id', conversationId)
+          .neq('status', 'closed'),
+      ])
     }
 
     await supabase.from('chat_messages').insert({
