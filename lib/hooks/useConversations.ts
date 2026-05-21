@@ -80,13 +80,16 @@ export function useConversations(filters: InboxFilters) {
         fetchConversations()
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
-        // New message updates last_message_at via trigger, so refetch
         fetchConversations()
       })
       .subscribe()
 
+    // Polling fallback in case Realtime misses an event
+    const poll = setInterval(fetchConversations, 30_000)
+
     return () => {
       supabase.removeChannel(channel)
+      clearInterval(poll)
     }
   }, [fetchConversations])
 

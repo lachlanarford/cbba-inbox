@@ -24,7 +24,7 @@
   var isOpen = false;
   var currentMode = 'ai';
   var pollInterval = null;
-  var lastPollTime = null;
+  var shownMessageIds = {};
   var feedbackShown = false;
   var hasSentMessage = false;
   var preChatDone = false;
@@ -238,16 +238,17 @@
 
   function startPolling() {
     if (pollInterval) return;
-    lastPollTime = new Date().toISOString();
     pollInterval = setInterval(function () {
-      fetch(BASE_URL + '/api/chat/poll?session_id=' + encodeURIComponent(sessionId) + '&since=' + encodeURIComponent(lastPollTime))
+      fetch(BASE_URL + '/api/chat/poll?session_id=' + encodeURIComponent(sessionId))
         .then(function (res) { return res.json(); })
         .then(function (data) {
           if (data.messages && data.messages.length) {
             data.messages.forEach(function (msg) {
-              appendMessage('ai', msg.content);
+              if (!shownMessageIds[msg.id]) {
+                shownMessageIds[msg.id] = true;
+                appendMessage('ai', msg.content);
+              }
             });
-            lastPollTime = data.messages[data.messages.length - 1].created_at;
           }
           // Staff closed the conversation
           if (data.closed && data.feedbackToken && !feedbackShown) {

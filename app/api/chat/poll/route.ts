@@ -55,20 +55,14 @@ export async function GET(request: Request) {
   const isClosed = convResult.data?.status === 'closed'
   const feedbackToken = feedbackResult.data?.token ?? null
 
-  // Fetch staff replies since the given timestamp
-  let query = supabase
+  // Fetch all staff replies for this conversation (client deduplicates by ID)
+  const { data: messages } = await supabase
     .from('messages')
     .select('id, content, created_at')
     .eq('conversation_id', conversationId)
     .eq('sender_type', 'staff')
     .eq('is_internal_note', false)
     .order('created_at', { ascending: true })
-
-  if (since) {
-    query = query.gt('created_at', since)
-  }
-
-  const { data: messages } = await query
 
   function stripHtml(html: string) {
     return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
