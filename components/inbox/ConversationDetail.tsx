@@ -94,10 +94,28 @@ export default function ConversationDetail({
   }, [conversationId])
 
   async function updateConversation(updates: ConversationUpdate) {
+    const enriched = { ...updates }
+
+    // When assigning to a user: auto-fill department from that user's department
+    if (enriched.assigned_to) {
+      const assignedUser = users.find((u) => u.id === enriched.assigned_to)
+      if (assignedUser?.department) {
+        enriched.department = assignedUser.department
+      }
+    }
+
+    // When setting department (not alongside an assignment): auto-assign if exactly one user matches
+    if (enriched.department && !('assigned_to' in updates)) {
+      const deptUsers = users.filter((u) => u.department === enriched.department)
+      if (deptUsers.length === 1) {
+        enriched.assigned_to = deptUsers[0].id
+      }
+    }
+
     const supabase = createClient()
     const { data } = await supabase
       .from('conversations')
-      .update(updates)
+      .update(enriched)
       .eq('id', conversationId)
       .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url)')
       .single()

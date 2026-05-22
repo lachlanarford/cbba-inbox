@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAdmin } from '@/lib/auth'
 import KnowledgeManager from '@/components/settings/KnowledgeManager'
-import type { KnowledgeBaseEntry } from '@/types/database'
+import type { KnowledgeEntryWithOwner } from '@/types/database'
 
 export default async function KnowledgePage() {
   const supabase = await createClient()
@@ -16,7 +16,7 @@ export default async function KnowledgePage() {
   const service = createServiceClient()
   const { data: entries } = await service
     .from('knowledge_base')
-    .select('*')
+    .select('*, created_by_user:users!created_by(id, full_name, avatar_url)')
     .order('created_at', { ascending: false })
 
   return (
@@ -27,7 +27,7 @@ export default async function KnowledgePage() {
           Content used to inform AI replies and the chat widget. Add URLs to scrape or create manual entries.
         </p>
       </div>
-      <KnowledgeManager initialEntries={(entries ?? []) as unknown as KnowledgeBaseEntry[]} />
+      <KnowledgeManager initialEntries={(entries ?? []) as unknown as KnowledgeEntryWithOwner[]} />
     </div>
   )
 }

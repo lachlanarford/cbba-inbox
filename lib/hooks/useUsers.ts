@@ -11,10 +11,10 @@ export function useUsers() {
     const supabase = createClient()
     supabase
       .from('users')
-      .select('id, full_name, avatar_url, email')
+      .select('id, full_name, avatar_url, email, department')
       .eq('is_active', true)
       .order('full_name')
-      .then(({ data }) => setUsers((data ?? []) as StaffUser[]))
+      .then(({ data }) => setUsers((data ?? []) as unknown as StaffUser[]))
   }, [])
 
   return users

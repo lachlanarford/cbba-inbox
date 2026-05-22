@@ -3,6 +3,8 @@
 import { useState, useEffect, useTransition } from 'react'
 import { useAppUser } from '@/contexts/AppUserContext'
 
+const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'] as const
+
 interface UserRow {
   id: string
   email: string
@@ -10,6 +12,7 @@ interface UserRow {
   avatar_url: string | null
   role: 'admin' | 'staff'
   is_active: boolean
+  department: string | null
   created_at: string
 }
 
@@ -48,6 +51,7 @@ export default function UserManager() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
   const [inviteRole, setInviteRole] = useState<'admin' | 'staff'>('staff')
+  const [inviteDept, setInviteDept] = useState('')
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -58,7 +62,7 @@ export default function UserManager() {
       .catch(() => { setError('Failed to load users'); setLoading(false) })
   }, [])
 
-  async function updateUser(id: string, patch: { role?: 'admin' | 'staff'; is_active?: boolean }) {
+  async function updateUser(id: string, patch: { role?: 'admin' | 'staff'; is_active?: boolean; department?: string | null }) {
     const res = await fetch(`/api/admin/users/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -76,7 +80,7 @@ export default function UserManager() {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, full_name: inviteName, role: inviteRole }),
+        body: JSON.stringify({ email: inviteEmail, full_name: inviteName, role: inviteRole, department: inviteDept || null }),
       })
       const json = await res.json() as UserRow & { error?: string }
       if (!res.ok) {
@@ -88,6 +92,7 @@ export default function UserManager() {
       setInviteEmail('')
       setInviteName('')
       setInviteRole('staff')
+      setInviteDept('')
     })
   }
 
@@ -122,6 +127,7 @@ export default function UserManager() {
           <thead>
             <tr className="border-b border-white/5 bg-white/3">
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">User</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Department</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Role</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Status</th>
             </tr>
@@ -147,6 +153,16 @@ export default function UserManager() {
                         <div className="text-xs text-gray-500">{user.email}</div>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={user.department ?? ''}
+                      onChange={(e) => updateUser(user.id, { department: e.target.value || null })}
+                      className="text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-[#604484] transition-colors"
+                    >
+                      <option value="">No department</option>
+                      {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
                   </td>
                   <td className="px-4 py-3">
                     <select
@@ -208,6 +224,18 @@ export default function UserManager() {
                   placeholder="Jane Smith"
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#604484] transition-colors"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Department (optional)</label>
+                <select
+                  value={inviteDept}
+                  onChange={(e) => setInviteDept(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#604484] transition-colors"
+                >
+                  <option value="">No department</option>
+                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
               </div>
 
               <div>

@@ -1,19 +1,22 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import type { KnowledgeBaseEntry } from '@/types/database'
+import type { KnowledgeEntryWithOwner } from '@/types/database'
 
-interface KnowledgeManagerProps {
-  initialEntries: KnowledgeBaseEntry[]
-}
+const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'] as const
 
 interface ManualEntryForm {
   title: string
   content: string
+  department: string
+}
+
+interface KnowledgeManagerProps {
+  initialEntries: KnowledgeEntryWithOwner[]
 }
 
 export default function KnowledgeManager({ initialEntries }: KnowledgeManagerProps) {
-  const [entries, setEntries] = useState<KnowledgeBaseEntry[]>(initialEntries)
+  const [entries, setEntries] = useState<KnowledgeEntryWithOwner[]>(initialEntries)
   const [urlInput, setUrlInput] = useState('')
   const [scrapeError, setScrapeError] = useState<string | null>(null)
   const [scrapeSuccess, setScrapeSuccess] = useState<string | null>(null)
@@ -21,23 +24,23 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
   const [isRescraping, startRescrape] = useTransition()
   const [rescrapeResult, setRescrapeResult] = useState<string | null>(null)
   const [showManualModal, setShowManualModal] = useState(false)
-  const [editEntry, setEditEntry] = useState<KnowledgeBaseEntry | null>(null)
+  const [editEntry, setEditEntry] = useState<KnowledgeEntryWithOwner | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, startDelete] = useTransition()
-  const [manualForm, setManualForm] = useState<ManualEntryForm>({ title: '', content: '' })
+  const [manualForm, setManualForm] = useState<ManualEntryForm>({ title: '', content: '', department: '' })
   const [manualError, setManualError] = useState<string | null>(null)
   const [isSavingManual, startSaveManual] = useTransition()
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
   function openAddManual() {
-    setManualForm({ title: '', content: '' })
+    setManualForm({ title: '', content: '', department: '' })
     setManualError(null)
     setEditEntry(null)
     setShowManualModal(true)
   }
 
-  function openEditEntry(entry: KnowledgeBaseEntry) {
-    setManualForm({ title: entry.title, content: entry.content })
+  function openEditEntry(entry: KnowledgeEntryWithOwner) {
+    setManualForm({ title: entry.title, content: entry.content, department: entry.department ?? '' })
     setManualError(null)
     setEditEntry(entry)
     setShowManualModal(true)
@@ -57,9 +60,7 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
         })
         const raw = await res.text()
         let data: Record<string, unknown> = {}
-        try {
-          data = JSON.parse(raw)
-        } catch {
+        try { data = JSON.parse(raw) } catch {
           setScrapeError(`HTTP ${res.status}: ${raw.slice(0, 200)}`)
           return
         }
@@ -82,10 +83,7 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
       try {
         const res = await fetch('/api/knowledge/rescrape-all', { method: 'POST' })
         const data = await res.json()
-        if (!res.ok) {
-          setRescrapeResult(`Error: ${data.error ?? 'Failed'}`)
-          return
-        }
+        if (!res.ok) { setRescrapeResult(`Error: ${data.error ?? 'Failed'}`); return }
         const failMsg = data.failed?.length ? ` (${data.failed.length} failed)` : ''
         setRescrapeResult(`Updated ${data.updated} URL entries${failMsg}`)
         await refreshEntries()
@@ -116,7 +114,11 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
         const res = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: manualForm.title.trim(), content: manualForm.content.trim() }),
+          body: JSON.stringify({
+            title: manualForm.title.trim(),
+            content: manualForm.content.trim(),
+            department: manualForm.department || null,
+          }),
         })
         let data: Record<string, unknown> = {}
         try { data = await res.json() } catch { /* ignore */ }
@@ -140,13 +142,11 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
           setDeleteId(null)
           setEntries((prev) => prev.filter((e) => e.id !== id))
         }
-      } catch {
-        // silent
-      }
+      } catch { /* silent */ }
     })
   }
 
-  async function handleToggleActive(entry: KnowledgeBaseEntry) {
+  async function handleToggleActive(entry: KnowledgeEntryWithOwner) {
     setTogglingId(entry.id)
     try {
       const res = await fetch(`/api/knowledge/entries/${entry.id}`, {
@@ -166,6 +166,13 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
 
   const urlEntries = entries.filter((e) => e.source_type === 'url')
   const manualEntries = entries.filter((e) => e.source_type === 'manual')
+
+  const deptColor: Record<string, string> = {
+    Reps: 'bg-[#604484]/20 text-[#a78bfa]',
+    Comps: 'bg-[#FBB33F]/15 text-[#FBB33F]',
+    LTP: 'bg-[#F58945]/15 text-[#F58945]',
+    Other: 'bg-blue-500/15 text-blue-400',
+  }
 
   return (
     <div className="space-y-8">
@@ -232,19 +239,10 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
                     {entry.last_scraped_at ? new Date(entry.last_scraped_at).toLocaleDateString() : 'Never'}
                   </td>
                   <td className="px-6 py-3">
-                    <button
-                      onClick={() => handleToggleActive(entry)}
-                      disabled={togglingId === entry.id}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${entry.is_active ? 'bg-cbba-purple' : 'bg-white/10'}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${entry.is_active ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                    </button>
+                    <Toggle entry={entry} onToggle={handleToggleActive} togglingId={togglingId} />
                   </td>
                   <td className="px-6 py-3 text-right">
-                    <button
-                      onClick={() => setDeleteId(entry.id)}
-                      className="text-xs text-gray-500 hover:text-red-400 transition-colors"
-                    >
+                    <button onClick={() => setDeleteId(entry.id)} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
                       Delete
                     </button>
                   </td>
@@ -261,10 +259,7 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
           <h2 className="text-sm font-semibold text-white">
             Manual entries {manualEntries.length > 0 && `(${manualEntries.length})`}
           </h2>
-          <button
-            onClick={openAddManual}
-            className="text-xs text-cbba-purple hover:text-cbba-purple/80 transition-colors"
-          >
+          <button onClick={openAddManual} className="text-xs text-cbba-purple hover:text-cbba-purple/80 transition-colors">
             + Add entry
           </button>
         </div>
@@ -275,7 +270,8 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
             <thead>
               <tr className="text-left text-xs text-gray-500 border-b border-white/5">
                 <th className="px-6 py-3 font-medium">Title</th>
-                <th className="px-6 py-3 font-medium">Preview</th>
+                <th className="px-6 py-3 font-medium">Department</th>
+                <th className="px-6 py-3 font-medium">Created by</th>
                 <th className="px-6 py-3 font-medium">Created</th>
                 <th className="px-6 py-3 font-medium">Active</th>
                 <th className="px-6 py-3 font-medium"></th>
@@ -284,31 +280,37 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
             <tbody>
               {manualEntries.map((entry) => (
                 <tr key={entry.id} className="border-b border-white/5 last:border-0">
-                  <td className="px-6 py-3 text-sm text-white max-w-[200px] truncate">{entry.title}</td>
-                  <td className="px-6 py-3 text-xs text-gray-400 max-w-[260px] truncate">{entry.content}</td>
+                  <td className="px-6 py-3">
+                    <div className="text-sm text-white font-medium max-w-[180px] truncate">{entry.title}</div>
+                    <div className="text-xs text-gray-500 max-w-[180px] truncate mt-0.5">{entry.content}</div>
+                  </td>
+                  <td className="px-6 py-3">
+                    {entry.department ? (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${deptColor[entry.department] ?? 'bg-white/10 text-gray-400'}`}>
+                        {entry.department}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-600">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-3">
+                    {entry.created_by_user ? (
+                      <span className="text-xs text-gray-400">{entry.created_by_user.full_name ?? 'Unknown'}</span>
+                    ) : (
+                      <span className="text-xs text-gray-600">-</span>
+                    )}
+                  </td>
                   <td className="px-6 py-3 text-xs text-gray-500">
                     {new Date(entry.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-3">
-                    <button
-                      onClick={() => handleToggleActive(entry)}
-                      disabled={togglingId === entry.id}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${entry.is_active ? 'bg-cbba-purple' : 'bg-white/10'}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${entry.is_active ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                    </button>
+                    <Toggle entry={entry} onToggle={handleToggleActive} togglingId={togglingId} />
                   </td>
                   <td className="px-6 py-3 text-right space-x-3">
-                    <button
-                      onClick={() => openEditEntry(entry)}
-                      className="text-xs text-gray-500 hover:text-white transition-colors"
-                    >
+                    <button onClick={() => openEditEntry(entry)} className="text-xs text-gray-500 hover:text-white transition-colors">
                       Edit
                     </button>
-                    <button
-                      onClick={() => setDeleteId(entry.id)}
-                      className="text-xs text-gray-500 hover:text-red-400 transition-colors"
-                    >
+                    <button onClick={() => setDeleteId(entry.id)} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
                       Delete
                     </button>
                   </td>
@@ -343,6 +345,17 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
                 />
               </div>
               <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Department (optional)</label>
+                <select
+                  value={manualForm.department}
+                  onChange={(e) => setManualForm((f) => ({ ...f, department: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cbba-purple"
+                >
+                  <option value="">All departments</option>
+                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Content</label>
                 <textarea
                   value={manualForm.content}
@@ -355,10 +368,7 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
               {manualError && <p className="text-xs text-red-400">{manualError}</p>}
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-              <button
-                onClick={() => setShowManualModal(false)}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
-              >
+              <button onClick={() => setShowManualModal(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
                 Cancel
               </button>
               <button
@@ -380,10 +390,7 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
             <h3 className="text-sm font-semibold text-white">Delete entry?</h3>
             <p className="text-sm text-gray-400">This will permanently remove this entry from the knowledge base.</p>
             <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
-              >
+              <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
                 Cancel
               </button>
               <button
@@ -398,6 +405,26 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
         </div>
       )}
     </div>
+  )
+}
+
+function Toggle({
+  entry,
+  onToggle,
+  togglingId,
+}: {
+  entry: KnowledgeEntryWithOwner
+  onToggle: (e: KnowledgeEntryWithOwner) => void
+  togglingId: string | null
+}) {
+  return (
+    <button
+      onClick={() => onToggle(entry)}
+      disabled={togglingId === entry.id}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${entry.is_active ? 'bg-cbba-purple' : 'bg-white/10'}`}
+    >
+      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${entry.is_active ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+    </button>
   )
 }
 

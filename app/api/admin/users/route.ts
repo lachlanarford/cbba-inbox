@@ -19,7 +19,7 @@ export async function GET() {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, full_name, avatar_url, role, is_active, created_at')
+    .select('id, email, full_name, avatar_url, role, is_active, department, created_at')
     .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -30,8 +30,8 @@ export async function POST(request: Request) {
   const admin = await requireAdmin()
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const body = await request.json() as { email?: string; full_name?: string; role?: string }
-  const { email, full_name, role } = body
+  const body = await request.json() as { email?: string; full_name?: string; role?: string; department?: string }
+  const { email, full_name, role, department } = body
 
   if (!email?.trim()) {
     return NextResponse.json({ error: 'Email is required' }, { status: 400 })
@@ -53,20 +53,22 @@ export async function POST(request: Request) {
   const userId = inviteData.user.id
 
   // Pre-insert the user row with the desired role before they accept the invite
+  const VALID_DEPTS = ['Reps', 'Comps', 'LTP', 'Other']
+  // Insert without department first (type-safe), then patch department separately
   const { data: newUser, error: insertError } = await service
     .from('users')
     .upsert(
-      {
-        id: userId,
-        email: email.trim().toLowerCase(),
-        full_name: full_name?.trim() || null,
-        role,
-        is_active: true,
-      },
+      { id: userId, email: email.trim().toLowerCase(), full_name: full_name?.trim() || null, role: role as 'admin' | 'staff', is_active: true },
       { onConflict: 'id' }
     )
-    .select('id, email, full_name, avatar_url, role, is_active, created_at')
+    .select('id, email, full_name, avatar_url, role, is_active, department, created_at')
     .single()
+
+  const deptValue = department && VALID_DEPTS.includes(department) ? department : null
+  if (newUser && deptValue) {
+    // @ts-expect-error department not yet in generated types (update after running supabase gen types)
+    await service.from('users').update({ department: deptValue }).eq('id', (newUser as { id: string }).id)
+  }
 
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })

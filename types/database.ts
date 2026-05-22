@@ -15,6 +15,7 @@ export interface Contact {
   phone: string | null
   social_id: string | null
   channel: Channel | null
+  is_archived: boolean
   created_at: string
   updated_at: string
 }
@@ -58,8 +59,14 @@ export interface KnowledgeBaseEntry {
   source_url: string | null
   last_scraped_at: string | null
   is_active: boolean
+  department: Department | null
+  created_by: string | null
   created_at: string
   updated_at: string
+}
+
+export interface KnowledgeEntryWithOwner extends KnowledgeBaseEntry {
+  created_by_user: { id: string; full_name: string | null; avatar_url: string | null } | null
 }
 
 export interface Label {
@@ -130,6 +137,7 @@ export interface StaffUser {
   full_name: string | null
   avatar_url: string | null
   email: string
+  department: Department | null
 }
 
 export interface InboxFilters {

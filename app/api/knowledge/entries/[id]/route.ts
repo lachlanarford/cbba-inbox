@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAdmin } from '@/lib/auth'
 
+const VALID_DEPTS = ['Reps', 'Comps', 'LTP', 'Other']
+
 async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,10 +23,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     title?: string
     content?: string
     is_active?: boolean
+    department?: string | null
   } = {}
   if (body.title !== undefined) updates.title = body.title
   if (body.content !== undefined) updates.content = body.content
   if (body.is_active !== undefined) updates.is_active = body.is_active
+  if ('department' in body) {
+    updates.department = body.department && VALID_DEPTS.includes(body.department) ? body.department : null
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
@@ -33,9 +39,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const service = createServiceClient()
   const { data, error } = await service
     .from('knowledge_base')
+    // @ts-expect-error department not yet in generated types
     .update(updates)
     .eq('id', params.id)
-    .select()
+    .select('*, created_by_user:users!created_by(id, full_name, avatar_url)')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

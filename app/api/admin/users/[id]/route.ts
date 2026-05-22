@@ -23,11 +23,13 @@ export async function PATCH(
     return NextResponse.json({ error: 'Cannot modify your own account' }, { status: 400 })
   }
 
-  const body = await request.json() as { role?: string; is_active?: boolean }
-  const updates: { role?: 'admin' | 'staff'; is_active?: boolean } = {}
+  const VALID_DEPTS = ['Reps', 'Comps', 'LTP', 'Other']
+  const body = await request.json() as { role?: string; is_active?: boolean; department?: string | null }
+  const updates: { role?: 'admin' | 'staff'; is_active?: boolean; department?: string | null } = {}
 
   if (body.role === 'admin' || body.role === 'staff') updates.role = body.role
   if (typeof body.is_active === 'boolean') updates.is_active = body.is_active
+  if ('department' in body) updates.department = body.department && VALID_DEPTS.includes(body.department) ? body.department : null
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
@@ -36,9 +38,10 @@ export async function PATCH(
   const service = createServiceClient()
   const { data, error } = await service
     .from('users')
+    // @ts-expect-error department not yet in generated types
     .update(updates)
     .eq('id', params.id)
-    .select('id, email, full_name, avatar_url, role, is_active, created_at')
+    .select('id, email, full_name, avatar_url, role, is_active, department, created_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
