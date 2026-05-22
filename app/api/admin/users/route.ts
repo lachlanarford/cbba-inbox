@@ -19,7 +19,7 @@ export async function GET() {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, full_name, avatar_url, role, is_active, department, created_at')
+    .select('*')
     .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -57,9 +57,13 @@ export default function UserManager() {
 
   useEffect(() => {
     fetch('/api/admin/users')
-      .then((r) => r.json())
-      .then((d: UserRow[]) => { setUsers(d); setLoading(false) })
-      .catch(() => { setError('Failed to load users'); setLoading(false) })
+      .then(async (r) => {
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.error ?? 'Failed to load users')
+        return d as UserRow[]
+      })
+      .then((d) => { setUsers(d); setLoading(false) })
+      .catch((e: Error) => { setError(e.message); setLoading(false) })
   }, [])
 
   async function updateUser(id: string, patch: { role?: 'admin' | 'staff'; is_active?: boolean; department?: string | null }) {
