@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendReply as sendGmailReply } from '@/lib/gmail/client'
+import { sendMetaMessage } from '@/lib/channels/meta'
 
 export async function POST(
   request: Request,
@@ -28,7 +29,7 @@ export async function POST(
   // Fetch conversation to determine channel and thread context
   const { data: conversation } = await supabase
     .from('conversations')
-    .select('*, contact:contacts(email, full_name)')
+    .select('*, contact:contacts(email, full_name, social_id)')
     .eq('id', conversationId)
     .single()
 
@@ -62,6 +63,31 @@ export async function POST(
         } catch (err) {
           console.error('[reply] Gmail send failed:', err)
           return NextResponse.json({ error: 'Failed to send via Gmail' }, { status: 500 })
+        }
+      }
+    }
+  }
+
+  // For non-internal replies on Facebook/Instagram, send via Meta Graph API
+  if ((conversation.channel === 'facebook' || conversation.channel === 'instagram') && !isNote && conversation.channel_config_id) {
+    const { data: channelConfig } = await supabase
+      .from('channel_configs')
+      .select('credentials, is_active')
+      .eq('id', conversation.channel_config_id)
+      .single()
+
+    if (channelConfig?.is_active) {
+      const creds = channelConfig.credentials as Record<string, string>
+      const accessToken = conversation.channel === 'facebook' ? creds.pageAccessToken : creds.access_token
+      const contact = conversation.contact as unknown as { email: string | null; full_name: string | null; social_id: string | null } | null
+      const recipientId = contact?.social_id
+
+      if (accessToken && recipientId) {
+        try {
+          await sendMetaMessage({ recipientId, text: content.trim(), accessToken })
+        } catch (err) {
+          console.error('[reply] Meta send failed:', err)
+          return NextResponse.json({ error: 'Failed to send via Meta' }, { status: 500 })
         }
       }
     }
