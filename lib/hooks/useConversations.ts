@@ -53,14 +53,19 @@ export function useConversations(filters: InboxFilters) {
 
     let results = (data ?? []) as unknown as ConversationListItem[]
 
-    // Client-side search across contact name and subject
     if (filters.search) {
       const term = filters.search.toLowerCase()
       results = results.filter(
         (c) =>
           c.subject?.toLowerCase().includes(term) ||
-          c.contact?.full_name?.toLowerCase().includes(term)
+          c.contact?.full_name?.toLowerCase().includes(term) ||
+          c.contact?.email?.toLowerCase().includes(term)
       )
+    }
+
+    if (filters.email) {
+      const term = filters.email.toLowerCase()
+      results = results.filter((c) => c.contact?.email?.toLowerCase().includes(term))
     }
 
     setConversations(results)
@@ -73,6 +78,7 @@ export function useConversations(filters: InboxFilters) {
     filters.channel,
     filters.assignedTo,
     filters.search,
+    filters.email,
     filters.dateFrom,
     filters.dateTo,
   ])

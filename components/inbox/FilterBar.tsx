@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import { useUsers } from '@/lib/hooks/useUsers'
 import type { InboxFilters } from '@/types/database'
 
@@ -12,7 +13,7 @@ const STATUS_TABS = [
 ]
 
 const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other']
-const PRIORITIES  = [
+const PRIORITIES = [
   { value: 'low',    label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high',   label: 'High' },
@@ -36,19 +37,15 @@ interface FilterBarProps {
 export default function FilterBar({ filters, onFilterChange, onClearAll }: FilterBarProps) {
   const users = useUsers()
 
-  const activeChips: Array<{ key: keyof InboxFilters; label: string }> = []
-  if (filters.department) activeChips.push({ key: 'department', label: filters.department })
-  if (filters.priority)   activeChips.push({ key: 'priority',   label: capitalize(filters.priority) })
-  if (filters.channel)    activeChips.push({ key: 'channel',    label: capitalize(filters.channel) })
-  if (filters.assignedTo) {
-    const user = users.find((u) => u.id === filters.assignedTo)
-    activeChips.push({ key: 'assignedTo', label: user?.full_name ?? 'Assigned' })
-  }
-
-  if (filters.dateFrom) activeChips.push({ key: 'dateFrom', label: `From ${filters.dateFrom}` })
-  if (filters.dateTo)   activeChips.push({ key: 'dateTo',   label: `To ${filters.dateTo}` })
-
-  const hasActiveFilters = activeChips.length > 0 || filters.search !== ''
+  const hasActiveFilters =
+    filters.search !== '' ||
+    filters.email !== '' ||
+    filters.department !== '' ||
+    filters.priority !== '' ||
+    filters.channel !== '' ||
+    filters.assignedTo !== '' ||
+    filters.dateFrom !== '' ||
+    filters.dateTo !== ''
 
   return (
     <div className="flex-shrink-0 border-b border-white/5">
@@ -69,143 +66,274 @@ export default function FilterBar({ filters, onFilterChange, onClearAll }: Filte
         ))}
       </div>
 
-      {/* Search */}
-      <div className="px-3 py-1.5">
-        <div className="relative">
-          <svg
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search conversations..."
-            value={filters.search}
-            onChange={(e) => onFilterChange('search', e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cbba-purple transition-colors"
-          />
-        </div>
+      {/* Search inputs */}
+      <div className="px-3 py-1.5 space-y-1.5">
+        <SearchInput
+          icon="search"
+          placeholder="Search by name or subject..."
+          value={filters.search}
+          onChange={(v) => onFilterChange('search', v)}
+        />
+        <SearchInput
+          icon="email"
+          placeholder="Filter by email..."
+          value={filters.email}
+          onChange={(v) => onFilterChange('email', v)}
+        />
       </div>
 
-      {/* Filter dropdowns */}
-      <div className="flex items-center gap-1.5 px-3 pb-2 flex-wrap">
-        <FilterSelect
-          placeholder="Department"
+      {/* Filter pills */}
+      <div className="flex items-center gap-1.5 px-3 pb-2.5 flex-wrap">
+        <FilterPill
+          label="Department"
           value={filters.department}
           onChange={(v) => onFilterChange('department', v)}
           options={DEPARTMENTS.map((d) => ({ value: d, label: d }))}
         />
-        <FilterSelect
-          placeholder="Priority"
+        <FilterPill
+          label="Priority"
           value={filters.priority}
           onChange={(v) => onFilterChange('priority', v)}
           options={PRIORITIES}
         />
-        <FilterSelect
-          placeholder="Channel"
+        <FilterPill
+          label="Channel"
           value={filters.channel}
           onChange={(v) => onFilterChange('channel', v)}
           options={CHANNELS}
         />
-        <FilterSelect
-          placeholder="Assigned to"
+        <FilterPill
+          label="Assigned to"
           value={filters.assignedTo}
           onChange={(v) => onFilterChange('assignedTo', v)}
           options={users.map((u) => ({ value: u.id, label: u.full_name ?? u.email }))}
         />
-        <input
-          type="date"
-          value={filters.dateFrom}
-          onChange={(e) => onFilterChange('dateFrom', e.target.value)}
-          title="From date"
-          className={`text-xs px-2 py-1 rounded-lg border transition-colors focus:outline-none focus:border-cbba-purple cursor-pointer ${
-            filters.dateFrom
-              ? 'bg-cbba-purple/20 border-cbba-purple/40 text-white'
-              : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
-          }`}
+        <DateRangePill
+          dateFrom={filters.dateFrom}
+          dateTo={filters.dateTo}
+          onFromChange={(v) => onFilterChange('dateFrom', v)}
+          onToChange={(v) => onFilterChange('dateTo', v)}
         />
-        <input
-          type="date"
-          value={filters.dateTo}
-          onChange={(e) => onFilterChange('dateTo', e.target.value)}
-          title="To date"
-          className={`text-xs px-2 py-1 rounded-lg border transition-colors focus:outline-none focus:border-cbba-purple cursor-pointer ${
-            filters.dateTo
-              ? 'bg-cbba-purple/20 border-cbba-purple/40 text-white'
-              : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
-          }`}
-        />
-      </div>
-
-      {/* Active chips */}
-      {hasActiveFilters && (
-        <div className="flex items-center gap-1.5 px-3 pb-2 flex-wrap">
-          {activeChips.map((chip) => (
-            <span
-              key={chip.key}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-cbba-purple/20 text-cbba-purple border border-cbba-purple/30 rounded-full text-xs"
-            >
-              {chip.label}
-              <button
-                onClick={() => onFilterChange(chip.key, '')}
-                className="hover:text-white transition-colors"
-                aria-label={`Remove ${chip.label} filter`}
-              >
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </span>
-          ))}
-          {filters.search && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cbba-purple/20 text-cbba-purple border border-cbba-purple/30 rounded-full text-xs">
-              &ldquo;{filters.search}&rdquo;
-              <button onClick={() => onFilterChange('search', '')} className="hover:text-white transition-colors" aria-label="Remove search filter">
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </span>
-          )}
-          <button onClick={onClearAll} className="text-xs text-gray-500 hover:text-white transition-colors ml-1">
+        {hasActiveFilters && (
+          <button
+            onClick={onClearAll}
+            className="text-xs text-gray-500 hover:text-white transition-colors px-1 ml-auto"
+          >
             Clear all
           </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SearchInput({
+  icon,
+  placeholder,
+  value,
+  onChange,
+}: {
+  icon: 'search' | 'email'
+  placeholder: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="relative">
+      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none">
+        {icon === 'search' ? (
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+          </svg>
+        ) : (
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        )}
+      </span>
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cbba-purple transition-colors"
+      />
+      {value && (
+        <button
+          onClick={() => onChange('')}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+        >
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </div>
+  )
+}
+
+function FilterPill({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  options: Array<{ value: string; label: string }>
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selectedLabel = options.find((o) => o.value === value)?.label
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-1.5 pl-2.5 pr-2 py-1 rounded-full text-xs border transition-colors whitespace-nowrap ${
+          value
+            ? 'bg-cbba-purple/20 border-cbba-purple/40 text-white'
+            : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200'
+        }`}
+      >
+        <span>{value ? selectedLabel : label}</span>
+        {value ? (
+          <span
+            onClick={(e) => { e.stopPropagation(); onChange('') }}
+            className="flex items-center justify-center w-3.5 h-3.5 rounded-full hover:bg-white/20 transition-colors"
+          >
+            <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </span>
+        ) : (
+          <svg
+            className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`}
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute top-full mt-1 left-0 z-30 bg-[#1a1b26] border border-white/10 rounded-xl shadow-2xl py-1 min-w-[140px] max-h-48 overflow-y-auto">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { onChange(opt.value); setOpen(false) }}
+              className={`w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-white/5 ${
+                value === opt.value ? 'text-cbba-purple font-medium' : 'text-gray-300'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
   )
 }
 
-function FilterSelect({
-  placeholder,
-  value,
-  onChange,
-  options,
+function DateRangePill({
+  dateFrom,
+  dateTo,
+  onFromChange,
+  onToChange,
 }: {
-  placeholder: string
-  value: string
-  onChange: (v: string) => void
-  options: Array<{ value: string; label: string }>
+  dateFrom: string
+  dateTo: string
+  onFromChange: (v: string) => void
+  onToChange: (v: string) => void
 }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={`text-xs px-2 py-1 rounded-lg border transition-colors focus:outline-none focus:border-cbba-purple cursor-pointer ${
-        value
-          ? 'bg-cbba-purple/20 border-cbba-purple/40 text-white'
-          : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
-      }`}
-    >
-      <option value="">{placeholder}</option>
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
-      ))}
-    </select>
-  )
-}
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const hasDate = dateFrom || dateTo
 
-function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1)
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  function pillLabel() {
+    if (dateFrom && dateTo) return `${dateFrom} - ${dateTo}`
+    if (dateFrom) return `From ${dateFrom}`
+    if (dateTo) return `To ${dateTo}`
+    return 'Date range'
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-1.5 pl-2.5 pr-2 py-1 rounded-full text-xs border transition-colors whitespace-nowrap ${
+          hasDate
+            ? 'bg-cbba-purple/20 border-cbba-purple/40 text-white'
+            : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200'
+        }`}
+      >
+        <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path strokeLinecap="round" d="M16 2v4M8 2v4M3 10h18" />
+        </svg>
+        <span>{pillLabel()}</span>
+        {hasDate ? (
+          <span
+            onClick={(e) => { e.stopPropagation(); onFromChange(''); onToChange('') }}
+            className="flex items-center justify-center w-3.5 h-3.5 rounded-full hover:bg-white/20 transition-colors"
+          >
+            <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </span>
+        ) : (
+          <svg
+            className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`}
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute top-full mt-1 left-0 z-30 bg-[#1a1b26] border border-white/10 rounded-xl shadow-2xl p-3 min-w-[200px]">
+          <div className="space-y-2.5">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">From</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => onFromChange(e.target.value)}
+                className="w-full text-xs px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-cbba-purple transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">To</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => onToChange(e.target.value)}
+                className="w-full text-xs px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-cbba-purple transition-colors"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }

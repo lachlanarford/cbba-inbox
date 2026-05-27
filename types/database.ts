@@ -147,6 +147,7 @@ export interface InboxFilters {
   channel: string
   assignedTo: string
   search: string
+  email: string
   dateFrom: string
   dateTo: string
 }
@@ -158,6 +159,7 @@ export const DEFAULT_FILTERS: InboxFilters = {
   channel: '',
   assignedTo: '',
   search: '',
+  email: '',
   dateFrom: '',
   dateTo: '',
 }
