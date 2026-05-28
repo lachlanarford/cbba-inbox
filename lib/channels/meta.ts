@@ -13,6 +13,19 @@ function htmlToPlainText(html: string): string {
     .trim()
 }
 
+export async function getMetaUserName(psid: string, accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v20.0/${psid}?fields=name&access_token=${encodeURIComponent(accessToken)}`
+    )
+    if (!res.ok) return null
+    const data = await res.json() as { name?: string }
+    return data.name ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function sendMetaMessage({
   recipientId,
   text,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { processIncomingMessage } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
+import { getMetaUserName } from '@/lib/channels/meta'
 
 // Webhook verification challenge (Meta requires GET handler)
 export async function GET(request: Request) {
@@ -57,14 +58,17 @@ export async function POST(request: Request) {
       if (!sender || !text) continue
 
       try {
+        const accessToken = (config.credentials as Record<string, string>)?.pageAccessToken
+        const senderName = accessToken ? await getMetaUserName(sender, accessToken) : null
+
         const result = await processIncomingMessage({
           channel: 'facebook',
           channelConfigId: config.id,
-          contactFullName: null,
+          contactFullName: senderName,
           contactEmail: null,
           contactPhone: null,
           contactSocialId: sender,
-          subject: `Facebook message from ${sender}`,
+          subject: senderName ? `Facebook message from ${senderName}` : `Facebook message from ${sender}`,
           content: text,
           externalThreadId: sender,
         })

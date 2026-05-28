@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { processIncomingMessage } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
+import { getMetaUserName } from '@/lib/channels/meta'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
   const supabase = createServiceClient()
   const { data: config } = await supabase
     .from('channel_configs')
-    .select('id, is_active')
+    .select('id, is_active, credentials')
     .eq('channel_type', 'instagram')
     .maybeSingle()
 
@@ -56,14 +57,17 @@ export async function POST(request: Request) {
       if (!sender || !text) continue
 
       try {
+        const accessToken = (config.credentials as Record<string, string>)?.access_token
+        const senderName = accessToken ? await getMetaUserName(sender, accessToken) : null
+
         const result = await processIncomingMessage({
           channel: 'instagram',
           channelConfigId: config.id,
-          contactFullName: null,
+          contactFullName: senderName,
           contactEmail: null,
           contactPhone: null,
           contactSocialId: sender,
-          subject: `Instagram message from ${sender}`,
+          subject: senderName ? `Instagram message from ${senderName}` : `Instagram message from ${sender}`,
           content: text,
           externalThreadId: sender,
         })
