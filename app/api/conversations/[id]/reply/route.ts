@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { sendReply as sendGmailReply } from '@/lib/gmail/client'
 import { sendMetaMessage } from '@/lib/channels/meta'
 
@@ -37,34 +38,45 @@ export async function POST(
 
   // For non-internal replies on Gmail conversations, send via Gmail API
   if (conversation.channel === 'gmail' && !isNote && conversation.channel_config_id && conversation.external_thread_id) {
-    const { data: channelConfig } = await supabase
+    const service = createServiceClient()
+    const { data: channelConfig } = await service
       .from('channel_configs')
       .select('identifier, is_active')
       .eq('id', conversation.channel_config_id)
       .single()
 
-    if (channelConfig?.is_active) {
-      const contact = conversation.contact as unknown as { email: string | null; full_name: string | null } | null
-      const contactEmail = contact?.email
-      if (contactEmail) {
-        const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
-        const bodyWithSig = signature?.trim()
-          ? `${content.trim()}\n\n--\n${signature.trim()}`
-          : content.trim()
+    if (!channelConfig) {
+      console.error('[reply] Gmail channel config not found:', conversation.channel_config_id)
+      return NextResponse.json({ error: 'Gmail channel not configured' }, { status: 500 })
+    }
+    if (!channelConfig.is_active) {
+      console.warn('[reply] Gmail channel is inactive, skipping send')
+      return NextResponse.json({ error: 'Gmail channel is not active' }, { status: 400 })
+    }
 
-        try {
-          await sendGmailReply(conversation.channel_config_id, {
-            threadId: conversation.external_thread_id,
-            to: contactEmail,
-            from: channelConfig.identifier,
-            subject: conversation.subject ?? '(no subject)',
-            body: bodyWithSig,
-          })
-        } catch (err) {
-          console.error('[reply] Gmail send failed:', err)
-          return NextResponse.json({ error: 'Failed to send via Gmail' }, { status: 500 })
-        }
-      }
+    const contact = conversation.contact as unknown as { email: string | null; full_name: string | null } | null
+    const contactEmail = contact?.email
+    if (!contactEmail) {
+      console.error('[reply] No contact email for Gmail conversation:', conversationId)
+      return NextResponse.json({ error: 'Contact has no email address' }, { status: 400 })
+    }
+
+    const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
+    const bodyWithSig = signature?.trim()
+      ? `${content.trim()}\n\n--\n${signature.trim()}`
+      : content.trim()
+
+    try {
+      await sendGmailReply(conversation.channel_config_id, {
+        threadId: conversation.external_thread_id,
+        to: contactEmail,
+        from: channelConfig.identifier,
+        subject: conversation.subject ?? '(no subject)',
+        body: bodyWithSig,
+      })
+    } catch (err) {
+      console.error('[reply] Gmail send failed:', err)
+      return NextResponse.json({ error: 'Failed to send via Gmail' }, { status: 500 })
     }
   }
 
