@@ -2,9 +2,12 @@ import type { MessageWithSender } from '@/types/database'
 import { formatDateTime } from '@/lib/utils/time'
 import HtmlEmailViewer from './HtmlEmailViewer'
 
+const OUTBOUND_CHANNELS = new Set(['gmail', 'facebook', 'instagram'])
+
 interface MessageBubbleProps {
   message: MessageWithSender
   currentUserId: string
+  channel: string
 }
 
 function isHtml(content: string): boolean {
@@ -19,11 +22,12 @@ function isHtml(content: string): boolean {
   )
 }
 
-export default function MessageBubble({ message, currentUserId }: MessageBubbleProps) {
+export default function MessageBubble({ message, currentUserId, channel }: MessageBubbleProps) {
   const isOutbound = message.sender_type === 'staff' || message.sender_type === 'ai'
   const isCurrentUser = message.sender_id === currentUserId
   const isNote = message.is_internal_note
   const contentIsHtml = isHtml(message.content)
+  const showSent = isOutbound && !isNote && message.sender_type === 'staff' && OUTBOUND_CHANNELS.has(channel)
 
   if (isNote) {
     return (
@@ -58,6 +62,7 @@ export default function MessageBubble({ message, currentUserId }: MessageBubbleP
             </span>
           )}
           <span className="text-xs text-gray-600">{formatDateTime(message.created_at)}</span>
+          {showSent && <SentBadge />}
         </div>
         <HtmlEmailViewer html={message.content} />
       </div>
@@ -92,7 +97,23 @@ export default function MessageBubble({ message, currentUserId }: MessageBubbleP
         >
           {message.content}
         </div>
+        {showSent && (
+          <div className="flex justify-end">
+            <SentBadge />
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+function SentBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500">
+      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+      </svg>
+      Sent
+    </span>
   )
 }

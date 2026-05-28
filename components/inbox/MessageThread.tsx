@@ -7,9 +7,10 @@ import MessageBubble from './MessageBubble'
 interface MessageThreadProps {
   conversationId: string
   currentUserId: string
+  channel: string
 }
 
-export default function MessageThread({ conversationId, currentUserId }: MessageThreadProps) {
+export default function MessageThread({ conversationId, currentUserId, channel }: MessageThreadProps) {
   const { messages, loading } = useMessages(conversationId)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -40,6 +41,7 @@ export default function MessageThread({ conversationId, currentUserId }: Message
           key={message.id}
           message={message}
           currentUserId={currentUserId}
+          channel={channel}
         />
       ))}
       <div ref={bottomRef} />

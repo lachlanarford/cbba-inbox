@@ -375,7 +375,7 @@ export default function ConversationDetail({
         </div>
 
         {/* Messages */}
-        <MessageThread conversationId={conversationId} currentUserId={currentUser.id} />
+        <MessageThread conversationId={conversationId} currentUserId={currentUser.id} channel={conversation.channel} />
 
         {/* Reply box */}
         <ReplyBox conversationId={conversationId} />
