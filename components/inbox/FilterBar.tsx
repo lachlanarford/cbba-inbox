@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useUsers } from '@/lib/hooks/useUsers'
+import { createClient } from '@/lib/supabase/client'
 import type { InboxFilters } from '@/types/database'
 
 const STATUS_TABS = [
@@ -36,6 +37,17 @@ interface FilterBarProps {
 
 export default function FilterBar({ filters, onFilterChange, onClearAll }: FilterBarProps) {
   const users = useUsers()
+  const [gmailAccounts, setGmailAccounts] = useState<Array<{ id: string; identifier: string }>>([])
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('channel_configs')
+      .select('id, identifier')
+      .eq('channel_type', 'gmail')
+      .eq('is_active', true)
+      .then(({ data }) => setGmailAccounts(data ?? []))
+  }, [])
 
   const hasActiveFilters =
     filters.search !== '' ||
@@ -43,6 +55,7 @@ export default function FilterBar({ filters, onFilterChange, onClearAll }: Filte
     filters.department !== '' ||
     filters.priority !== '' ||
     filters.channel !== '' ||
+    filters.channelConfigId !== '' ||
     filters.assignedTo !== '' ||
     filters.dateFrom !== '' ||
     filters.dateTo !== ''
@@ -108,6 +121,14 @@ export default function FilterBar({ filters, onFilterChange, onClearAll }: Filte
           onChange={(v) => onFilterChange('assignedTo', v)}
           options={users.map((u) => ({ value: u.id, label: u.full_name ?? u.email }))}
         />
+        {gmailAccounts.length > 1 && (
+          <FilterPill
+            label="Email account"
+            value={filters.channelConfigId}
+            onChange={(v) => onFilterChange('channelConfigId', v)}
+            options={gmailAccounts.map((a) => ({ value: a.id, label: a.identifier }))}
+          />
+        )}
         <DateRangePill
           dateFrom={filters.dateFrom}
           dateTo={filters.dateTo}

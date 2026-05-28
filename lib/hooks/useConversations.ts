@@ -33,6 +33,9 @@ export function useConversations(filters: InboxFilters) {
     if (filters.channel) {
       query = query.eq('channel', filters.channel)
     }
+    if (filters.channelConfigId) {
+      query = query.eq('channel_config_id', filters.channelConfigId)
+    }
     if (filters.assignedTo) {
       query = query.eq('assigned_to', filters.assignedTo)
     }
@@ -76,6 +79,7 @@ export function useConversations(filters: InboxFilters) {
     filters.department,
     filters.priority,
     filters.channel,
+    filters.channelConfigId,
     filters.assignedTo,
     filters.search,
     filters.email,

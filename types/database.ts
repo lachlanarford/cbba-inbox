@@ -145,6 +145,7 @@ export interface InboxFilters {
   department: string
   priority: string
   channel: string
+  channelConfigId: string
   assignedTo: string
   search: string
   email: string
@@ -157,6 +158,7 @@ export const DEFAULT_FILTERS: InboxFilters = {
   department: '',
   priority: '',
   channel: '',
+  channelConfigId: '',
   assignedTo: '',
   search: '',
   email: '',
