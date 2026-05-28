@@ -27,6 +27,11 @@ export async function POST(
   const { content, isNote, isAiSuggested } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
+  const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
+  const bodyWithSig = !isNote && signature?.trim()
+    ? `${content.trim()}\n\n--\n${signature.trim()}`
+    : content.trim()
+
   // Fetch conversation to determine channel and thread context
   const { data: conversation } = await supabase
     .from('conversations')
@@ -60,11 +65,6 @@ export async function POST(
       console.error('[reply] No contact email for Gmail conversation:', conversationId)
       return NextResponse.json({ error: 'Contact has no email address' }, { status: 400 })
     }
-
-    const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
-    const bodyWithSig = signature?.trim()
-      ? `${content.trim()}\n\n--\n${signature.trim()}`
-      : content.trim()
 
     try {
       await sendGmailReply(conversation.channel_config_id, {
@@ -105,14 +105,14 @@ export async function POST(
     }
   }
 
-  // Write message to database
+  // Write message to database — store bodyWithSig so in-app view matches what was sent
   const { data: message, error: msgError } = await supabase
     .from('messages')
     .insert({
       conversation_id: conversationId,
       sender_type: 'staff',
       sender_id: user.id,
-      content: content.trim(),
+      content: bodyWithSig,
       is_internal_note: isNote,
       is_ai_suggested: isAiSuggested ?? false,
     })

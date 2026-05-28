@@ -66,6 +66,13 @@ export async function getAuthenticatedClient(channelConfigId: string) {
   return oauth2
 }
 
+export interface AttachmentMeta {
+  id: string
+  name: string
+  mimeType: string
+  size: number
+}
+
 export interface ParsedEmail {
   messageId: string
   threadId: string
@@ -74,6 +81,7 @@ export interface ParsedEmail {
   subject: string
   body: string
   internalDate: string
+  attachments: AttachmentMeta[]
 }
 
 export interface FetchHistoryResult {
@@ -173,7 +181,12 @@ function parseMessage(msg: import('googleapis').gmail_v1.Schema$Message): Parsed
     })
   }
 
-  return { messageId, threadId, from: fromEmail, fromName, subject, body, internalDate }
+  const attachments = extractAttachments(msg.payload)
+  if (attachments.length > 0) {
+    body = body + `<!--CBBA_ATT:${JSON.stringify({ msgId: messageId, items: attachments })}-->`
+  }
+
+  return { messageId, threadId, from: fromEmail, fromName, subject, body, internalDate, attachments }
 }
 
 type GmailPart = import('googleapis').gmail_v1.Schema$MessagePart
@@ -203,6 +216,27 @@ function extractPlainPart(part: GmailPart): string {
     if (plain) return plain
   }
   return ''
+}
+
+function extractAttachments(payload: GmailPart | undefined): AttachmentMeta[] {
+  const attachments: AttachmentMeta[] = []
+  if (!payload) return attachments
+  function walk(part: GmailPart) {
+    const headers = part.headers ?? []
+    const contentId = headers.find((h) => h.name?.toLowerCase() === 'content-id')?.value
+    if (contentId) return // inline image — handled separately
+    if (part.filename && part.filename.length > 0 && part.body?.attachmentId) {
+      attachments.push({
+        id: part.body.attachmentId,
+        name: part.filename,
+        mimeType: part.mimeType ?? 'application/octet-stream',
+        size: part.body.size ?? 0,
+      })
+    }
+    for (const child of part.parts ?? []) walk(child)
+  }
+  walk(payload)
+  return attachments
 }
 
 function collectInlineImages(payload: GmailPart | undefined): Map<string, { mimeType: string; data: string }> {

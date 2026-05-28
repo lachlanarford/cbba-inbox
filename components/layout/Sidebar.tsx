@@ -2,11 +2,22 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 import type { AppUser } from '@/types/supabase'
 import { isAdmin } from '@/lib/auth'
 import SignOutButton from './SignOutButton'
 import ChatModeToggle from './ChatModeToggle'
 import ThemeToggle from './ThemeToggle'
+
+const CHANGELOG = [
+  { date: '29 May', text: 'Email attachments viewable and downloadable' },
+  { date: '29 May', text: 'Reply drafts auto-saved per conversation' },
+  { date: '29 May', text: 'Email signature now shown in conversation thread' },
+  { date: '28 May', text: 'Mark as unread syncs back to Gmail' },
+  { date: '28 May', text: 'Collapsible filter panel with active filter count' },
+  { date: '28 May', text: 'Gmail account shown in conversation header' },
+  { date: '28 May', text: 'Default department per Gmail inbox in settings' },
+]
 
 interface SidebarProps {
   user: AppUser
@@ -27,6 +38,7 @@ const navItems = [
 
 export default function Sidebar({ user, chatMode }: SidebarProps) {
   const pathname = usePathname()
+  const [changelogOpen, setChangelogOpen] = useState(false)
 
   function isActive(href: string) {
     if (href === '/inbox') return pathname === '/inbox' || pathname.startsWith('/inbox/')
@@ -70,6 +82,32 @@ export default function Sidebar({ user, chatMode }: SidebarProps) {
             </Link>
           ))}
       </nav>
+
+      {/* What's new */}
+      <div className="px-3 pb-2 border-t border-white/5 pt-3">
+        <button
+          onClick={() => setChangelogOpen((v) => !v)}
+          className="flex items-center justify-between w-full px-3 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+        >
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-cbba-purple flex-shrink-0" />
+            What&apos;s new
+          </span>
+          <svg className={`w-3 h-3 transition-transform ${changelogOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {changelogOpen && (
+          <ul className="mt-1 space-y-1 px-3">
+            {CHANGELOG.map((entry, i) => (
+              <li key={i} className="flex gap-2 text-[11px] text-gray-600 leading-snug">
+                <span className="flex-shrink-0 text-gray-700">{entry.date}</span>
+                <span>{entry.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* Chat mode toggle */}
       <div className="px-3 pb-2 border-t border-white/5 pt-3">

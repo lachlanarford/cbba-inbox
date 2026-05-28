@@ -4,6 +4,34 @@ import HtmlEmailViewer from './HtmlEmailViewer'
 
 const OUTBOUND_CHANNELS = new Set(['gmail', 'facebook', 'instagram'])
 
+interface AttachmentChip {
+  id: string
+  name: string
+  mimeType: string
+  size: number
+  msgId: string
+}
+
+function parseAttachments(content: string): { cleanContent: string; attachments: AttachmentChip[] } {
+  const match = content.match(/<!--CBBA_ATT:(.+?)-->\s*$/)
+  if (!match) return { cleanContent: content, attachments: [] }
+  try {
+    const parsed = JSON.parse(match[1]) as { msgId: string; items: Array<{ id: string; name: string; mimeType: string; size: number }> }
+    return {
+      cleanContent: content.slice(0, content.length - match[0].length),
+      attachments: parsed.items.map((item) => ({ ...item, msgId: parsed.msgId })),
+    }
+  } catch {
+    return { cleanContent: content, attachments: [] }
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 interface MessageBubbleProps {
   message: MessageWithSender
   currentUserId: string
@@ -26,7 +54,8 @@ export default function MessageBubble({ message, currentUserId, channel }: Messa
   const isOutbound = message.sender_type === 'staff' || message.sender_type === 'ai'
   const isCurrentUser = message.sender_id === currentUserId
   const isNote = message.is_internal_note
-  const contentIsHtml = isHtml(message.content)
+  const { cleanContent, attachments } = parseAttachments(message.content)
+  const contentIsHtml = isHtml(cleanContent)
   const showSent = isOutbound && !isNote && message.sender_type === 'staff' && OUTBOUND_CHANNELS.has(channel)
 
   if (isNote) {
@@ -64,7 +93,10 @@ export default function MessageBubble({ message, currentUserId, channel }: Messa
           <span className="text-xs text-gray-600">{formatDateTime(message.created_at)}</span>
           {showSent && <SentBadge />}
         </div>
-        <HtmlEmailViewer html={message.content} />
+        <HtmlEmailViewer html={cleanContent} />
+        {attachments.length > 0 && (
+          <AttachmentChips attachments={attachments} conversationId={message.conversation_id} />
+        )}
       </div>
     )
   }
@@ -95,14 +127,39 @@ export default function MessageBubble({ message, currentUserId, channel }: Messa
               : 'bg-cbba-navy-light border border-white/10 text-gray-200 rounded-tl-sm'
           }`}
         >
-          {message.content}
+          {cleanContent}
         </div>
+        {attachments.length > 0 && (
+          <AttachmentChips attachments={attachments} conversationId={message.conversation_id} />
+        )}
         {showSent && (
           <div className="flex justify-end">
             <SentBadge />
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function AttachmentChips({ attachments, conversationId }: { attachments: AttachmentChip[]; conversationId: string }) {
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {attachments.map((att) => (
+        <a
+          key={att.id}
+          href={`/api/conversations/${conversationId}/attachment?msgId=${encodeURIComponent(att.msgId)}&attId=${encodeURIComponent(att.id)}&name=${encodeURIComponent(att.name)}`}
+          download={att.name}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:text-white hover:border-white/25 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+          </svg>
+          <span className="max-w-[180px] truncate">{att.name}</span>
+          {att.size > 0 && <span className="text-gray-500 flex-shrink-0">{formatFileSize(att.size)}</span>}
+        </a>
+      ))}
     </div>
   )
 }

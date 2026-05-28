@@ -26,6 +26,38 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
   const [cannedSearch, setCannedSearch] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const draftKey = `cbba-draft:${conversationId}`
+
+  // Load draft when conversation changes
+  useEffect(() => {
+    setContent('')
+    setIsNote(false)
+    setCollapsed(true)
+    try {
+      const saved = localStorage.getItem(`cbba-draft:${conversationId}`)
+      if (saved) {
+        const draft = JSON.parse(saved) as { content: string; isNote: boolean }
+        if (draft.content) {
+          setContent(draft.content)
+          setIsNote(draft.isNote ?? false)
+          setCollapsed(false)
+        }
+      }
+    } catch {}
+  }, [conversationId])
+
+  // Debounce-save draft to localStorage whenever content changes
+  useEffect(() => {
+    if (!content) {
+      localStorage.removeItem(draftKey)
+      return
+    }
+    const timer = setTimeout(() => {
+      localStorage.setItem(draftKey, JSON.stringify({ content, isNote }))
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [content, isNote, draftKey])
+
   function getTextContent(html: string): string {
     // Strip HTML tags to get plain text for empty check
     return html.replace(/<[^>]*>/g, '').trim()
@@ -52,6 +84,7 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
       return
     }
 
+    localStorage.removeItem(`cbba-draft:${conversationId}`)
     setContent('')
     setAiSuggested(false)
     setSending(false)
@@ -102,13 +135,25 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
   const isEmpty = !getTextContent(content)
 
   if (collapsed) {
+    const hasDraft = !!content
     return (
       <div className="flex-shrink-0 border-t border-white/5 bg-cbba-navy px-4 py-3">
         <button
           onClick={() => setCollapsed(false)}
-          className="w-full text-left px-3 py-2.5 rounded-lg border border-white/10 bg-cbba-navy-light text-sm text-gray-500 hover:text-gray-300 hover:border-white/20 transition-colors"
+          className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+            hasDraft
+              ? 'border-cbba-purple/40 bg-cbba-purple/5 text-gray-300 hover:border-cbba-purple/60'
+              : 'border-white/10 bg-cbba-navy-light text-gray-500 hover:text-gray-300 hover:border-white/20'
+          }`}
         >
-          Reply to this conversation...
+          {hasDraft ? (
+            <span className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-cbba-purple flex-shrink-0" />
+              Draft saved — click to continue
+            </span>
+          ) : (
+            'Reply to this conversation...'
+          )}
         </button>
       </div>
     )
