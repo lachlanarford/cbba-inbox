@@ -42,6 +42,15 @@ export default function ChannelManager({ configs: initialConfigs, formWebhookUrl
     const supabase = createClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await supabase.from('channel_configs').update({ metadata: metadata as any }).eq('id', configId)
+
+    const department = metadata.default_department as string | null | undefined
+    if (department) {
+      await fetch('/api/admin/backfill-departments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelConfigId: configId, department }),
+      })
+    }
   }
 
   function handleConfigSaved(newConfig: ChannelConfig) {

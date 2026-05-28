@@ -73,7 +73,7 @@ export default async function AppLayout({
         <Sidebar user={appUser} chatMode={chatMode} />
         <div className="flex flex-col flex-1 min-w-0">
           <TopBar userId={appUser.id} />
-          <main className="flex-1 overflow-auto p-6">
+          <main className="flex-1 overflow-auto p-6 relative">
             {children}
           </main>
         </div>

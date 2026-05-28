@@ -113,7 +113,7 @@ export default function InboxLayout() {
   ].filter(Boolean).length
 
   return (
-    <div className="flex h-full overflow-hidden -m-6">
+    <div className="absolute inset-0 flex overflow-hidden">
       {/* Left panel */}
       {!listCollapsed && (
         <div
