@@ -260,6 +260,16 @@ export async function markAsRead(channelConfigId: string, messageId: string): Pr
   })
 }
 
+export async function markThreadAsUnread(channelConfigId: string, threadId: string): Promise<void> {
+  const auth = await getAuthenticatedClient(channelConfigId)
+  const gmail = google.gmail({ version: 'v1', auth })
+  await gmail.users.threads.modify({
+    userId: 'me',
+    id: threadId,
+    requestBody: { addLabelIds: ['UNREAD'] },
+  })
+}
+
 export async function watchInbox(channelConfigId: string): Promise<string> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })

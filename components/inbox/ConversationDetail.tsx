@@ -15,6 +15,10 @@ import FeedbackEmailModal from './FeedbackEmailModal'
 import type { ConversationDetail as ConversationDetailType, FeedbackRequest } from '@/types/database'
 import type { Database } from '@/types/supabase'
 
+interface ConversationWithConfig extends ConversationDetailType {
+  channel_config: { id: string; identifier: string } | null
+}
+
 type ConversationUpdate = Database['public']['Tables']['conversations']['Update']
 
 const STATUSES = ['open', 'in_progress', 'waiting', 'closed']
@@ -36,7 +40,7 @@ export default function ConversationDetail({
 }: ConversationDetailProps) {
   const currentUser = useAppUser()
   const users = useUsers()
-  const [conversation, setConversation] = useState<ConversationDetailType | null>(null)
+  const [conversation, setConversation] = useState<ConversationWithConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [feedbackRequest, setFeedbackRequest] = useState<FeedbackRequest | null>(null)
@@ -49,11 +53,11 @@ export default function ConversationDetail({
     const supabase = createClient()
     supabase
       .from('conversations')
-      .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url)')
+      .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
       .eq('id', conversationId)
       .single()
       .then(({ data }) => {
-        setConversation(data as unknown as ConversationDetailType | null)
+        setConversation(data as unknown as ConversationWithConfig | null)
         setLoading(false)
       })
 
@@ -85,7 +89,7 @@ export default function ConversationDetail({
         filter: `id=eq.${conversationId}`,
       }, (payload) => {
         setConversation((prev) =>
-          prev ? { ...prev, ...(payload.new as Partial<ConversationDetailType>) } : prev
+          prev ? { ...prev, ...(payload.new as Partial<ConversationWithConfig>) } : prev
         )
       })
       .subscribe()
@@ -117,9 +121,9 @@ export default function ConversationDetail({
       .from('conversations')
       .update(enriched)
       .eq('id', conversationId)
-      .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url)')
+      .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
       .single()
-    if (data) setConversation(data as unknown as ConversationDetailType)
+    if (data) setConversation(data as unknown as ConversationWithConfig)
   }
 
   async function closeConversation() {
@@ -190,6 +194,14 @@ export default function ConversationDetail({
                 <p className="text-xs text-gray-400 mt-0.5">
                   {contact?.full_name ?? contact?.email ?? 'Unknown contact'}
                 </p>
+                {conversation.channel === 'gmail' && conversation.channel_config?.identifier && (
+                  <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-1">
+                    <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    {conversation.channel_config.identifier}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -336,7 +348,18 @@ export default function ConversationDetail({
                 </svg>
               </button>
               {showMoreMenu && (
-                <div className="absolute right-0 top-8 w-48 bg-cbba-navy-light border border-white/10 rounded-lg shadow-xl z-10 py-1">
+                <div className="absolute right-0 top-8 w-52 bg-cbba-navy-light border border-white/10 rounded-lg shadow-xl z-10 py-1">
+                  <button
+                    onClick={async () => {
+                      setShowMoreMenu(false)
+                      await fetch(`/api/conversations/${conversationId}/mark-unread`, { method: 'POST' })
+                      onDeleted?.()
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    Mark as unread{conversation.channel === 'gmail' ? ' (and Gmail)' : ''}
+                  </button>
+                  <div className="my-1 border-t border-white/5" />
                   <button
                     onClick={() => {
                       closeConversation()

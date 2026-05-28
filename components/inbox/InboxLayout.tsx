@@ -25,6 +25,7 @@ export default function InboxLayout() {
   const [listCollapsed, setListCollapsed] = useState(false)
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null)
   const users = useUsers()
 
@@ -98,12 +99,25 @@ export default function InboxLayout() {
 
   const hasChecked = checkedIds.size > 0
 
+  const activeFilterCount = [
+    filters.status !== 'open',
+    filters.search !== '',
+    filters.email !== '',
+    filters.department !== '',
+    filters.priority !== '',
+    filters.channel !== '',
+    filters.channelConfigId !== '',
+    filters.assignedTo !== '',
+    filters.dateFrom !== '',
+    filters.dateTo !== '',
+  ].filter(Boolean).length
+
   return (
     <div className="flex h-full overflow-hidden -m-6">
       {/* Left panel */}
       {!listCollapsed && (
         <div
-          className="flex-shrink-0 flex flex-col bg-cbba-navy-dark border-r border-white/5"
+          className="flex-shrink-0 flex flex-col overflow-hidden bg-cbba-navy-dark border-r border-white/5"
           style={{ width: listWidth }}
         >
           {/* Panel header / Bulk action bar */}
@@ -197,6 +211,22 @@ export default function InboxLayout() {
                   </svg>
                 </button>
                 <button
+                  onClick={() => setFiltersOpen((v) => !v)}
+                  title={filtersOpen ? 'Hide filters' : 'Show filters'}
+                  className={`relative p-1 rounded transition-colors ${
+                    filtersOpen ? 'text-white bg-white/10' : 'text-gray-500 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18M7 8h10M11 12h2M9 16h6" />
+                  </svg>
+                  {activeFilterCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-cbba-purple text-[9px] font-bold text-white leading-none">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+                <button
                   onClick={() => setShowModal(true)}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light transition-colors"
                 >
@@ -209,7 +239,7 @@ export default function InboxLayout() {
             </div>
           )}
 
-          <FilterBar filters={filters} onFilterChange={updateFilter} onClearAll={clearFilters} />
+          <FilterBar filters={filters} onFilterChange={updateFilter} onClearAll={clearFilters} filtersOpen={filtersOpen} />
 
           <ConversationList
             filters={filters}

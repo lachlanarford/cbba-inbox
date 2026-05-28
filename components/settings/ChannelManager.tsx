@@ -37,6 +37,13 @@ export default function ChannelManager({ configs: initialConfigs, formWebhookUrl
     await supabase.from('channel_configs').delete().eq('id', configId)
   }
 
+  async function handleUpdateMetadata(configId: string, metadata: Record<string, unknown>) {
+    setConfigs((prev) => prev.map((c) => c.id === configId ? { ...c, metadata } : c))
+    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await supabase.from('channel_configs').update({ metadata: metadata as any }).eq('id', configId)
+  }
+
   function handleConfigSaved(newConfig: ChannelConfig) {
     setConfigs((prev) => {
       const existing = prev.findIndex((c) => c.id === newConfig.id)
@@ -71,6 +78,7 @@ export default function ChannelManager({ configs: initialConfigs, formWebhookUrl
           formSecret={channelType === 'form' ? formSecret : undefined}
           onToggle={handleToggle}
           onRemove={channelType !== 'form' ? handleRemove : undefined}
+          onUpdateMetadata={channelType === 'gmail' ? handleUpdateMetadata : undefined}
           onConnect={
             channelType === 'gmail'
               ? () => setGmailModalOpen(true)

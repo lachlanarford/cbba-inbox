@@ -33,9 +33,10 @@ interface FilterBarProps {
   filters: InboxFilters
   onFilterChange: <K extends keyof InboxFilters>(key: K, value: InboxFilters[K]) => void
   onClearAll: () => void
+  filtersOpen: boolean
 }
 
-export default function FilterBar({ filters, onFilterChange, onClearAll }: FilterBarProps) {
+export default function FilterBar({ filters, onFilterChange, onClearAll, filtersOpen }: FilterBarProps) {
   const users = useUsers()
   const [gmailAccounts, setGmailAccounts] = useState<Array<{ id: string; identifier: string }>>([])
 
@@ -63,7 +64,7 @@ export default function FilterBar({ filters, onFilterChange, onClearAll }: Filte
   return (
     <div className="flex-shrink-0 border-b border-white/5">
       {/* Status tabs */}
-      <div className="flex items-center gap-0.5 px-2 pt-2 pb-1">
+      <div className="flex items-center gap-0.5 px-2 pt-2 pb-1.5">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -79,71 +80,74 @@ export default function FilterBar({ filters, onFilterChange, onClearAll }: Filte
         ))}
       </div>
 
-      {/* Search inputs */}
-      <div className="px-3 py-1.5 space-y-1.5">
-        <SearchInput
-          icon="search"
-          placeholder="Search by name or subject..."
-          value={filters.search}
-          onChange={(v) => onFilterChange('search', v)}
-        />
-        <SearchInput
-          icon="email"
-          placeholder="Filter by email..."
-          value={filters.email}
-          onChange={(v) => onFilterChange('email', v)}
-        />
-      </div>
+      {/* Collapsible search + filter pills */}
+      {filtersOpen && (
+        <>
+          <div className="px-3 pb-1.5 space-y-1.5">
+            <SearchInput
+              icon="search"
+              placeholder="Search by name or subject..."
+              value={filters.search}
+              onChange={(v) => onFilterChange('search', v)}
+            />
+            <SearchInput
+              icon="email"
+              placeholder="Filter by email..."
+              value={filters.email}
+              onChange={(v) => onFilterChange('email', v)}
+            />
+          </div>
 
-      {/* Filter pills */}
-      <div className="flex items-center gap-1.5 px-3 pb-2.5 flex-wrap">
-        <FilterPill
-          label="Department"
-          value={filters.department}
-          onChange={(v) => onFilterChange('department', v)}
-          options={DEPARTMENTS.map((d) => ({ value: d, label: d }))}
-        />
-        <FilterPill
-          label="Priority"
-          value={filters.priority}
-          onChange={(v) => onFilterChange('priority', v)}
-          options={PRIORITIES}
-        />
-        <FilterPill
-          label="Channel"
-          value={filters.channel}
-          onChange={(v) => onFilterChange('channel', v)}
-          options={CHANNELS}
-        />
-        <FilterPill
-          label="Assigned to"
-          value={filters.assignedTo}
-          onChange={(v) => onFilterChange('assignedTo', v)}
-          options={users.map((u) => ({ value: u.id, label: u.full_name ?? u.email }))}
-        />
-        {gmailAccounts.length > 1 && (
-          <FilterPill
-            label="Email account"
-            value={filters.channelConfigId}
-            onChange={(v) => onFilterChange('channelConfigId', v)}
-            options={gmailAccounts.map((a) => ({ value: a.id, label: a.identifier }))}
-          />
-        )}
-        <DateRangePill
-          dateFrom={filters.dateFrom}
-          dateTo={filters.dateTo}
-          onFromChange={(v) => onFilterChange('dateFrom', v)}
-          onToChange={(v) => onFilterChange('dateTo', v)}
-        />
-        {hasActiveFilters && (
-          <button
-            onClick={onClearAll}
-            className="text-xs text-gray-500 hover:text-white transition-colors px-1 ml-auto"
-          >
-            Clear all
-          </button>
-        )}
-      </div>
+          <div className="flex items-center gap-1.5 px-3 pb-2.5 flex-wrap">
+            <FilterPill
+              label="Department"
+              value={filters.department}
+              onChange={(v) => onFilterChange('department', v)}
+              options={DEPARTMENTS.map((d) => ({ value: d, label: d }))}
+            />
+            <FilterPill
+              label="Priority"
+              value={filters.priority}
+              onChange={(v) => onFilterChange('priority', v)}
+              options={PRIORITIES}
+            />
+            <FilterPill
+              label="Channel"
+              value={filters.channel}
+              onChange={(v) => onFilterChange('channel', v)}
+              options={CHANNELS}
+            />
+            <FilterPill
+              label="Assigned to"
+              value={filters.assignedTo}
+              onChange={(v) => onFilterChange('assignedTo', v)}
+              options={users.map((u) => ({ value: u.id, label: u.full_name ?? u.email }))}
+            />
+            {gmailAccounts.length > 1 && (
+              <FilterPill
+                label="Email account"
+                value={filters.channelConfigId}
+                onChange={(v) => onFilterChange('channelConfigId', v)}
+                options={gmailAccounts.map((a) => ({ value: a.id, label: a.identifier }))}
+              />
+            )}
+            <DateRangePill
+              dateFrom={filters.dateFrom}
+              dateTo={filters.dateTo}
+              onFromChange={(v) => onFilterChange('dateFrom', v)}
+              onToChange={(v) => onFilterChange('dateTo', v)}
+            />
+            {hasActiveFilters && (
+              <button
+                onClick={onClearAll}
+                className="text-xs text-gray-500 hover:text-white transition-colors px-1 ml-auto"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import type { ChannelConfig } from '@/types/database'
 
+const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'] as const
+
 interface ChannelCardProps {
   channelType: string
   configs: ChannelConfig[]
@@ -11,6 +13,7 @@ interface ChannelCardProps {
   onToggle: (id: string, active: boolean) => void
   onRemove?: (id: string) => void
   onConnect?: () => void
+  onUpdateMetadata?: (id: string, metadata: Record<string, unknown>) => Promise<void>
 }
 
 const CHANNEL_META: Record<string, { label: string; description: string; icon: React.ReactNode; comingSoon?: boolean }> = {
@@ -72,6 +75,7 @@ export default function ChannelCard({
   onToggle,
   onRemove,
   onConnect,
+  onUpdateMetadata,
 }: ChannelCardProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const meta = CHANNEL_META[channelType] ?? { label: channelType, description: '', icon: null }
@@ -167,36 +171,57 @@ export default function ChannelCard({
       {/* Connected accounts list (non-form channels) */}
       {!isFormChannel && configs.length > 0 && (
         <div className="mt-4 space-y-2">
-          {configs.map((config) => (
-            <div key={config.id} className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-white/4">
-              <div className="flex items-center gap-2 min-w-0">
-                <StatusDot active={config.is_active} />
-                <span className="text-xs text-gray-300 truncate">{config.display_name}</span>
-                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                  config.is_active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/8 text-gray-500'
-                }`}>
-                  {config.is_active ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Toggle
-                  checked={config.is_active}
-                  onChange={(v) => onToggle(config.id, v)}
-                />
-                {onRemove && (
-                  <button
-                    onClick={() => onRemove(config.id)}
-                    className="p-1 rounded text-gray-600 hover:text-red-400 transition-colors"
-                    title="Remove"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+          {configs.map((config) => {
+            const defaultDept = ((config.metadata ?? {}) as Record<string, string>).default_department ?? ''
+            return (
+              <div key={config.id} className="rounded-lg bg-white/4 overflow-hidden">
+                <div className="flex items-center justify-between gap-3 py-2 px-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <StatusDot active={config.is_active} />
+                    <span className="text-xs text-gray-300 truncate">{config.display_name}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                      config.is_active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/8 text-gray-500'
+                    }`}>
+                      {config.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Toggle
+                      checked={config.is_active}
+                      onChange={(v) => onToggle(config.id, v)}
+                    />
+                    {onRemove && (
+                      <button
+                        onClick={() => onRemove(config.id)}
+                        className="p-1 rounded text-gray-600 hover:text-red-400 transition-colors"
+                        title="Remove"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {channelType === 'gmail' && onUpdateMetadata && (
+                  <div className="flex items-center gap-2 px-3 pb-2.5">
+                    <span className="text-xs text-gray-500 flex-shrink-0">Default department:</span>
+                    <select
+                      value={defaultDept}
+                      onChange={(e) => onUpdateMetadata(config.id, {
+                        ...(config.metadata ?? {}),
+                        default_department: e.target.value || null,
+                      })}
+                      className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-gray-300 focus:outline-none focus:border-cbba-purple cursor-pointer transition-colors"
+                    >
+                      <option value="">None</option>
+                      {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
                 )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

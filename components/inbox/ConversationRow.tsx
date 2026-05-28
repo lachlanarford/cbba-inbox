@@ -28,6 +28,8 @@ export default function ConversationRow({
       className={`group relative w-full text-left border-b border-white/5 transition-colors duration-100 cursor-pointer ${
         isSelected
           ? 'bg-cbba-purple/20 border-l-2 border-l-cbba-purple'
+          : !is_read
+          ? 'hover:bg-white/5 border-l-2 border-l-cbba-purple/60'
           : 'hover:bg-white/5 border-l-2 border-l-transparent'
       } ${isChecked ? 'bg-cbba-purple/10' : ''}`}
       onClick={onClick}
@@ -52,9 +54,9 @@ export default function ConversationRow({
           </span>
           {/* Unread dot — shown when not hovering and no items selected */}
           {!is_read ? (
-            <span className={`${hasAnyChecked ? 'hidden' : 'block group-hover:hidden'} w-2 h-2 rounded-full bg-cbba-purple`} />
+            <span className={`${hasAnyChecked ? 'hidden' : 'block group-hover:hidden'} w-2.5 h-2.5 rounded-full bg-cbba-purple ring-2 ring-cbba-purple/25`} />
           ) : (
-            <span className={`${hasAnyChecked ? 'hidden' : 'block group-hover:hidden'} w-2 h-2`} />
+            <span className={`${hasAnyChecked ? 'hidden' : 'block group-hover:hidden'} w-2.5 h-2.5`} />
           )}
         </div>
 
