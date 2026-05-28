@@ -76,8 +76,9 @@ export interface ParsedEmail {
   internalDate: string
 }
 
-export interface FetchMessagesResult {
+export interface FetchHistoryResult {
   messages: ParsedEmail[]
+  closedThreadIds: string[]
   newHistoryId: string | null
 }
 
@@ -85,23 +86,23 @@ export async function fetchMessagesFromHistory(
   channelConfigId: string,
   historyId: string,
   _email: string
-): Promise<FetchMessagesResult> {
+): Promise<FetchHistoryResult> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
 
   const historyRes = await gmail.users.history.list({
     userId: 'me',
     startHistoryId: historyId,
-    historyTypes: ['messageAdded'],
-    labelId: 'INBOX',
+    historyTypes: ['messageAdded', 'labelAdded', 'labelRemoved'],
   })
 
   const messages: ParsedEmail[] = []
+  const closedThreadIds = new Set<string>()
+
   for (const record of historyRes.data.history ?? []) {
     for (const added of record.messagesAdded ?? []) {
       if (!added.message?.id) continue
-
-      // Skip messages we sent (SENT label present)
+      if (!added.message.labelIds?.includes('INBOX')) continue
       if (added.message.labelIds?.includes('SENT')) continue
 
       const full = await gmail.users.messages.get({
@@ -109,13 +110,36 @@ export async function fetchMessagesFromHistory(
         id: added.message.id,
         format: 'full',
       })
-
       const parsed = parseMessage(full.data)
       if (parsed) messages.push(parsed)
     }
+
+    // INBOX label removed = archived or moved to a folder
+    for (const removal of record.labelsRemoved ?? []) {
+      if (removal.message?.threadId && removal.labelIds?.includes('INBOX')) {
+        closedThreadIds.add(removal.message.threadId)
+      }
+    }
+
+    // TRASH label added = moved to trash / deleted
+    for (const addition of record.labelsAdded ?? []) {
+      if (addition.message?.threadId && addition.labelIds?.includes('TRASH')) {
+        closedThreadIds.add(addition.message.threadId)
+      }
+    }
   }
 
-  return { messages, newHistoryId: historyRes.data.historyId ?? null }
+  // If a thread got a new message AND was archived in the same history window,
+  // don't close it -- the new message should reopen it via processIncomingMessage
+  for (const msg of messages) {
+    closedThreadIds.delete(msg.threadId)
+  }
+
+  return {
+    messages,
+    closedThreadIds: Array.from(closedThreadIds),
+    newHistoryId: historyRes.data.historyId ?? null,
+  }
 }
 
 export async function getCurrentHistoryId(channelConfigId: string): Promise<string> {

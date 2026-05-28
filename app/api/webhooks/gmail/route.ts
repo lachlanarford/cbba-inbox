@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       return new Response('', { status: 200 })
     }
 
-    const { messages: emails, newHistoryId } = await fetchMessagesFromHistory(
+    const { messages: emails, closedThreadIds, newHistoryId } = await fetchMessagesFromHistory(
       config.id,
       storedHistoryId,
       emailAddress
@@ -92,6 +92,15 @@ export async function POST(request: Request) {
       triggerCategorise(result.conversationId, email.body, email.subject)
 
       await markAsRead(config.id, email.messageId)
+    }
+
+    if (closedThreadIds.length > 0) {
+      await supabase
+        .from('conversations')
+        .update({ status: 'closed' })
+        .in('external_thread_id', closedThreadIds)
+        .eq('channel_config_id', config.id)
+        .neq('status', 'closed')
     }
 
     if (newHistoryId && newHistoryId !== storedHistoryId) {
