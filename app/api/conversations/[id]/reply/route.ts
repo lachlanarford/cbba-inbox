@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendReply as sendGmailReply } from '@/lib/gmail/client'
+import { sendReply as sendGmailReply, type OutboundAttachment } from '@/lib/gmail/client'
 import { sendMetaMessage } from '@/lib/channels/meta'
 
 export async function POST(
@@ -17,14 +17,14 @@ export async function POST(
   const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
   if (!appUser) return NextResponse.json({ error: 'User not found' }, { status: 401 })
 
-  let body: { content: string; isNote: boolean; isAiSuggested?: boolean }
+  let body: { content: string; isNote: boolean; isAiSuggested?: boolean; attachments?: OutboundAttachment[] }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { content, isNote, isAiSuggested } = body
+  const { content, isNote, isAiSuggested, attachments } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
   const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
@@ -73,6 +73,7 @@ export async function POST(
         from: channelConfig.identifier,
         subject: conversation.subject ?? '(no subject)',
         body: bodyWithSig,
+        attachments: attachments ?? [],
       })
     } catch (err) {
       console.error('[reply] Gmail send failed:', err)
@@ -124,12 +125,18 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to save message' }, { status: 500 })
   }
 
-  // Advance status if this is a real reply on an open conversation
+  // Advance status if this is a real reply on an open conversation; flag attachments if sent
+  const convUpdate: Record<string, unknown> = {}
   if (!isNote && conversation.status === 'open') {
-    await supabase
-      .from('conversations')
-      .update({ status: 'in_progress', is_read: true })
-      .eq('id', conversationId)
+    convUpdate.status = 'in_progress'
+    convUpdate.is_read = true
+  }
+  if (!isNote && attachments && attachments.length > 0) {
+    convUpdate.has_attachments = true
+  }
+  if (Object.keys(convUpdate).length > 0) {
+    // @ts-expect-error has_attachments not in generated types yet
+    await supabase.from('conversations').update(convUpdate).eq('id', conversationId)
   }
 
   return NextResponse.json({ success: true, message_id: message.id })

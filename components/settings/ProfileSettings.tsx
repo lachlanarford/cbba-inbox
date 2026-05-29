@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAppUser } from '@/contexts/AppUserContext'
 import type { AppUser } from '@/types/supabase'
 import RichTextEditor from '@/components/ui/RichTextEditor'
+import ThemeToggle from '@/components/layout/ThemeToggle'
 
 export default function ProfileSettings() {
   const user = useAppUser()
@@ -146,6 +147,14 @@ export default function ProfileSettings() {
             placeholder="e.g. Jane Smith&#10;Registrations Manager&#10;CBBA Storm Basketball"
             minRows={5}
           />
+        </div>
+      </div>
+
+      {/* Appearance */}
+      <div>
+        <h3 className="text-sm font-semibold text-white mb-3">Appearance</h3>
+        <div className="w-fit rounded-lg bg-white/5 border border-white/10">
+          <ThemeToggle />
         </div>
       </div>
 

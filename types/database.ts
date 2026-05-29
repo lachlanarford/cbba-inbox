@@ -49,6 +49,7 @@ export interface Conversation {
   last_message_at: string
   external_thread_id: string | null
   channel_config_id: string | null
+  has_attachments: boolean
 }
 
 export interface KnowledgeBaseEntry {

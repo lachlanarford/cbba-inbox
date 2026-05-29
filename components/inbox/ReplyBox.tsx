@@ -9,6 +9,13 @@ interface CannedResponse {
   content: string
 }
 
+interface AttachmentFile {
+  name: string
+  mimeType: string
+  data: string // base64
+  size: number
+}
+
 interface ReplyBoxProps {
   conversationId: string
 }
@@ -24,7 +31,9 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
   const [showCanned, setShowCanned] = useState(false)
   const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([])
   const [cannedSearch, setCannedSearch] = useState('')
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const draftKey = `cbba-draft:${conversationId}`
 
@@ -33,6 +42,7 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     setContent('')
     setIsNote(false)
     setCollapsed(true)
+    setAttachments([])
     try {
       const saved = localStorage.getItem(`cbba-draft:${conversationId}`)
       if (saved) {
@@ -74,7 +84,7 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     const res = await fetch(`/api/conversations/${conversationId}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: trimmed, isNote, isAiSuggested: aiSuggested && !isNote }),
+      body: JSON.stringify({ content: trimmed, isNote, isAiSuggested: aiSuggested && !isNote, attachments: isNote ? [] : attachments }),
     })
 
     if (!res.ok) {
@@ -87,6 +97,7 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     localStorage.removeItem(`cbba-draft:${conversationId}`)
     setContent('')
     setAiSuggested(false)
+    setAttachments([])
     setSending(false)
     setCollapsed(true)
   }, [content, conversationId, isNote, sending, aiSuggested])
@@ -104,6 +115,29 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     setCannedSearch('')
     setAiSuggested(false)
     textareaRef.current?.focus()
+  }
+
+  async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    const loaded = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<AttachmentFile>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              const dataUrl = reader.result as string
+              // Strip "data:<mime>;base64," prefix to get raw base64
+              const base64 = dataUrl.split(',')[1] ?? ''
+              resolve({ name: file.name, mimeType: file.type || 'application/octet-stream', data: base64, size: file.size })
+            }
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+          })
+      )
+    )
+    setAttachments((prev) => [...prev, ...loaded])
+    e.target.value = ''
   }
 
   const handleSuggestReply = useCallback(async () => {
@@ -214,6 +248,27 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
             minRows={4}
           />
         )}
+        {/* Attachment chips */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-2">
+            {attachments.map((att, i) => (
+              <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 max-w-[160px]">
+                <svg className="w-3 h-3 flex-shrink-0 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32" />
+                </svg>
+                <span className="truncate">{att.name}</span>
+                <button
+                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                  className="ml-0.5 flex-shrink-0 text-gray-600 hover:text-white transition-colors"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="flex items-center justify-between px-3 pb-3">
           <div className="flex items-center gap-3">
             {aiSuggested && (
@@ -225,6 +280,20 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
             {error && <span className="text-xs text-red-400">{error}</span>}
           </div>
           <div className="flex items-center gap-2">
+            {!isNote && (
+              <>
+                <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilePick} />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Attach files"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 text-gray-400 text-xs hover:text-white hover:border-white/20 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                  </svg>
+                </button>
+              </>
+            )}
             {!isNote && cannedResponses.length > 0 && (
               <div className="relative">
                 <button

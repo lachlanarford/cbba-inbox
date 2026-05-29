@@ -255,27 +255,66 @@ function collectInlineImages(payload: GmailPart | undefined): Map<string, { mime
   return map
 }
 
+export interface OutboundAttachment {
+  name: string
+  mimeType: string
+  data: string // base64-encoded file data
+}
+
 export async function sendReply(
   channelConfigId: string,
-  opts: { threadId: string; to: string; from: string; subject: string; body: string }
+  opts: { threadId: string; to: string; from: string; subject: string; body: string; attachments?: OutboundAttachment[] }
 ): Promise<void> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
 
   const subject = opts.subject.startsWith('Re:') ? opts.subject : `Re: ${opts.subject}`
   const isHtml = opts.body.trimStart().startsWith('<')
-  const contentType = isHtml ? 'text/html' : 'text/plain'
-  const raw = [
-    `From: ${opts.from}`,
-    `To: ${opts.to}`,
-    `Subject: ${subject}`,
-    `In-Reply-To: ${opts.threadId}`,
-    `References: ${opts.threadId}`,
-    `Content-Type: ${contentType}; charset=utf-8`,
-    'MIME-Version: 1.0',
-    '',
-    opts.body,
-  ].join('\r\n')
+  const bodyContentType = isHtml ? 'text/html' : 'text/plain'
+
+  let raw: string
+
+  if (opts.attachments && opts.attachments.length > 0) {
+    const boundary = `cbba_${Date.now()}`
+    const parts: string[] = [
+      `From: ${opts.from}`,
+      `To: ${opts.to}`,
+      `Subject: ${subject}`,
+      `In-Reply-To: ${opts.threadId}`,
+      `References: ${opts.threadId}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      `Content-Type: ${bodyContentType}; charset=utf-8`,
+      '',
+      opts.body,
+    ]
+    for (const att of opts.attachments) {
+      parts.push(
+        `--${boundary}`,
+        `Content-Type: ${att.mimeType}; name="${att.name}"`,
+        `Content-Disposition: attachment; filename="${att.name}"`,
+        `Content-Transfer-Encoding: base64`,
+        '',
+        att.data,
+      )
+    }
+    parts.push(`--${boundary}--`)
+    raw = parts.join('\r\n')
+  } else {
+    raw = [
+      `From: ${opts.from}`,
+      `To: ${opts.to}`,
+      `Subject: ${subject}`,
+      `In-Reply-To: ${opts.threadId}`,
+      `References: ${opts.threadId}`,
+      `Content-Type: ${bodyContentType}; charset=utf-8`,
+      'MIME-Version: 1.0',
+      '',
+      opts.body,
+    ].join('\r\n')
+  }
 
   const encoded = Buffer.from(raw).toString('base64url')
   await gmail.users.messages.send({

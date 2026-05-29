@@ -91,6 +91,14 @@ export async function POST(request: Request) {
       })
       triggerCategorise(result.conversationId, email.body, email.subject)
 
+      if (email.body.includes('<!--CBBA_ATT:')) {
+        await supabase
+          .from('conversations')
+          // @ts-expect-error has_attachments not in generated types yet
+          .update({ has_attachments: true })
+          .eq('id', result.conversationId)
+      }
+
       await markAsRead(config.id, email.messageId)
     }
 
