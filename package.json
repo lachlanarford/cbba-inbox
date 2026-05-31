@@ -17,6 +17,7 @@
     "@tiptap/pm": "^3.23.5",
     "@tiptap/react": "^3.23.5",
     "@tiptap/starter-kit": "^3.23.5",
+    "@types/web-push": "^3.6.4",
     "@vercel/speed-insights": "^2.0.0",
     "cheerio": "^1.2.0",
     "googleapis": "^171.4.0",
@@ -25,7 +26,8 @@
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.8.1",
-    "resend": "^6.12.3"
+    "resend": "^6.12.3",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/node": "^20",

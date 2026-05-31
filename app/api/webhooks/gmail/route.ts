@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { fetchMessagesFromHistory, markAsRead } from '@/lib/gmail/client'
 import { processIncomingMessage } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
+import { sendPushToAll } from '@/lib/push/send'
 
 export async function POST(request: Request) {
   // Validate webhook secret via query param (set in Pub/Sub push subscription URL)
@@ -90,6 +91,14 @@ export async function POST(request: Request) {
         externalThreadId: email.threadId,
       })
       triggerCategorise(result.conversationId, email.body, email.subject)
+
+      const senderName = email.fromName ?? email.from
+      sendPushToAll({
+        title: `New message from ${senderName}`,
+        body: email.subject,
+        url: '/',
+        conversationId: result.conversationId,
+      }).catch(() => {})
 
       if (email.body.includes('<!--CBBA_ATT:')) {
         await supabase

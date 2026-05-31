@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { AppUserProvider } from '@/contexts/AppUserContext'
 import Sidebar from '@/components/layout/Sidebar'
 import TopBar from '@/components/layout/TopBar'
+import PushInit from '@/components/layout/PushInit'
 
 export default async function AppLayout({
   children,
@@ -69,6 +70,7 @@ export default async function AppLayout({
 
   return (
     <AppUserProvider user={appUser}>
+      <PushInit />
       <div className="flex h-screen overflow-hidden bg-cbba-navy">
         <Sidebar user={appUser} chatMode={chatMode} />
         <div className="flex flex-col flex-1 min-w-0">
