@@ -263,7 +263,7 @@ export interface OutboundAttachment {
 
 export async function sendReply(
   channelConfigId: string,
-  opts: { threadId: string; to: string; from: string; subject: string; body: string; attachments?: OutboundAttachment[] }
+  opts: { threadId: string; to: string; from: string; subject: string; body: string; attachments?: OutboundAttachment[]; cc?: string[]; bcc?: string[] }
 ): Promise<void> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
@@ -274,11 +274,16 @@ export async function sendReply(
 
   let raw: string
 
+  const ccHeaders = opts.cc && opts.cc.length > 0 ? [`Cc: ${opts.cc.join(', ')}`] : []
+  const bccHeaders = opts.bcc && opts.bcc.length > 0 ? [`Bcc: ${opts.bcc.join(', ')}`] : []
+
   if (opts.attachments && opts.attachments.length > 0) {
     const boundary = `cbba_${Date.now()}`
     const parts: string[] = [
       `From: ${opts.from}`,
       `To: ${opts.to}`,
+      ...ccHeaders,
+      ...bccHeaders,
       `Subject: ${subject}`,
       `In-Reply-To: ${opts.threadId}`,
       `References: ${opts.threadId}`,
@@ -306,6 +311,8 @@ export async function sendReply(
     raw = [
       `From: ${opts.from}`,
       `To: ${opts.to}`,
+      ...ccHeaders,
+      ...bccHeaders,
       `Subject: ${subject}`,
       `In-Reply-To: ${opts.threadId}`,
       `References: ${opts.threadId}`,

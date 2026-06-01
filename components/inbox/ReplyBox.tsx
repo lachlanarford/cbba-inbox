@@ -18,9 +18,10 @@ interface AttachmentFile {
 
 interface ReplyBoxProps {
   conversationId: string
+  channel?: string
 }
 
-export default function ReplyBox({ conversationId }: ReplyBoxProps) {
+export default function ReplyBox({ conversationId, channel }: ReplyBoxProps) {
   const [collapsed, setCollapsed] = useState(true)
   const [content, setContent] = useState('')
   const [isNote, setIsNote] = useState(false)
@@ -32,8 +33,12 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
   const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([])
   const [cannedSearch, setCannedSearch] = useState('')
   const [attachments, setAttachments] = useState<AttachmentFile[]>([])
+  const [showCcBcc, setShowCcBcc] = useState(false)
+  const [cc, setCc] = useState('')
+  const [bcc, setBcc] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const isGmail = channel === 'gmail'
 
   const draftKey = `cbba-draft:${conversationId}`
 
@@ -43,6 +48,9 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     setIsNote(false)
     setCollapsed(true)
     setAttachments([])
+    setCc('')
+    setBcc('')
+    setShowCcBcc(false)
     try {
       const saved = localStorage.getItem(`cbba-draft:${conversationId}`)
       if (saved) {
@@ -84,7 +92,14 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     const res = await fetch(`/api/conversations/${conversationId}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: trimmed, isNote, isAiSuggested: aiSuggested && !isNote, attachments: isNote ? [] : attachments }),
+      body: JSON.stringify({
+        content: trimmed,
+        isNote,
+        isAiSuggested: aiSuggested && !isNote,
+        attachments: isNote ? [] : attachments,
+        cc: (!isNote && isGmail && cc.trim()) ? cc.split(',').map((e) => e.trim()).filter(Boolean) : [],
+        bcc: (!isNote && isGmail && bcc.trim()) ? bcc.split(',').map((e) => e.trim()).filter(Boolean) : [],
+      }),
     })
 
     if (!res.ok) {
@@ -98,6 +113,9 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
     setContent('')
     setAiSuggested(false)
     setAttachments([])
+    setCc('')
+    setBcc('')
+    setShowCcBcc(false)
     setSending(false)
     setCollapsed(true)
   }, [content, conversationId, isNote, sending, aiSuggested])
@@ -217,6 +235,16 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
         >
           Internal Note
         </button>
+        {isGmail && !isNote && (
+          <button
+            onClick={() => setShowCcBcc((v) => !v)}
+            className={`ml-2 px-2.5 py-1.5 text-xs rounded-t-md transition-colors ${
+              showCcBcc ? 'text-cbba-purple' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            CC / BCC
+          </button>
+        )}
         <button
           onClick={() => setCollapsed(true)}
           className="ml-auto p-1.5 text-gray-600 hover:text-gray-400 transition-colors"
@@ -227,6 +255,32 @@ export default function ReplyBox({ conversationId }: ReplyBoxProps) {
           </svg>
         </button>
       </div>
+
+      {/* CC / BCC fields */}
+      {isGmail && !isNote && showCcBcc && (
+        <div className="mx-4 mt-2 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-gray-500 w-7 flex-shrink-0">CC</span>
+            <input
+              type="text"
+              value={cc}
+              onChange={(e) => setCc(e.target.value)}
+              placeholder="name@example.com, another@example.com"
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple transition-colors"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-gray-500 w-7 flex-shrink-0">BCC</span>
+            <input
+              type="text"
+              value={bcc}
+              onChange={(e) => setBcc(e.target.value)}
+              placeholder="name@example.com"
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple transition-colors"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Editor */}
       <div className={`mx-4 mt-0 rounded-b-lg border overflow-hidden ${isNote ? 'border-amber-500/20 bg-amber-500/5' : 'border-white/10 bg-cbba-navy-light'}`}>

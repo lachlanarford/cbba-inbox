@@ -401,7 +401,7 @@ export default function ConversationDetail({
         <MessageThread conversationId={conversationId} currentUserId={currentUser.id} channel={conversation.channel} />
 
         {/* Reply box */}
-        <ReplyBox conversationId={conversationId} />
+        <ReplyBox conversationId={conversationId} channel={conversation.channel} />
       </div>
 
       {/* Sidebar */}

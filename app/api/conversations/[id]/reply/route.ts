@@ -17,14 +17,14 @@ export async function POST(
   const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
   if (!appUser) return NextResponse.json({ error: 'User not found' }, { status: 401 })
 
-  let body: { content: string; isNote: boolean; isAiSuggested?: boolean; attachments?: OutboundAttachment[] }
+  let body: { content: string; isNote: boolean; isAiSuggested?: boolean; attachments?: OutboundAttachment[]; cc?: string[]; bcc?: string[] }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { content, isNote, isAiSuggested, attachments } = body
+  const { content, isNote, isAiSuggested, attachments, cc, bcc } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
   const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
@@ -74,6 +74,8 @@ export async function POST(
         subject: conversation.subject ?? '(no subject)',
         body: bodyWithSig,
         attachments: attachments ?? [],
+        cc: cc ?? [],
+        bcc: bcc ?? [],
       })
     } catch (err) {
       console.error('[reply] Gmail send failed:', err)
