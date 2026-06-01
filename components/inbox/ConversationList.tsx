@@ -19,7 +19,7 @@ export default function ConversationList({
   onSelect,
   onCheck,
 }: ConversationListProps) {
-  const { conversations, loading, error } = useConversations(filters)
+  const { conversations, loading, loadingMore, error, hasMore, loadMore } = useConversations(filters)
   const hasAnyChecked = checkedIds.size > 0
 
   if (loading) {
@@ -69,6 +69,17 @@ export default function ConversationList({
           onCheck={() => onCheck(conversation.id)}
         />
       ))}
+      {hasMore && (
+        <div className="py-3 px-4 flex justify-center">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40 transition-colors"
+          >
+            {loadingMore ? 'Loading...' : 'Load more'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
