@@ -102,6 +102,16 @@
       '#cbba-feedback-submit:disabled{opacity:0.4;cursor:default;}',
       '#cbba-feedback-skip{background:none;border:none;color:rgba(255,255,255,0.35);font-size:11px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;margin-top:8px;padding:4px;}',
       '#cbba-feedback-skip:hover{color:rgba(255,255,255,0.6);}',
+      // Markdown rendering in AI messages
+      '.cbba-msg-ai p{margin:0 0 6px;}',
+      '.cbba-msg-ai p:last-child{margin-bottom:0;}',
+      '.cbba-msg-ai ul{margin:4px 0 6px;padding-left:16px;}',
+      '.cbba-msg-ai ul:last-child{margin-bottom:0;}',
+      '.cbba-msg-ai li{margin-bottom:3px;}',
+      '.cbba-msg-ai li:last-child{margin-bottom:0;}',
+      '.cbba-msg-ai a{color:#a78bfa;text-decoration:underline;word-break:break-all;}',
+      '.cbba-msg-ai a:hover{color:#c4b5fd;}',
+      '.cbba-msg-ai strong{font-weight:600;color:#fff;}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -483,10 +493,53 @@
       });
   }
 
+  function renderMarkdown(text) {
+    function applyBold(s) {
+      return s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    }
+    function inline(s) {
+      var result = '';
+      var urlRegex = /(https?:\/\/[^\s<>"',)]+)/g;
+      var lastIndex = 0;
+      var match;
+      while ((match = urlRegex.exec(s)) !== null) {
+        result += applyBold(escHtml(s.slice(lastIndex, match.index)));
+        var url = escHtml(match[1]);
+        result += '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + '</a>';
+        lastIndex = match.index + match[0].length;
+      }
+      result += applyBold(escHtml(s.slice(lastIndex)));
+      return result;
+    }
+    var lines = text.split('\n');
+    var html = '';
+    var i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+      if (/^[-*]\s/.test(line)) {
+        var items = [];
+        while (i < lines.length && /^[-*]\s/.test(lines[i])) {
+          items.push('<li>' + inline(lines[i].replace(/^[-*]\s+/, '')) + '</li>');
+          i++;
+        }
+        html += '<ul>' + items.join('') + '</ul>';
+        continue;
+      }
+      if (line.trim() === '') { i++; continue; }
+      html += '<p>' + inline(line) + '</p>';
+      i++;
+    }
+    return html;
+  }
+
   function appendMessage(type, text) {
     var el = document.createElement('div');
     el.className = 'cbba-msg cbba-msg-' + type;
-    el.textContent = text;
+    if (type === 'ai') {
+      el.innerHTML = renderMarkdown(text);
+    } else {
+      el.textContent = text;
+    }
     messagesEl.appendChild(el);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     return el;
