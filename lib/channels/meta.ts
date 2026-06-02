@@ -18,10 +18,15 @@ export async function getMetaUserName(psid: string, accessToken: string): Promis
     const res = await fetch(
       `https://graph.facebook.com/v20.0/${psid}?fields=name&access_token=${encodeURIComponent(accessToken)}`
     )
-    if (!res.ok) return null
-    const data = await res.json() as { name?: string }
+    const data = await res.json() as { name?: string; error?: { message?: string; code?: number } }
+    if (!res.ok) {
+      console.error('[getMetaUserName] API error for PSID', psid, data.error)
+      return null
+    }
+    console.log('[getMetaUserName] PSID', psid, '-> name:', data.name ?? null)
     return data.name ?? null
-  } catch {
+  } catch (err) {
+    console.error('[getMetaUserName] fetch failed:', err)
     return null
   }
 }
