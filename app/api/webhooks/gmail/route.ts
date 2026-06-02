@@ -57,6 +57,7 @@ export async function POST(request: Request) {
   try {
     const metadata = (config.metadata ?? {}) as Record<string, string>
     const defaultDepartment = metadata?.default_department ?? null
+    const defaultAssignedTo = metadata?.default_assigned_to ?? null
     // Use stored historyId as startHistoryId -- the notification historyId IS the
     // current state, so querying from it returns nothing. The stored id predates the
     // change and lets history.list return the new message.
@@ -88,6 +89,7 @@ export async function POST(request: Request) {
         subject: email.subject,
         content: email.body,
         department: defaultDepartment,
+        assignedTo: defaultAssignedTo,
         externalThreadId: email.threadId,
       })
       triggerCategorise(result.conversationId, email.body, email.subject)

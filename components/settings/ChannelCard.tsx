@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import type { ChannelConfig } from '@/types/database'
+import type { ChannelConfig, StaffUser } from '@/types/database'
 
 const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'] as const
 
 interface ChannelCardProps {
   channelType: string
   configs: ChannelConfig[]
+  users?: StaffUser[]
   formWebhookUrl?: string
   formSecret?: string
   onToggle: (id: string, active: boolean) => void
@@ -70,6 +71,7 @@ const CHANNEL_META: Record<string, { label: string; description: string; icon: R
 export default function ChannelCard({
   channelType,
   configs,
+  users = [],
   formWebhookUrl,
   formSecret,
   onToggle,
@@ -204,19 +206,37 @@ export default function ChannelCard({
                   </div>
                 </div>
                 {channelType === 'gmail' && onUpdateMetadata && (
-                  <div className="flex items-center gap-2 px-3 pb-2.5">
-                    <span className="text-xs text-gray-500 flex-shrink-0">Default department:</span>
-                    <select
-                      value={defaultDept}
-                      onChange={(e) => onUpdateMetadata(config.id, {
-                        ...(config.metadata ?? {}),
-                        default_department: e.target.value || null,
-                      })}
-                      className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-gray-300 focus:outline-none focus:border-cbba-purple cursor-pointer transition-colors"
-                    >
-                      <option value="">None</option>
-                      {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-                    </select>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 flex-shrink-0">Default department:</span>
+                      <select
+                        value={defaultDept}
+                        onChange={(e) => onUpdateMetadata(config.id, {
+                          ...(config.metadata ?? {}),
+                          default_department: e.target.value || null,
+                        })}
+                        className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-gray-300 focus:outline-none focus:border-cbba-purple cursor-pointer transition-colors"
+                      >
+                        <option value="">None</option>
+                        {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 flex-shrink-0">Default assignee:</span>
+                      <select
+                        value={((config.metadata ?? {}) as Record<string, string>).default_assigned_to ?? ''}
+                        onChange={(e) => onUpdateMetadata(config.id, {
+                          ...(config.metadata ?? {}),
+                          default_assigned_to: e.target.value || null,
+                        })}
+                        className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-gray-300 focus:outline-none focus:border-cbba-purple cursor-pointer transition-colors"
+                      >
+                        <option value="">Unassigned</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={u.id}>{u.full_name ?? u.email}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )}
               </div>

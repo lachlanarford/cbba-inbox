@@ -11,6 +11,7 @@ export interface IncomingMessage {
   subject: string
   content: string
   department?: string | null
+  assignedTo?: string | null
   externalThreadId?: string | null
 }
 
@@ -126,6 +127,7 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
           channel_config_id: msg.channelConfigId,
           status: 'open',
           department: msg.department ?? null,
+          assigned_to: msg.assignedTo ?? null,
           priority: 'medium',
           subject: msg.subject,
           is_read: false,
@@ -145,6 +147,7 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
         channel_config_id: msg.channelConfigId,
         status: 'open',
         department: msg.department ?? null,
+        assigned_to: msg.assignedTo ?? null,
         priority: 'medium',
         subject: msg.subject,
         is_read: false,

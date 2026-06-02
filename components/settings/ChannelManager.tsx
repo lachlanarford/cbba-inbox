@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { ChannelConfig } from '@/types/database'
+import { useUsers } from '@/lib/hooks/useUsers'
 import ChannelCard from './ChannelCard'
 import ConnectGmailModal from './ConnectGmailModal'
 import ConnectSocialModal from './ConnectSocialModal'
@@ -20,6 +21,7 @@ export default function ChannelManager({ configs: initialConfigs, formWebhookUrl
   const [gmailModalOpen, setGmailModalOpen] = useState(false)
   const [socialModal, setSocialModal] = useState<'whatsapp' | 'facebook' | 'instagram' | null>(null)
   const [, startTransition] = useTransition()
+  const users = useUsers()
 
   function getConfigsForChannel(channelType: string) {
     return configs.filter((c) => c.channel_type === channelType)
@@ -83,6 +85,7 @@ export default function ChannelManager({ configs: initialConfigs, formWebhookUrl
           key={channelType}
           channelType={channelType}
           configs={getConfigsForChannel(channelType)}
+          users={channelType === 'gmail' ? users : undefined}
           formWebhookUrl={channelType === 'form' ? formWebhookUrl : undefined}
           formSecret={channelType === 'form' ? formSecret : undefined}
           onToggle={handleToggle}
