@@ -11,9 +11,9 @@ const config: Config = {
     extend: {
       colors: {
         cbba: {
-          purple: '#604484',
-          'purple-light': '#7a5a9e',
-          'purple-dark': '#4a3368',
+          purple: 'rgb(var(--accent-rgb) / <alpha-value>)',
+          'purple-light': 'rgb(var(--accent-light-rgb) / <alpha-value>)',
+          'purple-dark': 'rgb(var(--accent-dark-rgb) / <alpha-value>)',
           gold: '#FBB33F',
           navy: 'var(--cbba-navy)',
           'navy-light': 'var(--cbba-navy-light)',

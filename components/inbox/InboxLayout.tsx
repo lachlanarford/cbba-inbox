@@ -99,6 +99,15 @@ export default function InboxLayout() {
 
   const hasChecked = checkedIds.size > 0
 
+  function snoozeUntil(preset: string): string {
+    const d = new Date()
+    if (preset === '1h') { d.setHours(d.getHours() + 1) }
+    else if (preset === 'later') { d.setHours(17, 0, 0, 0); if (d <= new Date()) d.setDate(d.getDate() + 1) }
+    else if (preset === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0) }
+    else if (preset === 'week') { d.setDate(d.getDate() + 7); d.setHours(9, 0, 0, 0) }
+    return d.toISOString()
+  }
+
   const activeFilterCount = [
     filters.status !== 'open',
     filters.search !== '',
@@ -168,6 +177,39 @@ export default function InboxLayout() {
                 {users.map((u) => <option key={u.id} value={u.id}>{u.full_name ?? u.email}</option>)}
               </select>
 
+              {/* Snooze */}
+              <select
+                disabled={bulkLoading}
+                onChange={(e) => {
+                  if (!e.target.value) return
+                  const until = snoozeUntil(e.target.value)
+                  handleBulkAction('snooze', until)
+                  e.target.value = ''
+                }}
+                defaultValue=""
+                className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-gray-400 focus:outline-none cursor-pointer disabled:opacity-40"
+              >
+                <option value="" disabled>Snooze</option>
+                <option value="1h">1 hour</option>
+                <option value="later">Later today</option>
+                <option value="tomorrow">Tomorrow</option>
+                <option value="week">Next week</option>
+              </select>
+
+              {/* Unsnooze (only useful in snoozed view) */}
+              {filters.showSnoozed && (
+                <button
+                  disabled={bulkLoading}
+                  onClick={() => handleBulkAction('unsnooze')}
+                  title="Unsnooze selected"
+                  className="p-1.5 rounded text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-40"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                  </svg>
+                </button>
+              )}
+
               {/* Archive */}
               <button
                 disabled={bulkLoading}
@@ -199,7 +241,30 @@ export default function InboxLayout() {
             </div>
           ) : (
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
-              <span className="text-sm font-semibold text-white">Conversations</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-white">
+                  {filters.showSnoozed ? 'Snoozed' : 'Conversations'}
+                </span>
+                <button
+                  onClick={() => {
+                    updateFilter('showSnoozed', !filters.showSnoozed)
+                    if (!filters.showSnoozed) updateFilter('status', 'all')
+                    else updateFilter('status', 'open')
+                    clearChecked()
+                  }}
+                  title={filters.showSnoozed ? 'Back to inbox' : 'View snoozed'}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+                    filters.showSnoozed
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                  }`}
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                  </svg>
+                  {filters.showSnoozed ? 'Snoozed' : 'Snoozed'}
+                </button>
+              </div>
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setListCollapsed(true)}

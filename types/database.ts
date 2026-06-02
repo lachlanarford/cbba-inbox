@@ -50,6 +50,7 @@ export interface Conversation {
   external_thread_id: string | null
   channel_config_id: string | null
   has_attachments: boolean
+  snoozed_until: string | null
 }
 
 export interface KnowledgeBaseEntry {
@@ -153,6 +154,7 @@ export interface InboxFilters {
   email: string
   dateFrom: string
   dateTo: string
+  showSnoozed: boolean
 }
 
 export const DEFAULT_FILTERS: InboxFilters = {
@@ -166,4 +168,5 @@ export const DEFAULT_FILTERS: InboxFilters = {
   email: '',
   dateFrom: '',
   dateTo: '',
+  showSnoozed: false,
 }

@@ -7,6 +7,10 @@
   --cbba-navy: #21222C;
   --cbba-navy-light: #2c2d3a;
   --cbba-navy-dark: #181920;
+  /* Accent colour — overridden at runtime from branding settings */
+  --accent-rgb: 96 68 132;
+  --accent-light-rgb: 122 90 158;
+  --accent-dark-rgb: 74 51 104;
 }
 
 .light {
@@ -68,5 +72,5 @@ html, body {
 /* ── Scrollbar ───────────────────────────────────────────────────── */
 ::-webkit-scrollbar          { width: 6px; }
 ::-webkit-scrollbar-track    { background: var(--cbba-navy); }
-::-webkit-scrollbar-thumb    { background: #604484; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #7a5a9e; }
+::-webkit-scrollbar-thumb    { background: rgb(var(--accent-rgb)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--accent-light-rgb)); }

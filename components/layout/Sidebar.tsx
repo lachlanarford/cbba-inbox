@@ -21,6 +21,7 @@ const CHANGELOG = [
 interface SidebarProps {
   user: AppUser
   chatMode: string
+  logoUrl?: string | null
 }
 
 const navItems = [
@@ -32,10 +33,11 @@ const navItems = [
   { label: 'Reports',      href: '/reports',            icon: ReportsIcon,   adminOnly: false },
   { label: 'Channels',     href: '/settings/channels',  icon: ChannelsIcon,  adminOnly: true  },
   { label: 'Admin',        href: '/settings/admin',     icon: AdminIcon,     adminOnly: true  },
+  { label: 'Branding',     href: '/settings/branding',  icon: BrandingIcon,  adminOnly: true  },
   { label: 'Settings',     href: '/settings',           icon: SettingsIcon,  adminOnly: false },
 ]
 
-export default function Sidebar({ user, chatMode }: SidebarProps) {
+export default function Sidebar({ user, chatMode, logoUrl }: SidebarProps) {
   const pathname = usePathname()
   const [changelogOpen, setChangelogOpen] = useState(false)
   const changelogRef = useRef<HTMLDivElement>(null)
@@ -63,10 +65,17 @@ export default function Sidebar({ user, chatMode }: SidebarProps) {
   return (
     <aside className="w-60 flex-shrink-0 flex flex-col bg-cbba-navy-dark border-r border-white/5 h-screen">
       {/* Logo */}
-      <div className="px-5 py-6 border-b border-white/5">
-        <Link href="/inbox" className="flex items-center gap-2">
-          <span className="text-cbba-gold font-bold text-xl tracking-tight">CBBA</span>
-          <span className="text-white/60 font-light text-sm tracking-widest uppercase">Inbox</span>
+      <div className="px-5 py-5 border-b border-white/5">
+        <Link href="/inbox" className="flex items-center">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Logo" className="h-8 w-auto max-w-[160px] object-contain" />
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-cbba-gold font-bold text-xl tracking-tight">CBBA</span>
+              <span className="text-white/60 font-light text-sm tracking-widest uppercase">Inbox</span>
+            </div>
+          )}
         </Link>
       </div>
 
@@ -219,6 +228,14 @@ function CannedIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+    </svg>
+  )
+}
+
+function BrandingIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
     </svg>
   )
 }

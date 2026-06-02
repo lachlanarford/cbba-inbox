@@ -361,6 +361,51 @@ export default function ConversationDetail({
                     Mark as unread{conversation.channel === 'gmail' ? ' (and Gmail)' : ''}
                   </button>
                   <div className="my-1 border-t border-white/5" />
+                  {/* Snooze options */}
+                  {[
+                    { label: 'Snooze 1 hour', preset: '1h' },
+                    { label: 'Snooze until later today', preset: 'later' },
+                    { label: 'Snooze until tomorrow', preset: 'tomorrow' },
+                    { label: 'Snooze until next week', preset: 'week' },
+                  ].map(({ label, preset }) => (
+                    <button
+                      key={preset}
+                      onClick={async () => {
+                        setShowMoreMenu(false)
+                        const d = new Date()
+                        if (preset === '1h') d.setHours(d.getHours() + 1)
+                        else if (preset === 'later') { d.setHours(17, 0, 0, 0); if (d <= new Date()) d.setDate(d.getDate() + 1) }
+                        else if (preset === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0) }
+                        else if (preset === 'week') { d.setDate(d.getDate() + 7); d.setHours(9, 0, 0, 0) }
+                        await fetch(`/api/conversations/${conversationId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ snoozed_until: d.toISOString() }),
+                        })
+                        onDeleted?.()
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-amber-400 hover:bg-amber-500/10 transition-colors"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  {conversation.snoozed_until && (
+                    <button
+                      onClick={async () => {
+                        setShowMoreMenu(false)
+                        await fetch(`/api/conversations/${conversationId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ snoozed_until: null }),
+                        })
+                        onDeleted?.()
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      Unsnooze
+                    </button>
+                  )}
+                  <div className="my-1 border-t border-white/5" />
                   <button
                     onClick={() => {
                       closeConversation()

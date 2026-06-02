@@ -4,7 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getAuthenticatedClient } from '@/lib/gmail/client'
 import { google } from 'googleapis'
 
-type BulkAction = 'archive' | 'delete' | 'status' | 'priority' | 'assign'
+type BulkAction = 'archive' | 'delete' | 'status' | 'priority' | 'assign' | 'snooze' | 'unsnooze'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -31,6 +31,19 @@ export async function POST(request: Request) {
 
   if (action === 'assign') {
     await service.from('conversations').update({ assigned_to: value ?? null }).in('id', ids)
+    return NextResponse.json({ ok: true })
+  }
+
+  if (action === 'snooze') {
+    if (!value) return NextResponse.json({ error: 'value (ISO date) required' }, { status: 400 })
+    // @ts-expect-error snoozed_until not yet in generated types
+    await service.from('conversations').update({ snoozed_until: value }).in('id', ids)
+    return NextResponse.json({ ok: true })
+  }
+
+  if (action === 'unsnooze') {
+    // @ts-expect-error snoozed_until not yet in generated types
+    await service.from('conversations').update({ snoozed_until: null }).in('id', ids)
     return NextResponse.json({ ok: true })
   }
 

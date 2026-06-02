@@ -36,6 +36,9 @@ function passesFilters(c: ConversationListItem, f: InboxFilters): boolean {
   if (f.email) {
     if (!c.contact?.email?.toLowerCase().includes(f.email.toLowerCase())) return false
   }
+  const isSnoozed = c.snoozed_until != null && new Date(c.snoozed_until) > new Date()
+  if (f.showSnoozed && !isSnoozed) return false
+  if (!f.showSnoozed && isSnoozed) return false
   return true
 }
 
@@ -76,6 +79,11 @@ export function useConversations(filters: InboxFilters) {
     if (f.assignedTo) query = query.eq('assigned_to', f.assignedTo)
     if (f.dateFrom) query = query.gte('created_at', f.dateFrom)
     if (f.dateTo) query = query.lte('created_at', f.dateTo + 'T23:59:59')
+    if (f.showSnoozed) {
+      query = query.not('snoozed_until', 'is', null)
+    } else {
+      query = query.or('snoozed_until.is.null,snoozed_until.lte.' + new Date().toISOString())
+    }
 
     const { data, error: fetchError } = await query
     return { data: (data ?? []) as unknown as ConversationListItem[], error: fetchError }
@@ -142,7 +150,7 @@ export function useConversations(filters: InboxFilters) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     filters.status, filters.department, filters.priority, filters.channel,
     filters.channelConfigId, filters.assignedTo, filters.search, filters.email,
-    filters.dateFrom, filters.dateTo,
+    filters.dateFrom, filters.dateTo, filters.showSnoozed,
   ])
 
   // Smart realtime subscription — runs once, uses filtersRef for current filter state

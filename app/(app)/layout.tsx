@@ -61,18 +61,40 @@ export default async function AppLayout({
   }
 
   const service = createServiceClient()
-  const { data: chatModeSetting } = await service
-    .from('settings')
-    .select('value')
-    .eq('key', 'chat_mode')
-    .single()
+  const [{ data: chatModeSetting }, { data: brandingSettings }] = await Promise.all([
+    service.from('settings').select('value').eq('key', 'chat_mode').single(),
+    service.from('settings').select('key, value').in('key', ['brand_accent_color', 'brand_logo_url']),
+  ])
   const chatMode = chatModeSetting?.value ?? 'ai'
+  const brandingMap = Object.fromEntries((brandingSettings ?? []).map((s) => [s.key, s.value]))
+  const accentHex: string = (brandingMap.brand_accent_color as string) ?? '#604484'
+  const logoUrl: string | null = (brandingMap.brand_logo_url as string) ?? null
+
+  function hexToRgb(hex: string): [number, number, number] {
+    const clean = hex.replace('#', '')
+    const r = parseInt(clean.slice(0, 2), 16)
+    const g = parseInt(clean.slice(2, 4), 16)
+    const b = parseInt(clean.slice(4, 6), 16)
+    return [isNaN(r) ? 96 : r, isNaN(g) ? 68 : g, isNaN(b) ? 132 : b]
+  }
+  function lighten([r, g, b]: [number, number, number], amount: number): string {
+    return `${Math.min(255, r + amount)} ${Math.min(255, g + amount)} ${Math.min(255, b + amount)}`
+  }
+  function darken([r, g, b]: [number, number, number], amount: number): string {
+    return `${Math.max(0, r - amount)} ${Math.max(0, g - amount)} ${Math.max(0, b - amount)}`
+  }
+  const rgb = hexToRgb(accentHex)
+  const cssVars = {
+    '--accent-rgb': `${rgb[0]} ${rgb[1]} ${rgb[2]}`,
+    '--accent-light-rgb': lighten(rgb, 26),
+    '--accent-dark-rgb': darken(rgb, 22),
+  } as React.CSSProperties
 
   return (
     <AppUserProvider user={appUser}>
       <PushInit />
-      <div className="flex h-screen overflow-hidden bg-cbba-navy">
-        <Sidebar user={appUser} chatMode={chatMode} />
+      <div className="flex h-screen overflow-hidden bg-cbba-navy" style={cssVars}>
+        <Sidebar user={appUser} chatMode={chatMode} logoUrl={logoUrl} />
         <div className="flex flex-col flex-1 min-w-0">
           <TopBar userId={appUser.id} />
           <main className="flex-1 overflow-auto p-6 relative">
