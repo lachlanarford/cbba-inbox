@@ -116,14 +116,15 @@ export default function ConversationDetail({
       }
     }
 
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('conversations')
-      .update(enriched)
-      .eq('id', conversationId)
-      .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
-      .single()
-    if (data) setConversation(data as unknown as ConversationWithConfig)
+    const res = await fetch(`/api/conversations/${conversationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(enriched),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setConversation(data as unknown as ConversationWithConfig)
+    }
   }
 
   async function closeConversation() {
