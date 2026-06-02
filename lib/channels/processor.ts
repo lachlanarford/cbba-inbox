@@ -53,12 +53,15 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
   } else if (msg.contactPhone) {
     const { data: existing } = await supabase
       .from('contacts')
-      .select('id')
+      .select('id, full_name')
       .eq('phone', msg.contactPhone)
       .maybeSingle()
 
     if (existing) {
       contactId = existing.id
+      if (msg.contactFullName && !existing.full_name) {
+        await supabase.from('contacts').update({ full_name: msg.contactFullName }).eq('id', existing.id)
+      }
     } else {
       const { data: created, error } = await supabase
         .from('contacts')

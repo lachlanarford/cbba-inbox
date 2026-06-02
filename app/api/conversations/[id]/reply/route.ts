@@ -27,11 +27,6 @@ export async function POST(
   const { content, isNote, isAiSuggested, attachments, cc, bcc } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
-  const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
-  const bodyWithSig = !isNote && signature?.trim()
-    ? `${content.trim()}\n\n--\n${signature.trim()}`
-    : content.trim()
-
   // Fetch conversation to determine channel and thread context
   const { data: conversation } = await supabase
     .from('conversations')
@@ -40,6 +35,12 @@ export async function POST(
     .single()
 
   if (!conversation) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+
+  // Only append signature for email (Gmail) replies — not social/chat channels
+  const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
+  const bodyWithSig = !isNote && conversation.channel === 'gmail' && signature?.trim()
+    ? `${content.trim()}\n\n--\n${signature.trim()}`
+    : content.trim()
 
   // For non-internal replies on Gmail conversations, send via Gmail API
   if (conversation.channel === 'gmail' && !isNote && conversation.channel_config_id && conversation.external_thread_id) {
