@@ -24,12 +24,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     content?: string
     is_active?: boolean
     department?: string | null
+    category?: string | null
   } = {}
   if (body.title !== undefined) updates.title = body.title
   if (body.content !== undefined) updates.content = body.content
   if (body.is_active !== undefined) updates.is_active = body.is_active
   if ('department' in body) {
     updates.department = body.department && VALID_DEPTS.includes(body.department) ? body.department : null
+  }
+  if ('category' in body) {
+    updates.category = body.category?.trim() || null
   }
 
   if (Object.keys(updates).length === 0) {

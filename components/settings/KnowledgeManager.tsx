@@ -4,11 +4,13 @@ import { useState, useTransition } from 'react'
 import type { KnowledgeEntryWithOwner } from '@/types/database'
 
 const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'] as const
+const CATEGORIES = ['General', 'Membership', 'Aussie Hoops', 'Domestic Competition', 'Policies & Procedures'] as const
 
 interface ManualEntryForm {
   title: string
   content: string
   department: string
+  category: string
 }
 
 interface KnowledgeManagerProps {
@@ -27,20 +29,21 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
   const [editEntry, setEditEntry] = useState<KnowledgeEntryWithOwner | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, startDelete] = useTransition()
-  const [manualForm, setManualForm] = useState<ManualEntryForm>({ title: '', content: '', department: '' })
+  const [manualForm, setManualForm] = useState<ManualEntryForm>({ title: '', content: '', department: '', category: '' })
   const [manualError, setManualError] = useState<string | null>(null)
   const [isSavingManual, startSaveManual] = useTransition()
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
   function openAddManual() {
-    setManualForm({ title: '', content: '', department: '' })
+    setManualForm({ title: '', content: '', department: '', category: '' })
     setManualError(null)
     setEditEntry(null)
     setShowManualModal(true)
   }
 
   function openEditEntry(entry: KnowledgeEntryWithOwner) {
-    setManualForm({ title: entry.title, content: entry.content, department: entry.department ?? '' })
+    setManualForm({ title: entry.title, content: entry.content, department: entry.department ?? '', category: entry.category ?? '' })
     setManualError(null)
     setEditEntry(entry)
     setShowManualModal(true)
@@ -118,6 +121,7 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
             title: manualForm.title.trim(),
             content: manualForm.content.trim(),
             department: manualForm.department || null,
+            category: manualForm.category || null,
           }),
         })
         let data: Record<string, unknown> = {}
@@ -166,6 +170,9 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
 
   const urlEntries = entries.filter((e) => e.source_type === 'url')
   const manualEntries = entries.filter((e) => e.source_type === 'manual')
+  const filteredManualEntries = categoryFilter === 'all'
+    ? manualEntries
+    : manualEntries.filter((e) => e.category === categoryFilter)
 
   const deptColor: Record<string, string> = {
     Reps: 'bg-[#604484]/20 text-[#a78bfa]',
@@ -173,6 +180,17 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
     LTP: 'bg-[#F58945]/15 text-[#F58945]',
     Other: 'bg-blue-500/15 text-blue-400',
   }
+
+  const categoryColor: Record<string, string> = {
+    General: 'bg-blue-500/15 text-blue-400',
+    Membership: 'bg-emerald-500/15 text-emerald-400',
+    'Aussie Hoops': 'bg-[#FBB33F]/15 text-[#FBB33F]',
+    'Domestic Competition': 'bg-[#604484]/20 text-[#a78bfa]',
+    'Policies & Procedures': 'bg-[#F58945]/15 text-[#F58945]',
+  }
+
+  // Get categories that actually have entries, for the filter bar
+  const usedCategories = Array.from(new Set(manualEntries.map((e) => e.category).filter(Boolean))) as string[]
 
   return (
     <div className="space-y-8">
@@ -263,13 +281,38 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
             + Add entry
           </button>
         </div>
-        {manualEntries.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-gray-600 text-center">No manual entries yet.</p>
+
+        {/* Category filter bar */}
+        {usedCategories.length > 0 && (
+          <div className="flex items-center gap-2 px-6 py-3 border-b border-white/10 overflow-x-auto">
+            <button
+              onClick={() => setCategoryFilter('all')}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === 'all' ? 'bg-cbba-purple text-white' : 'bg-white/5 text-gray-400 hover:text-white'}`}
+            >
+              All
+            </button>
+            {usedCategories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === cat ? 'bg-cbba-purple text-white' : 'bg-white/5 text-gray-400 hover:text-white'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {filteredManualEntries.length === 0 ? (
+          <p className="px-6 py-8 text-sm text-gray-600 text-center">
+            {categoryFilter === 'all' ? 'No manual entries yet.' : `No entries in "${categoryFilter}".`}
+          </p>
         ) : (
           <table className="w-full">
             <thead>
               <tr className="text-left text-xs text-gray-500 border-b border-white/5">
                 <th className="px-6 py-3 font-medium">Title</th>
+                <th className="px-6 py-3 font-medium">Category</th>
                 <th className="px-6 py-3 font-medium">Department</th>
                 <th className="px-6 py-3 font-medium">Created by</th>
                 <th className="px-6 py-3 font-medium">Created</th>
@@ -278,11 +321,20 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
               </tr>
             </thead>
             <tbody>
-              {manualEntries.map((entry) => (
+              {filteredManualEntries.map((entry) => (
                 <tr key={entry.id} className="border-b border-white/5 last:border-0">
                   <td className="px-6 py-3">
                     <div className="text-sm text-white font-medium max-w-[180px] truncate">{entry.title}</div>
                     <div className="text-xs text-gray-500 max-w-[180px] truncate mt-0.5">{entry.content}</div>
+                  </td>
+                  <td className="px-6 py-3">
+                    {entry.category ? (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor[entry.category] ?? 'bg-white/10 text-gray-400'}`}>
+                        {entry.category}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-600">-</span>
+                    )}
                   </td>
                   <td className="px-6 py-3">
                     {entry.department ? (
@@ -344,16 +396,29 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple"
                 />
               </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1.5">Department (optional)</label>
-                <select
-                  value={manualForm.department}
-                  onChange={(e) => setManualForm((f) => ({ ...f, department: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cbba-purple"
-                >
-                  <option value="">All departments</option>
-                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Category (optional)</label>
+                  <select
+                    value={manualForm.category}
+                    onChange={(e) => setManualForm((f) => ({ ...f, category: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cbba-purple"
+                  >
+                    <option value="">No category</option>
+                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Department (optional)</label>
+                  <select
+                    value={manualForm.department}
+                    onChange={(e) => setManualForm((f) => ({ ...f, department: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cbba-purple"
+                  >
+                    <option value="">All departments</option>
+                    {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Content</label>

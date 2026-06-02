@@ -31,13 +31,14 @@ export async function POST(req: NextRequest) {
   if (!appUser || !isAdmin(appUser)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json()
-  const { title, content, department } = body
+  const { title, content, department, category } = body
   if (!title?.trim() || !content?.trim()) {
     return NextResponse.json({ error: 'title and content are required' }, { status: 400 })
   }
 
   const service = createServiceClient()
   const deptValue = department && VALID_DEPTS.includes(department) ? department : null
+  const categoryValue = category?.trim() || null
 
   // Insert base entry (type-safe), then patch new columns separately
   const { data, error } = await service
@@ -48,8 +49,8 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // @ts-expect-error department/created_by not yet in generated types (update after running supabase gen types)
-  await service.from('knowledge_base').update({ created_by: user.id, department: deptValue }).eq('id', (data as { id: string }).id)
+  // @ts-expect-error department/category/created_by not yet in generated types
+  await service.from('knowledge_base').update({ created_by: user.id, department: deptValue, category: categoryValue }).eq('id', (data as { id: string }).id)
 
   const { data: full, error: fetchErr } = await service
     .from('knowledge_base')
