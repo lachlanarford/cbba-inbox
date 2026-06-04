@@ -118,7 +118,7 @@ export async function fetchMessagesFromHistory(
         id: added.message.id,
         format: 'full',
       })
-      const parsed = parseMessage(full.data)
+      const parsed = await parseMessage(gmail, full.data)
       if (parsed) messages.push(parsed)
     }
 
@@ -157,7 +157,10 @@ export async function getCurrentHistoryId(channelConfigId: string): Promise<stri
   return profile.data.historyId ?? ''
 }
 
-function parseMessage(msg: import('googleapis').gmail_v1.Schema$Message): ParsedEmail | null {
+async function parseMessage(
+  gmail: ReturnType<typeof google.gmail>,
+  msg: import('googleapis').gmail_v1.Schema$Message
+): Promise<ParsedEmail | null> {
   const headers = msg.payload?.headers ?? []
   const get = (name: string) => headers.find((h) => h.name?.toLowerCase() === name)?.value ?? ''
 
@@ -175,10 +178,31 @@ function parseMessage(msg: import('googleapis').gmail_v1.Schema$Message): Parsed
 
   // Replace cid: references with inline base64 data URIs so images render in the iframe
   if (body.includes('cid:')) {
+    // Small inline images: data is embedded directly in the message payload
     const inlineImages = collectInlineImages(msg.payload)
     inlineImages.forEach(({ mimeType, data }, cid) => {
       body = body.replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g'), `data:${mimeType};base64,${data}`)
     })
+
+    // Large inline images: Gmail stores them as separate attachments — fetch and embed
+    const pendingInline = collectPendingInlineImages(msg.payload)
+    for (const [cid, { mimeType, attachmentId }] of Array.from(pendingInline)) {
+      try {
+        const att = await gmail.users.messages.attachments.get({
+          userId: 'me',
+          messageId,
+          id: attachmentId,
+        })
+        if (att.data.data) {
+          body = body.replace(
+            new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g'),
+            `data:${mimeType};base64,${att.data.data}`
+          )
+        }
+      } catch {
+        // leave the cid: reference as-is if fetch fails
+      }
+    }
   }
 
   const attachments = extractAttachments(msg.payload)
@@ -248,6 +272,23 @@ function collectInlineImages(payload: GmailPart | undefined): Map<string, { mime
     if (contentId && part.body?.data && part.mimeType?.startsWith('image/')) {
       const cid = contentId.replace(/^<|>$/g, '')
       map.set(cid, { mimeType: part.mimeType, data: part.body.data })
+    }
+    for (const child of part.parts ?? []) walk(child)
+  }
+  walk(payload)
+  return map
+}
+
+// Large inline images: Gmail stores them as attachments (attachmentId) rather than embedding data
+function collectPendingInlineImages(payload: GmailPart | undefined): Map<string, { mimeType: string; attachmentId: string }> {
+  const map = new Map<string, { mimeType: string; attachmentId: string }>()
+  if (!payload) return map
+  function walk(part: GmailPart) {
+    const headers = part.headers ?? []
+    const contentId = headers.find((h) => h.name?.toLowerCase() === 'content-id')?.value
+    if (contentId && !part.body?.data && part.body?.attachmentId && part.mimeType?.startsWith('image/')) {
+      const cid = contentId.replace(/^<|>$/g, '')
+      map.set(cid, { mimeType: part.mimeType, attachmentId: part.body.attachmentId })
     }
     for (const child of part.parts ?? []) walk(child)
   }
