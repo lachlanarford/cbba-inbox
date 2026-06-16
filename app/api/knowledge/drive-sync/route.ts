@@ -25,7 +25,8 @@ export async function POST() {
   if (!folderId) return NextResponse.json({ error: 'Drive folder not configured' }, { status: 400 })
 
   // Use any Gmail channel config for Drive auth — active or not, just needs valid credentials
-  const { data: gmailConfig } = await service
+  // Use authed client (not service) because channel_configs RLS requires user context
+  const { data: gmailConfig } = await supabase
     .from('channel_configs')
     .select('id')
     .eq('channel_type', 'gmail')
