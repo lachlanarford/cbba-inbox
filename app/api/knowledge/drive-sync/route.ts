@@ -22,35 +22,50 @@ export async function POST() {
     .maybeSingle()
 
   const folderId = folderSetting?.value as string | undefined
+  console.log('[drive-sync] folderId:', folderId)
   if (!folderId) return NextResponse.json({ error: 'Drive folder not configured' }, { status: 400 })
 
-  // Use any Gmail channel config for Drive auth — active or not, just needs valid credentials
-  // Use authed client (not service) because channel_configs RLS requires user context
-  const { data: gmailConfig } = await supabase
+  // Try service client first, fall back to authed client
+  const { data: gmailConfigService, error: gmailServiceErr } = await service
     .from('channel_configs')
-    .select('id')
+    .select('id, identifier')
     .eq('channel_type', 'gmail')
     .maybeSingle()
+
+  const { data: gmailConfigAuthed, error: gmailAuthedErr } = await supabase
+    .from('channel_configs')
+    .select('id, identifier')
+    .eq('channel_type', 'gmail')
+    .maybeSingle()
+
+  console.log('[drive-sync] gmailConfig (service):', gmailConfigService, gmailServiceErr)
+  console.log('[drive-sync] gmailConfig (authed):', gmailConfigAuthed, gmailAuthedErr)
+
+  const gmailConfig = gmailConfigService ?? gmailConfigAuthed
 
   if (!gmailConfig) {
     return NextResponse.json({ error: 'No Gmail channel found. Connect a Gmail account first — Drive uses the same Google account.' }, { status: 400 })
   }
 
+  console.log('[drive-sync] using channel config:', gmailConfig.id, gmailConfig.identifier)
+
   let drive
   try {
     drive = await getDriveClient(gmailConfig.id)
+    console.log('[drive-sync] drive client created OK')
   } catch (err) {
     console.error('[drive-sync] auth failed:', err)
-    return NextResponse.json({ error: 'Failed to authenticate with Google. Re-authorise your Gmail channel to grant Drive access.' }, { status: 500 })
+    return NextResponse.json({ error: `Failed to authenticate with Google: ${String(err)}` }, { status: 500 })
   }
 
   // List supported files in the folder
   let files
   try {
     files = await listFilesInFolder(drive, folderId)
+    console.log('[drive-sync] files found:', files.length)
   } catch (err) {
     console.error('[drive-sync] listFilesInFolder failed:', err)
-    return NextResponse.json({ error: 'Failed to list Drive folder. Check the folder ID and make sure the folder is shared with your Google account.' }, { status: 500 })
+    return NextResponse.json({ error: `Failed to list Drive folder: ${String(err)}` }, { status: 500 })
   }
 
   const syncedFileIds = new Set<string>()
