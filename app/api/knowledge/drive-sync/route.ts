@@ -25,23 +25,14 @@ export async function POST() {
   console.log('[drive-sync] folderId:', folderId)
   if (!folderId) return NextResponse.json({ error: 'Drive folder not configured' }, { status: 400 })
 
-  // Try service client first, fall back to authed client
-  const { data: gmailConfigService, error: gmailServiceErr } = await service
+  // Pick the first Gmail channel config — any will do since they share the same Google Workspace
+  const { data: gmailConfigs } = await service
     .from('channel_configs')
     .select('id, identifier')
     .eq('channel_type', 'gmail')
-    .maybeSingle()
+    .limit(1)
 
-  const { data: gmailConfigAuthed, error: gmailAuthedErr } = await supabase
-    .from('channel_configs')
-    .select('id, identifier')
-    .eq('channel_type', 'gmail')
-    .maybeSingle()
-
-  console.log('[drive-sync] gmailConfig (service):', gmailConfigService, gmailServiceErr)
-  console.log('[drive-sync] gmailConfig (authed):', gmailConfigAuthed, gmailAuthedErr)
-
-  const gmailConfig = gmailConfigService ?? gmailConfigAuthed
+  const gmailConfig = gmailConfigs?.[0] ?? null
 
   if (!gmailConfig) {
     return NextResponse.json({ error: 'No Gmail channel found. Connect a Gmail account first — Drive uses the same Google account.' }, { status: 400 })
