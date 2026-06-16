@@ -85,11 +85,11 @@ export async function extractTextFromFile(
       ? raw
       : Buffer.from(raw as ArrayBuffer)
     console.log('[drive] PDF download size for', file.name, ':', buf.length, 'bytes')
-    const { PDFParse } = await import('pdf-parse')
-    const parser = new PDFParse({ data: buf })
-    const result = await parser.getText()
-    console.log('[drive] PDF text length for', file.name, ':', result.text?.length ?? 0)
-    return result.text?.trim() || null
+    const { extractText } = await import('unpdf')
+    const { text } = await extractText(new Uint8Array(buf), { mergePages: true })
+    const joined = Array.isArray(text) ? text.join('\n') : String(text ?? '')
+    console.log('[drive] PDF text length for', file.name, ':', joined.length)
+    return joined.trim() || null
   }
 
   return null
