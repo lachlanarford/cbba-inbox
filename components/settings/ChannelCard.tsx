@@ -188,6 +188,15 @@ export default function ChannelCard({
                     </span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {channelType === 'gmail' && (
+                      <button
+                        onClick={() => { window.location.href = `/api/gmail/auth/start?email=${encodeURIComponent(config.identifier)}` }}
+                        className="text-xs text-gray-500 hover:text-cbba-purple transition-colors"
+                        title="Re-authorise this account with Google"
+                      >
+                        Reconnect
+                      </button>
+                    )}
                     <Toggle
                       checked={config.is_active}
                       onChange={(v) => onToggle(config.id, v)}
