@@ -36,9 +36,13 @@ export async function listFilesInFolder(
       for (const file of res.data.files ?? []) {
         if (!file.id || !file.name || !file.mimeType) continue
         if (file.mimeType === 'application/vnd.google-apps.folder') {
+          console.log('[drive] entering subfolder:', file.name)
           await walk(file.id)
         } else if (SUPPORTED_MIME_TYPES.has(file.mimeType)) {
+          console.log('[drive] found supported file:', file.name, file.mimeType)
           files.push({ id: file.id, name: file.name, mimeType: file.mimeType })
+        } else {
+          console.log('[drive] skipping unsupported file:', file.name, file.mimeType)
         }
       }
       pageToken = res.data.nextPageToken ?? undefined
