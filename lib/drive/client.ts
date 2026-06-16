@@ -23,23 +23,29 @@ export async function listFilesInFolder(
   folderId: string
 ): Promise<DriveFile[]> {
   const files: DriveFile[] = []
-  let pageToken: string | undefined
 
-  do {
-    const res = await drive.files.list({
-      q: `'${folderId}' in parents and trashed = false`,
-      fields: 'nextPageToken, files(id, name, mimeType)',
-      pageSize: 100,
-      pageToken,
-    })
-    for (const file of res.data.files ?? []) {
-      if (file.id && file.name && file.mimeType && SUPPORTED_MIME_TYPES.has(file.mimeType)) {
-        files.push({ id: file.id, name: file.name, mimeType: file.mimeType })
+  async function walk(id: string) {
+    let pageToken: string | undefined
+    do {
+      const res = await drive.files.list({
+        q: `'${id}' in parents and trashed = false`,
+        fields: 'nextPageToken, files(id, name, mimeType)',
+        pageSize: 100,
+        pageToken,
+      })
+      for (const file of res.data.files ?? []) {
+        if (!file.id || !file.name || !file.mimeType) continue
+        if (file.mimeType === 'application/vnd.google-apps.folder') {
+          await walk(file.id)
+        } else if (SUPPORTED_MIME_TYPES.has(file.mimeType)) {
+          files.push({ id: file.id, name: file.name, mimeType: file.mimeType })
+        }
       }
-    }
-    pageToken = res.data.nextPageToken ?? undefined
-  } while (pageToken)
+      pageToken = res.data.nextPageToken ?? undefined
+    } while (pageToken)
+  }
 
+  await walk(folderId)
   return files
 }
 
