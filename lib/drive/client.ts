@@ -77,7 +77,7 @@ export async function extractTextFromFile(
 
   if (file.mimeType === PDF_TYPE) {
     const res = await drive.files.get(
-      { fileId: file.id, alt: 'media' },
+      { fileId: file.id, alt: 'media', supportsAllDrives: true },
       { responseType: 'arraybuffer' }
     )
     const { PDFParse } = await import('pdf-parse')
