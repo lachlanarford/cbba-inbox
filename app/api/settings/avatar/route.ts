@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   const file = formData.get('avatar') as File | null
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
-  const maxMb = 2
+  const maxMb = 5
   if (file.size > maxMb * 1024 * 1024) {
     return NextResponse.json({ error: `File must be under ${maxMb}MB` }, { status: 400 })
   }

@@ -12,6 +12,7 @@ import StaffLeaderboardCard from '@/components/reporting/StaffLeaderboardCard'
 import PriorityDistributionCard from '@/components/reporting/PriorityDistributionCard'
 import CategoryDistributionCard from '@/components/reporting/CategoryDistributionCard'
 import FeedbackScoresCard from '@/components/reporting/FeedbackScoresCard'
+import LiveChatReportCard from '@/components/reporting/LiveChatReportCard'
 
 const DEFAULT_FILTERS: ReportFilters = {
   range: PRESETS[1],
@@ -56,10 +57,11 @@ export default function ReportsPage() {
           <PriorityDistributionCard filters={filters} />
         </div>
 
-        {/* Category distribution + Feedback scores */}
+        {/* Category distribution + Feedback scores + Live chat */}
         <div className="grid grid-cols-3 gap-4">
           <CategoryDistributionCard filters={filters} />
           <FeedbackScoresCard filters={filters} />
+          <LiveChatReportCard filters={filters} />
         </div>
       </div>
     </div>

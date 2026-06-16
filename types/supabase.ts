@@ -21,6 +21,7 @@ export type Database = {
           settings: Json
           created_at: string
           is_active: boolean
+          live_chat_enabled: boolean
         }
         Insert: {
           id: string
@@ -31,6 +32,7 @@ export type Database = {
           settings?: Json
           created_at?: string
           is_active?: boolean
+          live_chat_enabled?: boolean
         }
         Update: {
           id?: string
@@ -41,6 +43,28 @@ export type Database = {
           settings?: Json
           created_at?: string
           is_active?: boolean
+          live_chat_enabled?: boolean
+        }
+        Relationships: []
+      }
+      live_chat_sessions: {
+        Row: {
+          id: string
+          user_id: string
+          started_at: string
+          ended_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          started_at?: string
+          ended_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          started_at?: string
+          ended_at?: string | null
         }
         Relationships: []
       }

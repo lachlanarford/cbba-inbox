@@ -3,25 +3,31 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import type { AppUser } from '@/types/supabase'
 import { isAdmin } from '@/lib/auth'
 import SignOutButton from './SignOutButton'
 import ChatModeToggle from './ChatModeToggle'
 
 const CHANGELOG = [
+  { date: '17 Jun', text: 'Per-staff live chat with auto turn-off' },
+  { date: '17 Jun', text: 'Office hours restrict live chat widget' },
+  { date: '17 Jun', text: 'Google Drive hourly auto-sync' },
   { date: '29 May', text: 'Email attachments viewable and downloadable' },
   { date: '29 May', text: 'Reply drafts auto-saved per conversation' },
-  { date: '29 May', text: 'Email signature now shown in conversation thread' },
   { date: '28 May', text: 'Mark as unread syncs back to Gmail' },
-  { date: '28 May', text: 'Collapsible filter panel with active filter count' },
-  { date: '28 May', text: 'Gmail account shown in conversation header' },
-  { date: '28 May', text: 'Default department per Gmail inbox in settings' },
 ]
+
+interface LiveUser {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+}
 
 interface SidebarProps {
   user: AppUser
-  chatMode: string
   logoUrl?: string | null
+  initialLiveChatUsers: LiveUser[]
 }
 
 const navItems = [
@@ -33,14 +39,36 @@ const navItems = [
   { label: 'Reports',      href: '/reports',            icon: ReportsIcon,   adminOnly: false },
   { label: 'Channels',     href: '/settings/channels',  icon: ChannelsIcon,  adminOnly: true  },
   { label: 'Admin',        href: '/settings/admin',     icon: AdminIcon,     adminOnly: true  },
-  { label: 'Branding',     href: '/settings/branding',  icon: BrandingIcon,  adminOnly: true  },
   { label: 'Settings',     href: '/settings',           icon: SettingsIcon,  adminOnly: false },
 ]
 
-export default function Sidebar({ user, chatMode, logoUrl }: SidebarProps) {
+export default function Sidebar({ user, logoUrl, initialLiveChatUsers }: SidebarProps) {
   const pathname = usePathname()
   const [changelogOpen, setChangelogOpen] = useState(false)
   const changelogRef = useRef<HTMLDivElement>(null)
+  const [liveChatUsers, setLiveChatUsers] = useState<LiveUser[]>(initialLiveChatUsers)
+
+  // Realtime subscription for other users' live chat status
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('live-chat-status')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users',
+      }, () => {
+        // Refresh the live users list
+        supabase
+          .from('users')
+          .select('id, full_name, avatar_url')
+          .eq('live_chat_enabled', true)
+          .eq('is_active', true)
+          .then(({ data }) => { if (data) setLiveChatUsers(data) })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [])
 
   useEffect(() => {
     if (!changelogOpen) return
@@ -63,6 +91,8 @@ export default function Sidebar({ user, chatMode, logoUrl }: SidebarProps) {
     ? user.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : user.email.slice(0, 2).toUpperCase()
 
+  const otherLiveUsers = liveChatUsers.filter((u) => u.id !== user.id)
+
   return (
     <aside className="w-60 flex-shrink-0 flex flex-col bg-cbba-navy-dark border-r border-white/5 h-screen">
       {/* Logo */}
@@ -81,7 +111,7 @@ export default function Sidebar({ user, chatMode, logoUrl }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems
           .filter(({ adminOnly }) => !adminOnly || isAdmin(user))
           .map(({ label, href, icon: Icon }) => (
@@ -94,11 +124,7 @@ export default function Sidebar({ user, chatMode, logoUrl }: SidebarProps) {
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Icon
-                className={`w-4 h-4 flex-shrink-0 ${
-                  isActive(href) ? 'text-cbba-gold' : 'text-current'
-                }`}
-              />
+              <Icon className={`w-4 h-4 flex-shrink-0 ${isActive(href) ? 'text-cbba-gold' : 'text-current'}`} />
               {label}
             </Link>
           ))}
@@ -134,10 +160,35 @@ export default function Sidebar({ user, chatMode, logoUrl }: SidebarProps) {
         )}
       </div>
 
-      {/* Chat mode toggle */}
+      {/* Chat widget toggle */}
       <div className="px-3 pb-2 border-t border-white/5 pt-3">
         <p className="text-xs text-gray-600 px-3 mb-1">Chat widget</p>
-        <ChatModeToggle initialMode={chatMode} />
+        <ChatModeToggle initialLive={user.live_chat_enabled} />
+
+        {/* Other staff with live chat on */}
+        {otherLiveUsers.length > 0 && (
+          <div className="mt-2 px-3">
+            <p className="text-[10px] text-gray-600 mb-1.5">Also live:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {otherLiveUsers.map((u) => (
+                <div key={u.id} className="flex items-center gap-1.5" title={u.full_name ?? 'Staff'}>
+                  <div className="relative">
+                    {u.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={u.avatar_url} alt={u.full_name ?? ''} className="w-5 h-5 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center text-[8px] font-bold text-green-400">
+                        {(u.full_name ?? '?').slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 border border-cbba-navy-dark" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 truncate max-w-[80px]">{u.full_name?.split(' ')[0] ?? 'Staff'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* User area */}
@@ -145,20 +196,14 @@ export default function Sidebar({ user, chatMode, logoUrl }: SidebarProps) {
         <div className="flex items-center gap-3 min-w-0">
           {user.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={user.avatar_url}
-              alt={user.full_name ?? user.email}
-              className="w-8 h-8 rounded-full flex-shrink-0 object-cover"
-            />
+            <img src={user.avatar_url} alt={user.full_name ?? user.email} className="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
           ) : (
             <div className="w-8 h-8 rounded-full flex-shrink-0 bg-cbba-purple flex items-center justify-center text-xs font-semibold text-white">
               {initials}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-white truncate">
-              {user.full_name ?? user.email}
-            </p>
+            <p className="text-sm font-medium text-white truncate">{user.full_name ?? user.email}</p>
             <p className="text-xs text-gray-500 truncate capitalize">{user.role}</p>
           </div>
         </div>
@@ -229,14 +274,6 @@ function CannedIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-    </svg>
-  )
-}
-
-function BrandingIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
     </svg>
   )
 }

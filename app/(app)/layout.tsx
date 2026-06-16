@@ -61,11 +61,10 @@ export default async function AppLayout({
   }
 
   const service = createServiceClient()
-  const [{ data: chatModeSetting }, { data: brandingSettings }] = await Promise.all([
-    service.from('settings').select('value').eq('key', 'chat_mode').single(),
+  const [{ data: brandingSettings }, { data: liveChatUsers }] = await Promise.all([
     service.from('settings').select('key, value').in('key', ['brand_accent_color', 'brand_logo_url']),
+    service.from('users').select('id, full_name, avatar_url').eq('live_chat_enabled', true).eq('is_active', true),
   ])
-  const chatMode = chatModeSetting?.value ?? 'ai'
   const brandingMap = Object.fromEntries((brandingSettings ?? []).map((s) => [s.key, s.value]))
   const accentHex: string = (brandingMap.brand_accent_color as string) ?? '#604484'
   const logoUrl: string | null = (brandingMap.brand_logo_url as string) ?? null
@@ -94,7 +93,7 @@ export default async function AppLayout({
     <AppUserProvider user={appUser}>
       <PushInit />
       <div className="flex h-screen overflow-hidden bg-cbba-navy" style={cssVars}>
-        <Sidebar user={appUser} chatMode={chatMode} logoUrl={logoUrl} />
+        <Sidebar user={appUser} logoUrl={logoUrl} initialLiveChatUsers={liveChatUsers ?? []} />
         <div className="flex flex-col flex-1 min-w-0">
           <TopBar userId={appUser.id} />
           <main className="flex-1 overflow-auto p-6 relative">

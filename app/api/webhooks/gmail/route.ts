@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       sendPushToAll({
         title: `New message from ${senderName}`,
         body: email.subject,
-        url: '/',
+        url: `/inbox?conversation=${result.conversationId}`,
         conversationId: result.conversationId,
       }).catch(() => {})
 

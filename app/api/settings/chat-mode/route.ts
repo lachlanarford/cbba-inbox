@@ -20,9 +20,19 @@ export async function PATCH(request: Request) {
   }
 
   const service = createServiceClient()
-  await service
-    .from('settings')
-    .upsert({ key: 'chat_mode', value: mode, updated_at: new Date().toISOString() })
+  const liveEnabled = mode === 'live'
+
+  await service.from('users').update({ live_chat_enabled: liveEnabled }).eq('id', user.id)
+
+  if (liveEnabled) {
+    await service.from('live_chat_sessions').insert({ user_id: user.id })
+  } else {
+    await service
+      .from('live_chat_sessions')
+      .update({ ended_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .is('ended_at', null)
+  }
 
   return NextResponse.json({ mode })
 }

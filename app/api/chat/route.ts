@@ -59,6 +59,29 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
 
+async function isWithinOfficeHours(supabase: ReturnType<typeof createServiceClient>): Promise<boolean> {
+  const { data } = await supabase
+    .from('settings')
+    .select('key, value')
+    .in('key', ['office_hours_enabled', 'office_hours_start', 'office_hours_end', 'office_hours_days', 'office_hours_timezone'])
+  const s = Object.fromEntries((data ?? []).map((r) => [r.key, r.value as string]))
+  if (s.office_hours_enabled !== 'true') return true
+  const tz = s.office_hours_timezone || 'Australia/Sydney'
+  const now = new Date()
+  const parts = new Intl.DateTimeFormat('en-AU', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false, weekday: 'short' }).formatToParts(now)
+  const hour = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0')
+  const minute = parseInt(parts.find((p) => p.type === 'minute')?.value ?? '0')
+  const weekday = parts.find((p) => p.type === 'weekday')?.value ?? ''
+  const dayMap: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }
+  const currentDay = dayMap[weekday] ?? 0
+  const allowedDays = (s.office_hours_days ?? '1,2,3,4,5').split(',').map(Number)
+  if (!allowedDays.includes(currentDay)) return false
+  const cur = hour * 60 + minute
+  const [sh, sm] = (s.office_hours_start ?? '09:00').split(':').map(Number)
+  const [eh, em] = (s.office_hours_end ?? '17:00').split(':').map(Number)
+  return cur >= sh * 60 + sm && cur < eh * 60 + em
+}
+
 interface ChatRequest {
   message: string
   session_id: string
@@ -84,14 +107,12 @@ export async function POST(request: Request) {
 
   const supabase = createServiceClient()
 
-  // Get chat_mode setting
-  const { data: setting } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'chat_mode')
-    .single()
-
-  const chatMode = setting?.value ?? 'ai'
+  // Check if any active staff member has live chat enabled, within office hours
+  const [{ data: liveUsers }, withinHours] = await Promise.all([
+    supabase.from('users').select('id').eq('live_chat_enabled', true).eq('is_active', true).limit(1),
+    isWithinOfficeHours(supabase),
+  ])
+  const chatMode = (liveUsers?.length ?? 0) > 0 && withinHours ? 'live' : 'ai'
 
   if (chatMode === 'live') {
     let conversationId: string | null = null
