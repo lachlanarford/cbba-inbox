@@ -3,18 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAdmin } from '@/lib/auth'
 import { getDriveClient, listFilesInFolder, extractTextFromFile } from '@/lib/drive/client'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-export async function POST() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+type SyncResult = { name: string; status: 'synced' | 'skipped' | 'error' }
 
-  const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
-  if (!appUser || !isAdmin(appUser)) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
-
-  const service = createServiceClient()
-
-  // Load Drive settings
+async function runDriveSync(service: SupabaseClient): Promise<{ synced: number; results: SyncResult[] } | { error: string; status: number }> {
   const { data: driveSettingsRows } = await service
     .from('settings')
     .select('key, value')
@@ -24,9 +17,8 @@ export async function POST() {
   const folderId = driveSettings['drive_folder_id']
   const channelConfigId = driveSettings['drive_channel_config_id']
 
-  console.log('[drive-sync] folderId:', folderId, 'channelConfigId:', channelConfigId)
-  if (!folderId) return NextResponse.json({ error: 'Drive folder not configured' }, { status: 400 })
-  if (!channelConfigId) return NextResponse.json({ error: 'No Google account selected for Drive. Choose an account in the Drive settings.' }, { status: 400 })
+  if (!folderId) return { error: 'Drive folder not configured', status: 400 }
+  if (!channelConfigId) return { error: 'No Google account selected for Drive. Choose an account in the Drive settings.', status: 400 }
 
   const { data: gmailConfig } = await service
     .from('channel_configs')
@@ -34,33 +26,24 @@ export async function POST() {
     .eq('id', channelConfigId)
     .maybeSingle()
 
-  if (!gmailConfig) {
-    return NextResponse.json({ error: 'Selected Google account not found. Re-select an account in Drive settings.' }, { status: 400 })
-  }
-
-  console.log('[drive-sync] using channel config:', gmailConfig.id, gmailConfig.identifier)
+  if (!gmailConfig) return { error: 'Selected Google account not found. Re-select an account in Drive settings.', status: 400 }
 
   let drive
   try {
     drive = await getDriveClient(gmailConfig.id)
-    console.log('[drive-sync] drive client created OK')
   } catch (err) {
-    console.error('[drive-sync] auth failed:', err)
-    return NextResponse.json({ error: `Failed to authenticate with Google: ${String(err)}` }, { status: 500 })
+    return { error: `Failed to authenticate with Google: ${String(err)}`, status: 500 }
   }
 
-  // List supported files in the folder
   let files
   try {
     files = await listFilesInFolder(drive, folderId)
-    console.log('[drive-sync] files found:', files.length)
   } catch (err) {
-    console.error('[drive-sync] listFilesInFolder failed:', err)
-    return NextResponse.json({ error: `Failed to list Drive folder: ${String(err)}` }, { status: 500 })
+    return { error: `Failed to list Drive folder: ${String(err)}`, status: 500 }
   }
 
   const syncedFileIds = new Set<string>()
-  const results: { name: string; status: 'synced' | 'skipped' | 'error' }[] = []
+  const results: SyncResult[] = []
 
   for (const file of files) {
     try {
@@ -97,7 +80,6 @@ export async function POST() {
     }
   }
 
-  // Deactivate Drive entries no longer in the folder
   if (syncedFileIds.size > 0) {
     const { data: existing } = await service
       .from('knowledge_base')
@@ -114,5 +96,43 @@ export async function POST() {
     }
   }
 
-  return NextResponse.json({ synced: syncedFileIds.size, results })
+  return { synced: syncedFileIds.size, results }
+}
+
+// Called by Vercel Cron every hour
+export async function GET(request: Request) {
+  const authHeader = request.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const service = createServiceClient()
+  const result = await runDriveSync(service)
+
+  if ('error' in result) {
+    console.error('[drive-sync cron] failed:', result.error)
+    return NextResponse.json({ error: result.error }, { status: result.status })
+  }
+
+  console.log('[drive-sync cron] complete:', result.synced, 'synced')
+  return NextResponse.json(result)
+}
+
+// Called manually from the Settings UI
+export async function POST() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
+  if (!appUser || !isAdmin(appUser)) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+
+  const service = createServiceClient()
+  const result = await runDriveSync(service)
+
+  if ('error' in result) {
+    return NextResponse.json({ error: result.error }, { status: result.status })
+  }
+
+  return NextResponse.json(result)
 }
