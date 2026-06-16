@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAdmin } from '@/lib/auth'
 import KnowledgeManager from '@/components/settings/KnowledgeManager'
-import type { KnowledgeEntryWithOwner } from '@/types/database'
 
 export default async function KnowledgePage() {
   const supabase = await createClient()
@@ -14,11 +13,7 @@ export default async function KnowledgePage() {
   if (!appUser || !isAdmin(appUser)) redirect('/settings')
 
   const service = createServiceClient()
-  const [{ data: entries }, { data: driveSettingsRows }, { data: gmailConfigs }] = await Promise.all([
-    service
-      .from('knowledge_base')
-      .select('*, created_by_user:users!created_by(id, full_name, avatar_url)')
-      .order('created_at', { ascending: false }),
+  const [{ data: driveSettingsRows }, { data: gmailConfigs }] = await Promise.all([
     service
       .from('settings')
       .select('key, value')
@@ -37,11 +32,10 @@ export default async function KnowledgePage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Knowledge Base</h1>
         <p className="text-gray-400 text-sm mt-1">
-          Content used to inform AI replies and the chat widget. Add URLs to scrape, create manual entries, or sync from Google Drive.
+          Documents synced from Google Drive are used by the AI when answering questions and in the chat widget.
         </p>
       </div>
       <KnowledgeManager
-        initialEntries={(entries ?? []) as unknown as KnowledgeEntryWithOwner[]}
         driveFolderId={driveSettings['drive_folder_id'] ?? ''}
         driveChannelConfigId={driveSettings['drive_channel_config_id'] ?? ''}
         gmailAccounts={(gmailConfigs ?? []).map((c) => ({ id: c.id, email: c.identifier }))}

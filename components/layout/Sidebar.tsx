@@ -55,6 +55,7 @@ export default function Sidebar({ user, chatMode, logoUrl }: SidebarProps) {
 
   function isActive(href: string) {
     if (href === '/inbox') return pathname === '/inbox' || pathname.startsWith('/inbox/')
+    if (href === '/settings') return pathname === '/settings'
     return pathname === href || pathname.startsWith(`${href}/`)
   }
 

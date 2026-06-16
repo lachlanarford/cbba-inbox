@@ -1,10 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface SyncResult {
   name: string
   status: 'synced' | 'skipped' | 'error'
+}
+
+interface SyncLog {
+  id: string
+  created_at: string
+  trigger: string
+  synced_count: number
+  skipped_count: number
+  error_count: number
+  status: string
+  error_message: string | null
 }
 
 interface Props {
@@ -21,9 +32,24 @@ export default function DriveSync({ initialFolderId, initialChannelConfigId, gma
   const [syncing, setSyncing] = useState(false)
   const [syncResults, setSyncResults] = useState<SyncResult[] | null>(null)
   const [syncError, setSyncError] = useState('')
+  const [logs, setLogs] = useState<SyncLog[]>([])
+  const [logsLoading, setLogsLoading] = useState(true)
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/knowledge/sync-logs')
+      if (res.ok) {
+        const data = await res.json() as { logs: SyncLog[] }
+        setLogs(data.logs)
+      }
+    } finally {
+      setLogsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchLogs() }, [fetchLogs])
 
   function extractFolderId(input: string): string {
-    // Accept full URL like https://drive.google.com/drive/folders/FOLDER_ID?usp=sharing
     const match = input.match(/\/folders\/([a-zA-Z0-9_-]+)/)
     return match ? match[1] : input.trim()
   }
@@ -64,6 +90,7 @@ export default function DriveSync({ initialFolderId, initialChannelConfigId, gma
         setSyncError(data.error ?? 'Sync failed')
       } else {
         setSyncResults(data.results ?? [])
+        await fetchLogs()
       }
     } catch {
       setSyncError('Network error')
@@ -78,22 +105,11 @@ export default function DriveSync({ initialFolderId, initialChannelConfigId, gma
       <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-2 text-sm text-gray-400">
         <p className="text-white font-medium">How Google Drive sync works</p>
         <ol className="list-decimal list-inside space-y-1">
-          <li>Re-authorise your Gmail channel below to grant Drive access (one-time step)</li>
+          <li>Choose the Google account that has access to your Drive folder below</li>
           <li>Create a folder in Google Drive and add your policy docs, Google Docs, or Sheets</li>
-          <li>Paste the folder ID and click Sync — the AI will use these documents when answering questions</li>
+          <li>Paste the folder ID and save -- the AI will use these documents when answering questions</li>
         </ol>
-        <p className="text-xs text-gray-500 pt-1">Supported: Google Docs, Google Sheets, PDF files. The folder must be accessible by the Gmail account connected to this inbox.</p>
-      </div>
-
-      {/* Re-authorise Gmail notice */}
-      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
-        <svg className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-        </svg>
-        <div>
-          <p className="text-sm text-amber-300 font-medium">Re-authorise required</p>
-          <p className="text-xs text-amber-400/80 mt-0.5">Drive access was added to the Gmail connection. Go to <strong>Settings → Channels → Gmail</strong> and click Reconnect to grant Drive access, then come back here to sync.</p>
-        </div>
+        <p className="text-xs text-gray-500 pt-1">Supported: Google Docs, Google Sheets, PDF files. Syncs automatically every hour.</p>
       </div>
 
       {/* Google account picker */}
@@ -116,7 +132,7 @@ export default function DriveSync({ initialFolderId, initialChannelConfigId, gma
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1">Drive Folder ID</label>
         <p className="text-xs text-gray-500 mb-2">
-          Paste the full folder URL or just the ID — both work.
+          Paste the full folder URL or just the ID -- both work.
         </p>
         <div className="flex gap-2">
           <input
@@ -141,7 +157,7 @@ export default function DriveSync({ initialFolderId, initialChannelConfigId, gma
         )}
       </div>
 
-      {/* Sync */}
+      {/* Manual sync */}
       <div className="border-t border-white/10 pt-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -197,6 +213,65 @@ export default function DriveSync({ initialFolderId, initialChannelConfigId, gma
           </div>
         )}
       </div>
+
+      {/* Sync log */}
+      <div className="border-t border-white/10 pt-6">
+        <p className="text-sm font-medium text-white mb-3">Sync history</p>
+        {logsLoading ? (
+          <p className="text-xs text-gray-600">Loading...</p>
+        ) : logs.length === 0 ? (
+          <p className="text-xs text-gray-600">No syncs yet.</p>
+        ) : (
+          <div className="rounded-xl border border-white/10 overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/10 text-gray-500">
+                  <th className="px-4 py-2.5 text-left font-medium">Time</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Trigger</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Status</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Documents</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <tr key={log.id} className="border-b border-white/5 last:border-0">
+                    <td className="px-4 py-2.5 text-gray-400">{formatRelative(log.created_at)}</td>
+                    <td className="px-4 py-2.5">
+                      {log.trigger === 'manual' ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#604484]/20 text-[#a78bfa]">Manual</span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/5 text-gray-400">Auto</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {log.status === 'success' && <span className="flex items-center gap-1 text-green-400"><span className="w-1.5 h-1.5 rounded-full bg-green-400" />Success</span>}
+                      {log.status === 'partial' && <span className="flex items-center gap-1 text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Partial</span>}
+                      {log.status === 'error' && <span className="flex items-center gap-1 text-red-400"><span className="w-1.5 h-1.5 rounded-full bg-red-400" />Error</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-gray-400">
+                      <span className="text-white">{log.synced_count}</span> synced
+                      {log.skipped_count > 0 && <span className="text-gray-600">, {log.skipped_count} skipped</span>}
+                      {log.error_count > 0 && <span className="text-red-400">, {log.error_count} errors</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
+}
+
+function formatRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(iso).toLocaleDateString()
 }

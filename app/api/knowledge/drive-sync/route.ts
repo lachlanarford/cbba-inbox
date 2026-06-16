@@ -7,7 +7,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 type SyncResult = { name: string; status: 'synced' | 'skipped' | 'error' }
 
-async function runDriveSync(service: SupabaseClient): Promise<{ synced: number; results: SyncResult[] } | { error: string; status: number }> {
+async function runDriveSync(
+  service: SupabaseClient,
+  trigger: 'manual' | 'cron'
+): Promise<{ synced: number; results: SyncResult[] } | { error: string; status: number }> {
   const { data: driveSettingsRows } = await service
     .from('settings')
     .select('key, value')
@@ -96,7 +99,20 @@ async function runDriveSync(service: SupabaseClient): Promise<{ synced: number; 
     }
   }
 
-  return { synced: syncedFileIds.size, results }
+  const syncedCount = syncedFileIds.size
+  const skippedCount = results.filter((r) => r.status === 'skipped').length
+  const errorCount = results.filter((r) => r.status === 'error').length
+  const status = errorCount === 0 ? 'success' : syncedCount > 0 ? 'partial' : 'error'
+
+  await service.from('drive_sync_logs').insert({
+    trigger,
+    synced_count: syncedCount,
+    skipped_count: skippedCount,
+    error_count: errorCount,
+    status,
+  })
+
+  return { synced: syncedCount, results }
 }
 
 // Called by Vercel Cron every hour
@@ -107,7 +123,7 @@ export async function GET(request: Request) {
   }
 
   const service = createServiceClient()
-  const result = await runDriveSync(service)
+  const result = await runDriveSync(service, 'cron')
 
   if ('error' in result) {
     console.error('[drive-sync cron] failed:', result.error)
@@ -128,7 +144,7 @@ export async function POST() {
   if (!appUser || !isAdmin(appUser)) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
 
   const service = createServiceClient()
-  const result = await runDriveSync(service)
+  const result = await runDriveSync(service, 'manual')
 
   if ('error' in result) {
     return NextResponse.json({ error: result.error }, { status: result.status })

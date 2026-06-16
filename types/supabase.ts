@@ -275,6 +275,39 @@ export type Database = {
         }
         Relationships: []
       }
+      drive_sync_logs: {
+        Row: {
+          id: string
+          created_at: string
+          trigger: string
+          synced_count: number
+          skipped_count: number
+          error_count: number
+          status: string
+          error_message: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          trigger: string
+          synced_count?: number
+          skipped_count?: number
+          error_count?: number
+          status: string
+          error_message?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          trigger?: string
+          synced_count?: number
+          skipped_count?: number
+          error_count?: number
+          status?: string
+          error_message?: string | null
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           key: string
