@@ -14,28 +14,28 @@ export async function POST() {
 
   const service = createServiceClient()
 
-  // Load folder ID from settings
-  const { data: folderSetting } = await service
+  // Load Drive settings
+  const { data: driveSettingsRows } = await service
     .from('settings')
-    .select('value')
-    .eq('key', 'drive_folder_id')
-    .maybeSingle()
+    .select('key, value')
+    .in('key', ['drive_folder_id', 'drive_channel_config_id'])
 
-  const folderId = folderSetting?.value as string | undefined
-  console.log('[drive-sync] folderId:', folderId)
+  const driveSettings = Object.fromEntries((driveSettingsRows ?? []).map((s) => [s.key, s.value as string]))
+  const folderId = driveSettings['drive_folder_id']
+  const channelConfigId = driveSettings['drive_channel_config_id']
+
+  console.log('[drive-sync] folderId:', folderId, 'channelConfigId:', channelConfigId)
   if (!folderId) return NextResponse.json({ error: 'Drive folder not configured' }, { status: 400 })
+  if (!channelConfigId) return NextResponse.json({ error: 'No Google account selected for Drive. Choose an account in the Drive settings.' }, { status: 400 })
 
-  // Pick the first Gmail channel config — any will do since they share the same Google Workspace
-  const { data: gmailConfigs } = await service
+  const { data: gmailConfig } = await service
     .from('channel_configs')
     .select('id, identifier')
-    .eq('channel_type', 'gmail')
-    .limit(1)
-
-  const gmailConfig = gmailConfigs?.[0] ?? null
+    .eq('id', channelConfigId)
+    .maybeSingle()
 
   if (!gmailConfig) {
-    return NextResponse.json({ error: 'No Gmail channel found. Connect a Gmail account first — Drive uses the same Google account.' }, { status: 400 })
+    return NextResponse.json({ error: 'Selected Google account not found. Re-select an account in Drive settings.' }, { status: 400 })
   }
 
   console.log('[drive-sync] using channel config:', gmailConfig.id, gmailConfig.identifier)

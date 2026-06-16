@@ -17,9 +17,11 @@ interface ManualEntryForm {
 interface KnowledgeManagerProps {
   initialEntries: KnowledgeEntryWithOwner[]
   driveFolderId: string
+  driveChannelConfigId: string
+  gmailAccounts: { id: string; email: string }[]
 }
 
-export default function KnowledgeManager({ initialEntries, driveFolderId }: KnowledgeManagerProps) {
+export default function KnowledgeManager({ initialEntries, driveFolderId, driveChannelConfigId, gmailAccounts }: KnowledgeManagerProps) {
   const [entries, setEntries] = useState<KnowledgeEntryWithOwner[]>(initialEntries)
   const [urlInput, setUrlInput] = useState('')
   const [scrapeError, setScrapeError] = useState<string | null>(null)
@@ -228,7 +230,7 @@ export default function KnowledgeManager({ initialEntries, driveFolderId }: Know
 
       {activeTab === 'drive' && (
         <div className="bg-cbba-navy-dark border border-white/10 rounded-xl p-6">
-          <DriveSync initialFolderId={driveFolderId} />
+          <DriveSync initialFolderId={driveFolderId} initialChannelConfigId={driveChannelConfigId} gmailAccounts={gmailAccounts} />
         </div>
       )}
 

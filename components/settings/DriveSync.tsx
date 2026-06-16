@@ -9,10 +9,13 @@ interface SyncResult {
 
 interface Props {
   initialFolderId: string
+  initialChannelConfigId: string
+  gmailAccounts: { id: string; email: string }[]
 }
 
-export default function DriveSync({ initialFolderId }: Props) {
+export default function DriveSync({ initialFolderId, initialChannelConfigId, gmailAccounts }: Props) {
   const [folderId, setFolderId] = useState(initialFolderId)
+  const [channelConfigId, setChannelConfigId] = useState(initialChannelConfigId)
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
   const [syncing, setSyncing] = useState(false)
@@ -25,19 +28,26 @@ export default function DriveSync({ initialFolderId }: Props) {
     return match ? match[1] : input.trim()
   }
 
+  async function saveSetting(key: string, value: string) {
+    const res = await fetch('/api/settings/drive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value }),
+    })
+    return res.ok
+  }
+
   async function saveFolder() {
     setSaving(true)
     setSavedMsg('')
     const id = extractFolderId(folderId)
     if (id !== folderId) setFolderId(id)
     try {
-      const res = await fetch('/api/settings/drive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'drive_folder_id', value: id }),
-      })
-      const d = await res.json() as { error?: string }
-      setSavedMsg(res.ok ? 'Saved.' : `Error: ${d.error ?? 'Failed'}`)
+      const [folderOk, accountOk] = await Promise.all([
+        saveSetting('drive_folder_id', id),
+        channelConfigId ? saveSetting('drive_channel_config_id', channelConfigId) : Promise.resolve(true),
+      ])
+      setSavedMsg(folderOk && accountOk ? 'Saved.' : 'Error: Failed to save')
     } finally {
       setSaving(false)
     }
@@ -84,6 +94,22 @@ export default function DriveSync({ initialFolderId }: Props) {
           <p className="text-sm text-amber-300 font-medium">Re-authorise required</p>
           <p className="text-xs text-amber-400/80 mt-0.5">Drive access was added to the Gmail connection. Go to <strong>Settings → Channels → Gmail</strong> and click Reconnect to grant Drive access, then come back here to sync.</p>
         </div>
+      </div>
+
+      {/* Google account picker */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Google Account</label>
+        <p className="text-xs text-gray-500 mb-2">Choose the account that has access to your Drive folder.</p>
+        <select
+          value={channelConfigId}
+          onChange={(e) => setChannelConfigId(e.target.value)}
+          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cbba-purple"
+        >
+          <option value="">Select an account...</option>
+          {gmailAccounts.map((a) => (
+            <option key={a.id} value={a.id}>{a.email}</option>
+          ))}
+        </select>
       </div>
 
       {/* Folder ID */}

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAdmin } from '@/lib/auth'
 
-const ALLOWED_KEYS = new Set(['drive_folder_id'])
+const ALLOWED_KEYS = new Set(['drive_folder_id', 'drive_channel_config_id'])
 
 export async function POST(request: Request) {
   const supabase = await createClient()

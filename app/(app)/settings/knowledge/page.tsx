@@ -14,17 +14,23 @@ export default async function KnowledgePage() {
   if (!appUser || !isAdmin(appUser)) redirect('/settings')
 
   const service = createServiceClient()
-  const [{ data: entries }, { data: driveSettings }] = await Promise.all([
+  const [{ data: entries }, { data: driveSettingsRows }, { data: gmailConfigs }] = await Promise.all([
     service
       .from('knowledge_base')
       .select('*, created_by_user:users!created_by(id, full_name, avatar_url)')
       .order('created_at', { ascending: false }),
     service
       .from('settings')
-      .select('value')
-      .eq('key', 'drive_folder_id')
-      .maybeSingle(),
+      .select('key, value')
+      .in('key', ['drive_folder_id', 'drive_channel_config_id']),
+    service
+      .from('channel_configs')
+      .select('id, identifier')
+      .eq('channel_type', 'gmail')
+      .order('identifier'),
   ])
+
+  const driveSettings = Object.fromEntries((driveSettingsRows ?? []).map((s) => [s.key, s.value as string]))
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -36,7 +42,9 @@ export default async function KnowledgePage() {
       </div>
       <KnowledgeManager
         initialEntries={(entries ?? []) as unknown as KnowledgeEntryWithOwner[]}
-        driveFolderId={(driveSettings?.value as string) ?? ''}
+        driveFolderId={driveSettings['drive_folder_id'] ?? ''}
+        driveChannelConfigId={driveSettings['drive_channel_config_id'] ?? ''}
+        gmailAccounts={(gmailConfigs ?? []).map((c) => ({ id: c.id, email: c.identifier }))}
       />
     </div>
   )
