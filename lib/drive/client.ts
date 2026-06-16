@@ -80,10 +80,16 @@ export async function extractTextFromFile(
       { fileId: file.id, alt: 'media', supportsAllDrives: true },
       { responseType: 'arraybuffer' }
     )
+    const raw = res.data
+    const buf = Buffer.isBuffer(raw)
+      ? raw
+      : Buffer.from(raw as ArrayBuffer)
+    console.log('[drive] PDF download size for', file.name, ':', buf.length, 'bytes')
     const { PDFParse } = await import('pdf-parse')
-    const parser = new PDFParse({ data: Buffer.from(res.data as ArrayBuffer) })
+    const parser = new PDFParse({ data: buf })
     const result = await parser.getText()
-    return result.text.trim() || null
+    console.log('[drive] PDF text length for', file.name, ':', result.text?.length ?? 0)
+    return result.text?.trim() || null
   }
 
   return null
