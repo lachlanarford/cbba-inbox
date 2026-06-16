@@ -24,16 +24,15 @@ export async function POST() {
   const folderId = folderSetting?.value as string | undefined
   if (!folderId) return NextResponse.json({ error: 'Drive folder not configured' }, { status: 400 })
 
-  // Use the active Gmail channel config for Drive auth (Drive scope was added to Gmail OAuth)
+  // Use any Gmail channel config for Drive auth — active or not, just needs valid credentials
   const { data: gmailConfig } = await service
     .from('channel_configs')
     .select('id')
     .eq('channel_type', 'gmail')
-    .eq('is_active', true)
     .maybeSingle()
 
   if (!gmailConfig) {
-    return NextResponse.json({ error: 'No active Gmail channel found. Connect Gmail first — Drive uses the same Google account.' }, { status: 400 })
+    return NextResponse.json({ error: 'No Gmail channel found. Connect a Gmail account first — Drive uses the same Google account.' }, { status: 400 })
   }
 
   let drive

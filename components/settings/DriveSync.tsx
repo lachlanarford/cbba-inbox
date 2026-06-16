@@ -19,14 +19,22 @@ export default function DriveSync({ initialFolderId }: Props) {
   const [syncResults, setSyncResults] = useState<SyncResult[] | null>(null)
   const [syncError, setSyncError] = useState('')
 
+  function extractFolderId(input: string): string {
+    // Accept full URL like https://drive.google.com/drive/folders/FOLDER_ID?usp=sharing
+    const match = input.match(/\/folders\/([a-zA-Z0-9_-]+)/)
+    return match ? match[1] : input.trim()
+  }
+
   async function saveFolder() {
     setSaving(true)
     setSavedMsg('')
+    const id = extractFolderId(folderId)
+    if (id !== folderId) setFolderId(id)
     try {
       const res = await fetch('/api/settings/drive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'drive_folder_id', value: folderId }),
+        body: JSON.stringify({ key: 'drive_folder_id', value: id }),
       })
       const d = await res.json() as { error?: string }
       setSavedMsg(res.ok ? 'Saved.' : `Error: ${d.error ?? 'Failed'}`)
@@ -82,7 +90,7 @@ export default function DriveSync({ initialFolderId }: Props) {
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1">Drive Folder ID</label>
         <p className="text-xs text-gray-500 mb-2">
-          From the folder URL: <code className="text-gray-400">drive.google.com/drive/folders/<strong>THIS_PART</strong></code>
+          Paste the full folder URL or just the ID — both work.
         </p>
         <div className="flex gap-2">
           <input
