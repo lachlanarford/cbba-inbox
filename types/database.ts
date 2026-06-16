@@ -57,8 +57,9 @@ export interface KnowledgeBaseEntry {
   id: string
   title: string
   content: string
-  source_type: 'url' | 'manual'
+  source_type: 'url' | 'manual' | 'drive'
   source_url: string | null
+  drive_file_id: string | null
   last_scraped_at: string | null
   is_active: boolean
   department: Department | null

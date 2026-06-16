@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { KnowledgeEntryWithOwner } from '@/types/database'
+import DriveSync from './DriveSync'
 
 const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'] as const
 const CATEGORIES = ['General', 'Membership', 'Aussie Hoops', 'Domestic Competition', 'Policies & Procedures'] as const
@@ -15,9 +16,11 @@ interface ManualEntryForm {
 
 interface KnowledgeManagerProps {
   initialEntries: KnowledgeEntryWithOwner[]
+  driveFolderId: string
+  driveHasServiceAccount: boolean
 }
 
-export default function KnowledgeManager({ initialEntries }: KnowledgeManagerProps) {
+export default function KnowledgeManager({ initialEntries, driveFolderId, driveHasServiceAccount }: KnowledgeManagerProps) {
   const [entries, setEntries] = useState<KnowledgeEntryWithOwner[]>(initialEntries)
   const [urlInput, setUrlInput] = useState('')
   const [scrapeError, setScrapeError] = useState<string | null>(null)
@@ -34,6 +37,7 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
   const [isSavingManual, startSaveManual] = useTransition()
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [activeTab, setActiveTab] = useState<'entries' | 'drive'>('entries')
 
   function openAddManual() {
     setManualForm({ title: '', content: '', department: '', category: '' })
@@ -192,8 +196,44 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
   // Get categories that actually have entries, for the filter bar
   const usedCategories = Array.from(new Set(manualEntries.map((e) => e.category).filter(Boolean))) as string[]
 
+  const driveEntries = entries.filter((e) => e.source_type === 'drive')
+
   return (
     <div className="space-y-8">
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-white/10">
+        <button
+          onClick={() => setActiveTab('entries')}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === 'entries' ? 'border-cbba-purple text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+        >
+          Knowledge Entries
+        </button>
+        <button
+          onClick={() => setActiveTab('drive')}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === 'drive' ? 'border-cbba-purple text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 87.3 78" fill="currentColor">
+            <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H.01c0 1.55.4 3.1 1.2 4.5z" fill="#0066DA"/>
+            <path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.5c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00AC47"/>
+            <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z" fill="#EA4335"/>
+            <path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2z" fill="#00832D"/>
+            <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.4 4.5-1.2z" fill="#2684FC"/>
+            <path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25 59.8 53h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#FFBA00"/>
+          </svg>
+          Google Drive
+          {driveEntries.length > 0 && (
+            <span className="text-xs bg-cbba-purple/30 text-cbba-purple px-1.5 py-0.5 rounded-full">{driveEntries.length}</span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'drive' && (
+        <div className="bg-cbba-navy-dark border border-white/10 rounded-xl p-6">
+          <DriveSync initialFolderId={driveFolderId} initialHasServiceAccount={driveHasServiceAccount} />
+        </div>
+      )}
+
+      {activeTab === 'entries' && <>
       {/* Scrape URL */}
       <div className="bg-cbba-navy-dark border border-white/10 rounded-xl p-6">
         <h2 className="text-sm font-semibold text-white mb-4">Scrape a URL</h2>
@@ -372,6 +412,8 @@ export default function KnowledgeManager({ initialEntries }: KnowledgeManagerPro
           </table>
         )}
       </div>
+
+      </>}
 
       {/* Manual entry modal */}
       {showManualModal && (

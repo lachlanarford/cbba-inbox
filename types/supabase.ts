@@ -243,6 +243,7 @@ export type Database = {
           content: string
           source_type: string
           source_url: string | null
+          drive_file_id: string | null
           last_scraped_at: string | null
           is_active: boolean
           created_at: string
@@ -254,6 +255,7 @@ export type Database = {
           content: string
           source_type?: string
           source_url?: string | null
+          drive_file_id?: string | null
           last_scraped_at?: string | null
           is_active?: boolean
           created_at?: string
@@ -265,6 +267,7 @@ export type Database = {
           content?: string
           source_type?: string
           source_url?: string | null
+          drive_file_id?: string | null
           last_scraped_at?: string | null
           is_active?: boolean
           created_at?: string
