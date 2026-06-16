@@ -21,11 +21,10 @@ export default async function KnowledgePage() {
       .order('created_at', { ascending: false }),
     service
       .from('settings')
-      .select('key, value')
-      .in('key', ['drive_folder_id', 'drive_service_account']),
+      .select('value')
+      .eq('key', 'drive_folder_id')
+      .maybeSingle(),
   ])
-
-  const driveMap = Object.fromEntries((driveSettings ?? []).map((s) => [s.key, s.value as string]))
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -37,8 +36,7 @@ export default async function KnowledgePage() {
       </div>
       <KnowledgeManager
         initialEntries={(entries ?? []) as unknown as KnowledgeEntryWithOwner[]}
-        driveFolderId={driveMap['drive_folder_id'] ?? ''}
-        driveHasServiceAccount={!!driveMap['drive_service_account']}
+        driveFolderId={(driveSettings?.value as string) ?? ''}
       />
     </div>
   )

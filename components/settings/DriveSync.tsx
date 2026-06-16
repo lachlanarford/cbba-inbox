@@ -9,41 +9,29 @@ interface SyncResult {
 
 interface Props {
   initialFolderId: string
-  initialHasServiceAccount: boolean
 }
 
-export default function DriveSync({ initialFolderId, initialHasServiceAccount }: Props) {
+export default function DriveSync({ initialFolderId }: Props) {
   const [folderId, setFolderId] = useState(initialFolderId)
-  const [serviceAccountJson, setServiceAccountJson] = useState('')
-  const [hasServiceAccount, setHasServiceAccount] = useState(initialHasServiceAccount)
-  const [savingFolder, setSavingFolder] = useState(false)
-  const [savingAccount, setSavingAccount] = useState(false)
-  const [syncing, setSyncing] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
+  const [syncing, setSyncing] = useState(false)
   const [syncResults, setSyncResults] = useState<SyncResult[] | null>(null)
   const [syncError, setSyncError] = useState('')
 
-  async function saveSetting(key: string, value: string, setLoading: (v: boolean) => void) {
-    setLoading(true)
+  async function saveFolder() {
+    setSaving(true)
     setSavedMsg('')
     try {
       const res = await fetch('/api/settings/drive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, value }),
+        body: JSON.stringify({ key: 'drive_folder_id', value: folderId }),
       })
-      if (!res.ok) {
-        const d = await res.json() as { error?: string }
-        setSavedMsg(`Error: ${d.error ?? 'Failed to save'}`)
-      } else {
-        setSavedMsg('Saved.')
-        if (key === 'drive_service_account') {
-          setHasServiceAccount(true)
-          setServiceAccountJson('')
-        }
-      }
+      const d = await res.json() as { error?: string }
+      setSavedMsg(res.ok ? 'Saved.' : `Error: ${d.error ?? 'Failed'}`)
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
@@ -72,17 +60,30 @@ export default function DriveSync({ initialFolderId, initialHasServiceAccount }:
       <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-2 text-sm text-gray-400">
         <p className="text-white font-medium">How Google Drive sync works</p>
         <ol className="list-decimal list-inside space-y-1">
-          <li>Create a <strong className="text-gray-300">Service Account</strong> in Google Cloud Console and download its JSON key</li>
-          <li>Share your Drive knowledge folder with the service account email (Viewer access)</li>
-          <li>Paste the folder ID below (from the folder URL: <code className="text-gray-300">drive.google.com/drive/folders/THIS_PART</code>)</li>
-          <li>Paste the JSON key and save, then click Sync</li>
+          <li>Re-authorise your Gmail channel below to grant Drive access (one-time step)</li>
+          <li>Create a folder in Google Drive and add your policy docs, Google Docs, or Sheets</li>
+          <li>Paste the folder ID and click Sync — the AI will use these documents when answering questions</li>
         </ol>
-        <p className="text-xs text-gray-500 pt-1">Supported file types: Google Docs, Google Sheets, PDF files. Other types are skipped.</p>
+        <p className="text-xs text-gray-500 pt-1">Supported: Google Docs, Google Sheets, PDF files. The folder must be accessible by the Gmail account connected to this inbox.</p>
+      </div>
+
+      {/* Re-authorise Gmail notice */}
+      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
+        <svg className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+        </svg>
+        <div>
+          <p className="text-sm text-amber-300 font-medium">Re-authorise required</p>
+          <p className="text-xs text-amber-400/80 mt-0.5">Drive access was added to the Gmail connection. Go to <strong>Settings → Channels → Gmail</strong> and click Reconnect to grant Drive access, then come back here to sync.</p>
+        </div>
       </div>
 
       {/* Folder ID */}
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Drive Folder ID</label>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Drive Folder ID</label>
+        <p className="text-xs text-gray-500 mb-2">
+          From the folder URL: <code className="text-gray-400">drive.google.com/drive/folders/<strong>THIS_PART</strong></code>
+        </p>
         <div className="flex gap-2">
           <input
             type="text"
@@ -92,37 +93,13 @@ export default function DriveSync({ initialFolderId, initialHasServiceAccount }:
             className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple"
           />
           <button
-            onClick={() => saveSetting('drive_folder_id', folderId, setSavingFolder)}
-            disabled={savingFolder || !folderId.trim()}
+            onClick={saveFolder}
+            disabled={saving || !folderId.trim()}
             className="px-4 py-2 bg-cbba-purple hover:bg-cbba-purple-dark text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
           >
-            {savingFolder ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
-      </div>
-
-      {/* Service Account JSON */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Service Account JSON Key
-          {hasServiceAccount && (
-            <span className="ml-2 text-xs text-green-400 font-normal">Configured</span>
-          )}
-        </label>
-        <textarea
-          value={serviceAccountJson}
-          onChange={(e) => setServiceAccountJson(e.target.value)}
-          placeholder={hasServiceAccount ? 'Paste a new JSON key to replace the existing one' : 'Paste the contents of your service account JSON key file here'}
-          rows={6}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple font-mono"
-        />
-        <button
-          onClick={() => saveSetting('drive_service_account', serviceAccountJson, setSavingAccount)}
-          disabled={savingAccount || !serviceAccountJson.trim()}
-          className="mt-2 px-4 py-2 bg-cbba-purple hover:bg-cbba-purple-dark text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
-        >
-          {savingAccount ? 'Saving...' : 'Save Service Account'}
-        </button>
         {savedMsg && (
           <p className={`mt-2 text-sm ${savedMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>
             {savedMsg}
@@ -135,11 +112,11 @@ export default function DriveSync({ initialFolderId, initialHasServiceAccount }:
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-sm font-medium text-white">Sync from Drive</p>
-            <p className="text-xs text-gray-500 mt-0.5">Pulls all supported files from your folder and adds them to the knowledge base</p>
+            <p className="text-xs text-gray-500 mt-0.5">Pulls all supported files from your folder and updates the knowledge base</p>
           </div>
           <button
             onClick={runSync}
-            disabled={syncing || !hasServiceAccount || !folderId.trim()}
+            disabled={syncing || !folderId.trim()}
             className="flex items-center gap-2 px-4 py-2 bg-cbba-purple hover:bg-cbba-purple-dark text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
           >
             {syncing ? (

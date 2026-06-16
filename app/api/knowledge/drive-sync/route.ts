@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAdmin } from '@/lib/auth'
-import { getDriveClient, listFilesInFolder, extractTextFromFile, type DriveServiceAccount } from '@/lib/drive/client'
+import { getDriveClient, listFilesInFolder, extractTextFromFile } from '@/lib/drive/client'
 
 export async function POST() {
   const supabase = await createClient()
@@ -14,27 +14,35 @@ export async function POST() {
 
   const service = createServiceClient()
 
-  // Load Drive settings
-  const { data: settings } = await service
+  // Load folder ID from settings
+  const { data: folderSetting } = await service
     .from('settings')
-    .select('key, value')
-    .in('key', ['drive_folder_id', 'drive_service_account'])
+    .select('value')
+    .eq('key', 'drive_folder_id')
+    .maybeSingle()
 
-  const settingsMap = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value as string]))
-  const folderId = settingsMap['drive_folder_id']
-  const serviceAccountRaw = settingsMap['drive_service_account']
-
+  const folderId = folderSetting?.value as string | undefined
   if (!folderId) return NextResponse.json({ error: 'Drive folder not configured' }, { status: 400 })
-  if (!serviceAccountRaw) return NextResponse.json({ error: 'Drive service account not configured' }, { status: 400 })
 
-  let credentials: DriveServiceAccount
-  try {
-    credentials = JSON.parse(serviceAccountRaw) as DriveServiceAccount
-  } catch {
-    return NextResponse.json({ error: 'Invalid service account JSON' }, { status: 400 })
+  // Use the active Gmail channel config for Drive auth (Drive scope was added to Gmail OAuth)
+  const { data: gmailConfig } = await service
+    .from('channel_configs')
+    .select('id')
+    .eq('channel_type', 'gmail')
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (!gmailConfig) {
+    return NextResponse.json({ error: 'No active Gmail channel found. Connect Gmail first — Drive uses the same Google account.' }, { status: 400 })
   }
 
-  const drive = getDriveClient(credentials)
+  let drive
+  try {
+    drive = await getDriveClient(gmailConfig.id)
+  } catch (err) {
+    console.error('[drive-sync] auth failed:', err)
+    return NextResponse.json({ error: 'Failed to authenticate with Google. Re-authorise your Gmail channel to grant Drive access.' }, { status: 500 })
+  }
 
   // List supported files in the folder
   let files
@@ -42,7 +50,7 @@ export async function POST() {
     files = await listFilesInFolder(drive, folderId)
   } catch (err) {
     console.error('[drive-sync] listFilesInFolder failed:', err)
-    return NextResponse.json({ error: 'Failed to list Drive folder. Check folder ID and service account permissions.' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to list Drive folder. Check the folder ID and make sure the folder is shared with your Google account.' }, { status: 500 })
   }
 
   const syncedFileIds = new Set<string>()
@@ -56,7 +64,6 @@ export async function POST() {
         continue
       }
 
-      // Upsert by drive_file_id
       const { error } = await service
         .from('knowledge_base')
         .upsert(
@@ -84,7 +91,7 @@ export async function POST() {
     }
   }
 
-  // Deactivate Drive entries that are no longer in the folder
+  // Deactivate Drive entries no longer in the folder
   if (syncedFileIds.size > 0) {
     const { data: existing } = await service
       .from('knowledge_base')

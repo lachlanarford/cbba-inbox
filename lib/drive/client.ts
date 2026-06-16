@@ -1,15 +1,5 @@
 import { google } from 'googleapis'
-
-export interface DriveServiceAccount {
-  type: string
-  project_id: string
-  private_key_id: string
-  private_key: string
-  client_email: string
-  client_id: string
-  auth_uri: string
-  token_uri: string
-}
+import { getAuthenticatedClient } from '@/lib/gmail/client'
 
 export interface DriveFile {
   id: string
@@ -23,11 +13,8 @@ const PDF_TYPE = 'application/pdf'
 
 export const SUPPORTED_MIME_TYPES = new Set([GOOGLE_DOC, GOOGLE_SHEET, PDF_TYPE])
 
-export function getDriveClient(credentials: DriveServiceAccount) {
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-  })
+export async function getDriveClient(channelConfigId: string) {
+  const auth = await getAuthenticatedClient(channelConfigId)
   return google.drive({ version: 'v3', auth })
 }
 

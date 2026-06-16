@@ -17,10 +17,9 @@ interface ManualEntryForm {
 interface KnowledgeManagerProps {
   initialEntries: KnowledgeEntryWithOwner[]
   driveFolderId: string
-  driveHasServiceAccount: boolean
 }
 
-export default function KnowledgeManager({ initialEntries, driveFolderId, driveHasServiceAccount }: KnowledgeManagerProps) {
+export default function KnowledgeManager({ initialEntries, driveFolderId }: KnowledgeManagerProps) {
   const [entries, setEntries] = useState<KnowledgeEntryWithOwner[]>(initialEntries)
   const [urlInput, setUrlInput] = useState('')
   const [scrapeError, setScrapeError] = useState<string | null>(null)
@@ -229,7 +228,7 @@ export default function KnowledgeManager({ initialEntries, driveFolderId, driveH
 
       {activeTab === 'drive' && (
         <div className="bg-cbba-navy-dark border border-white/10 rounded-xl p-6">
-          <DriveSync initialFolderId={driveFolderId} initialHasServiceAccount={driveHasServiceAccount} />
+          <DriveSync initialFolderId={driveFolderId} />
         </div>
       )}
 
