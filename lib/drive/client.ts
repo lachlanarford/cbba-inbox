@@ -32,6 +32,8 @@ export async function listFilesInFolder(
         fields: 'nextPageToken, files(id, name, mimeType)',
         pageSize: 100,
         pageToken,
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true,
       })
       for (const file of res.data.files ?? []) {
         if (!file.id || !file.name || !file.mimeType) continue
