@@ -30,14 +30,14 @@ export async function POST(request: Request) {
 
   const service = createServiceClient()
   const { error: uploadError } = await service.storage
-    .from('branding')
+    .from('Branding')
     .upload(path, buffer, { contentType: file.type, upsert: true })
 
   if (uploadError) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 })
   }
 
-  const { data: { publicUrl } } = service.storage.from('branding').getPublicUrl(path)
+  const { data: { publicUrl } } = service.storage.from('Branding').getPublicUrl(path)
 
   // Cache-bust with a timestamp so browsers pick up the new logo
   const urlWithBust = `${publicUrl}?t=${Date.now()}`
