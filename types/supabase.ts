@@ -47,6 +47,48 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_lists: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      contact_list_members: {
+        Row: {
+          list_id: string
+          contact_id: string
+          added_at: string
+        }
+        Insert: {
+          list_id: string
+          contact_id: string
+          added_at?: string
+        }
+        Update: {
+          list_id?: string
+          contact_id?: string
+          added_at?: string
+        }
+        Relationships: []
+      }
       live_chat_sessions: {
         Row: {
           id: string

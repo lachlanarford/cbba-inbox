@@ -19,6 +19,10 @@ export default function ContactsTable() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [showAddToList, setShowAddToList] = useState(false)
+  const [lists, setLists] = useState<{ id: string; name: string }[]>([])
+  const [addingToList, setAddingToList] = useState<string | null>(null)
+  const [addToListMsg, setAddToListMsg] = useState('')
 
   useEffect(() => {
     loadContacts()
@@ -84,6 +88,32 @@ export default function ContactsTable() {
     })
   }
 
+  async function openAddToList() {
+    const res = await fetch('/api/contacts/lists')
+    if (res.ok) {
+      const data = await res.json() as { lists: { id: string; name: string }[] }
+      setLists(data.lists)
+    }
+    setAddToListMsg('')
+    setShowAddToList(true)
+  }
+
+  async function addToList(listId: string) {
+    setAddingToList(listId)
+    const res = await fetch(`/api/contacts/lists/${listId}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contact_ids: Array.from(selected) }),
+    })
+    const data = await res.json() as { added?: number; error?: string }
+    setAddingToList(null)
+    if (res.ok) {
+      setAddToListMsg(`Added ${data.added ?? selected.size} contact${selected.size !== 1 ? 's' : ''} to list`)
+    } else {
+      setAddToListMsg(data.error ?? 'Failed')
+    }
+  }
+
   async function bulkAction(action: 'archive' | 'unarchive' | 'delete') {
     if (selected.size === 0) return
     setBulkLoading(true)
@@ -136,6 +166,12 @@ export default function ContactsTable() {
         <div className="flex items-center gap-3 px-4 py-2.5 bg-[#604484]/15 border border-[#604484]/30 rounded-xl">
           <span className="text-xs text-white font-medium">{selectedCount} selected</span>
           <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={openAddToList}
+              className="px-3 py-1.5 text-xs rounded-lg bg-cbba-purple/20 text-cbba-purple hover:bg-cbba-purple/30 border border-cbba-purple/30 transition-colors"
+            >
+              Add to list
+            </button>
             {!showArchived ? (
               <button
                 onClick={() => bulkAction('archive')}
@@ -244,6 +280,49 @@ export default function ContactsTable() {
           </tbody>
         </table>
       </div>
+
+      {/* Add to list modal */}
+      {showAddToList && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-cbba-navy-dark border border-white/10 rounded-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white">Add {selectedCount} contact{selectedCount !== 1 ? 's' : ''} to list</h3>
+              <button onClick={() => { setShowAddToList(false); setAddToListMsg('') }} className="text-gray-500 hover:text-white">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            {addToListMsg ? (
+              <p className="text-sm text-green-400">{addToListMsg}</p>
+            ) : lists.length === 0 ? (
+              <p className="text-sm text-gray-500">No lists yet. Create one in the Lists tab first.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {lists.map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => addToList(l.id)}
+                    disabled={addingToList === l.id}
+                    className="w-full text-left px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex items-center justify-between"
+                  >
+                    <span className="text-sm text-white">{l.name}</span>
+                    {addingToList === l.id && (
+                      <svg className="w-4 h-4 animate-spin text-cbba-purple" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end">
+              <button onClick={() => { setShowAddToList(false); setAddToListMsg('') }} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
+                {addToListMsg ? 'Done' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       {deleteConfirm && (
