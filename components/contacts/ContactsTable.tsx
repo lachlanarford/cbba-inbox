@@ -219,8 +219,8 @@ export default function ContactsTable() {
       )}
 
       {/* Table */}
-      <div className="bg-cbba-navy-light border border-white/5 rounded-xl overflow-hidden">
-        <table className="w-full">
+      <div className="bg-cbba-navy-light border border-white/5 rounded-xl overflow-x-auto">
+        <table className="w-full min-w-[700px]">
           <thead>
             <tr className="border-b border-white/5">
               <th className="px-4 py-3 w-10">

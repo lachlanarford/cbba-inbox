@@ -10,6 +10,8 @@ import SignOutButton from './SignOutButton'
 import ChatModeToggle from './ChatModeToggle'
 
 const CHANGELOG = [
+  { date: '19 Jun', text: 'Email contacts and lists directly from contacts' },
+  { date: '18 Jun', text: 'Mobile-friendly layout with bottom navigation' },
   { date: '17 Jun', text: 'Per-staff live chat with auto turn-off' },
   { date: '17 Jun', text: 'Office hours restrict live chat widget' },
   { date: '17 Jun', text: 'Google Drive hourly auto-sync' },

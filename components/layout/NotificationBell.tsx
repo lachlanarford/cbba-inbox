@@ -57,8 +57,10 @@ export default function NotificationBell({ userId }: { userId: string }) {
       await fetch(`/api/notifications/${n.id}`, { method: 'PATCH' })
       setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x))
     }
-    if (n.conversation_id) {
-      router.push(`/inbox?conversation=${n.conversation_id}`)
+    if (n.type === 'app_update') {
+      router.push('/changelog')
+    } else if (n.conversation_id) {
+      router.push(`/inbox/${n.conversation_id}`)
     }
     setOpen(false)
   }

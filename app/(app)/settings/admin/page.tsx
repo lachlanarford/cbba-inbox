@@ -6,6 +6,7 @@ import UserManager from '@/components/settings/UserManager'
 import BugReportsAdmin from '@/components/settings/BugReportsAdmin'
 import BrandingSettings from '@/components/settings/BrandingSettings'
 import OfficeHoursSettings from '@/components/settings/OfficeHoursSettings'
+import BroadcastNotification from '@/components/settings/BroadcastNotification'
 
 export default async function AdminSettingsPage() {
   try {
@@ -66,6 +67,13 @@ export default async function AdminSettingsPage() {
       <div>
         <h2 className="text-sm font-semibold text-white mb-4">Bug Reports</h2>
         <BugReportsAdmin />
+      </div>
+
+      {/* Broadcast notification */}
+      <div>
+        <h2 className="text-sm font-semibold text-white mb-1">Staff notifications</h2>
+        <p className="text-xs text-gray-500 mb-4">Send in-app and push notifications to all staff</p>
+        <BroadcastNotification />
       </div>
     </div>
   )
