@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import ChannelIcon from '@/components/ui/ChannelIcon'
+import ContactModal from './ContactModal'
 import type { Contact } from '@/types/database'
 
 interface ListMember extends Contact {
@@ -31,6 +33,14 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
   const [nameInput, setNameInput] = useState(list.name)
   const [savingName, setSavingName] = useState(false)
 
+  // Add contact states
+  const [showNewContact, setShowNewContact] = useState(false)
+  const [showFindContact, setShowFindContact] = useState(false)
+  const [findSearch, setFindSearch] = useState('')
+  const [findResults, setFindResults] = useState<Contact[]>([])
+  const [findLoading, setFindLoading] = useState(false)
+  const [addingContact, setAddingContact] = useState<string | null>(null)
+
   const loadMembers = useCallback(async () => {
     setLoading(true)
     const res = await fetch(`/api/contacts/lists/${list.id}/members`)
@@ -42,6 +52,40 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
   }, [list.id])
 
   useEffect(() => { loadMembers() }, [loadMembers])
+
+  // Search existing contacts for "Find contact"
+  useEffect(() => {
+    if (!showFindContact) return
+    if (!findSearch.trim()) { setFindResults([]); return }
+    const timer = setTimeout(async () => {
+      setFindLoading(true)
+      const supabase = createClient()
+      const term = `%${findSearch.trim().toLowerCase()}%`
+      const { data } = await supabase
+        .from('contacts')
+        .select('*')
+        .or(`full_name.ilike.${term},email.ilike.${term}`)
+        .filter('is_archived', 'eq', false)
+        .limit(10)
+      setFindResults((data ?? []) as Contact[])
+      setFindLoading(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [findSearch, showFindContact])
+
+  async function addContactToList(contactId: string) {
+    setAddingContact(contactId)
+    await fetch(`/api/contacts/lists/${list.id}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contact_ids: [contactId] }),
+    })
+    setAddingContact(null)
+    setShowFindContact(false)
+    setFindSearch('')
+    setFindResults([])
+    await loadMembers()
+  }
 
   const filtered = members.filter((m) => {
     if (!search) return true
@@ -130,7 +174,7 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
         </button>
       </div>
 
-      {/* Search + bulk bar */}
+      {/* Search + add bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -144,6 +188,26 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
             className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cbba-purple transition-colors"
           />
         </div>
+
+        <button
+          onClick={() => setShowNewContact(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light transition-colors flex-shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          New contact
+        </button>
+
+        <button
+          onClick={() => { setShowFindContact(true); setFindSearch(''); setFindResults([]) }}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-xs font-medium hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+          </svg>
+          Find contact
+        </button>
       </div>
 
       {selected.size > 0 && (
@@ -230,6 +294,102 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
           </tbody>
         </table>
       </div>
+
+      {/* New contact modal -- creates contact then adds to list */}
+      {showNewContact && (
+        <ContactModal
+          mode="add"
+          onClose={() => setShowNewContact(false)}
+          onSaved={async (contact) => {
+            setShowNewContact(false)
+            await fetch(`/api/contacts/lists/${list.id}/members`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contact_ids: [contact.id] }),
+            })
+            await loadMembers()
+          }}
+        />
+      )}
+
+      {/* Find contact modal */}
+      {showFindContact && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-cbba-navy-dark border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-white">Find contact</h2>
+              <button
+                onClick={() => { setShowFindContact(false); setFindSearch(''); setFindResults([]) }}
+                className="text-gray-500 hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+              </svg>
+              <input
+                autoFocus
+                type="text"
+                value={findSearch}
+                onChange={(e) => setFindSearch(e.target.value)}
+                placeholder="Search by name or email..."
+                className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple transition-colors"
+              />
+            </div>
+
+            <div className="min-h-[80px]">
+              {findLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <svg className="w-5 h-5 animate-spin text-cbba-purple" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                </div>
+              ) : findSearch.trim() && findResults.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">No contacts found.</p>
+              ) : (
+                <div className="space-y-1">
+                  {findResults.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => addContactToList(c.id)}
+                      disabled={addingContact === c.id}
+                      className="w-full text-left px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex items-center justify-between gap-2 disabled:opacity-50"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm text-white truncate">{c.full_name ?? 'Unknown'}</p>
+                        {c.email && <p className="text-xs text-gray-500 truncate">{c.email}</p>}
+                      </div>
+                      {addingContact === c.id ? (
+                        <svg className="w-4 h-4 animate-spin text-cbba-purple flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <span className="text-xs text-cbba-purple flex-shrink-0">Add</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => { setShowFindContact(false); setFindSearch(''); setFindResults([]) }}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/time'
 import ChannelIcon from '@/components/ui/ChannelIcon'
+import ContactModal from './ContactModal'
 import type { Contact } from '@/types/database'
 
 interface ContactRow extends Contact {
@@ -23,6 +24,8 @@ export default function ContactsTable() {
   const [lists, setLists] = useState<{ id: string; name: string }[]>([])
   const [addingToList, setAddingToList] = useState<string | null>(null)
   const [addToListMsg, setAddToListMsg] = useState('')
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editContact, setEditContact] = useState<ContactRow | null>(null)
 
   useEffect(() => {
     loadContacts()
@@ -159,6 +162,16 @@ export default function ContactsTable() {
         >
           {showArchived ? 'Showing archived' : 'Show archived'}
         </button>
+
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light transition-colors flex-shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Contact
+        </button>
       </div>
 
       {/* Bulk action bar */}
@@ -216,7 +229,7 @@ export default function ContactsTable() {
                   className="w-3.5 h-3.5 accent-[#604484] cursor-pointer"
                 />
               </th>
-              {['Name', 'Email', 'Phone', 'Channel', 'Conversations', 'Created'].map((h) => (
+              {['Name', 'Email', 'Phone', 'Channel', 'Conversations', 'Created', ''].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   {h}
                 </th>
@@ -274,6 +287,17 @@ export default function ContactsTable() {
                     <span className="text-sm text-gray-300">{contact.conversation_count}</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{formatDate(contact.created_at)}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setEditContact(contact)}
+                      className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                      title="Edit contact"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                      </svg>
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -344,6 +368,25 @@ export default function ContactsTable() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Add contact modal */}
+      {showAddModal && (
+        <ContactModal
+          mode="add"
+          onClose={() => setShowAddModal(false)}
+          onSaved={() => { setShowAddModal(false); loadContacts() }}
+        />
+      )}
+
+      {/* Edit contact modal */}
+      {editContact && (
+        <ContactModal
+          mode="edit"
+          initial={editContact}
+          onClose={() => setEditContact(null)}
+          onSaved={() => { setEditContact(null); loadContacts() }}
+        />
       )}
     </div>
   )
