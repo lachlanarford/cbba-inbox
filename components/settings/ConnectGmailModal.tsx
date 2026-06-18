@@ -6,7 +6,7 @@ const CBBA_INBOXES = [
   { email: 'info@blacktownbasketball.com', label: 'info@ (General)' },
   { email: 'competitions@blacktownbasketball.com', label: 'competitions@ (Comps)' },
   { email: 'reps@blacktownbasketball.com', label: 'reps@ (Reps)' },
-  { email: 'learntoplay@blacktownbasketball.com', label: 'learntoplay@ (LTP)' },
+  { email: 'learntoplay@blacktownbasketball.com', label: 'learntoplay@ (Learn to Play)' },
 ]
 
 interface ConnectGmailModalProps {

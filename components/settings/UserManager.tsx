@@ -3,7 +3,12 @@
 import { useState, useEffect, useTransition } from 'react'
 import { useAppUser } from '@/contexts/AppUserContext'
 
-const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'] as const
+const DEPARTMENTS = [
+  { value: 'Reps',  label: 'Reps' },
+  { value: 'Comps', label: 'Comps' },
+  { value: 'LTP',   label: 'Learn to Play' },
+  { value: 'Other', label: 'Other' },
+] as const
 
 interface UserRow {
   id: string
@@ -165,7 +170,7 @@ export default function UserManager() {
                       className="text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-[#604484] transition-colors"
                     >
                       <option value="">No department</option>
-                      {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                      {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
                     </select>
                   </td>
                   <td className="px-4 py-3">
@@ -238,7 +243,7 @@ export default function UserManager() {
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#604484] transition-colors"
                 >
                   <option value="">No department</option>
-                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
                 </select>
               </div>
 

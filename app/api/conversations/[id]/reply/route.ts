@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendReply as sendGmailReply, type OutboundAttachment } from '@/lib/gmail/client'
 import { sendMetaMessage } from '@/lib/channels/meta'
+import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
 
 export async function POST(
   request: Request,
@@ -17,14 +18,14 @@ export async function POST(
   const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
   if (!appUser) return NextResponse.json({ error: 'User not found' }, { status: 401 })
 
-  let body: { content: string; isNote: boolean; isAiSuggested?: boolean; attachments?: OutboundAttachment[]; cc?: string[]; bcc?: string[] }
+  let body: { content: string; isNote: boolean; isAiSuggested?: boolean; attachments?: OutboundAttachment[]; to?: string; cc?: string[]; bcc?: string[] }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { content, isNote, isAiSuggested, attachments, cc, bcc } = body
+  const { content, isNote, isAiSuggested, attachments, to, cc, bcc } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
   // Fetch conversation to determine channel and thread context
@@ -61,7 +62,7 @@ export async function POST(
     }
 
     const contact = conversation.contact as unknown as { email: string | null; full_name: string | null } | null
-    const contactEmail = contact?.email
+    const contactEmail = to?.trim() || contact?.email
     if (!contactEmail) {
       console.error('[reply] No contact email for Gmail conversation:', conversationId)
       return NextResponse.json({ error: 'Contact has no email address' }, { status: 400 })
@@ -104,6 +105,34 @@ export async function POST(
         } catch (err) {
           console.error('[reply] Meta send failed:', err)
           return NextResponse.json({ error: 'Failed to send via Meta' }, { status: 500 })
+        }
+      }
+    }
+  }
+
+  // For non-internal replies on WhatsApp, send via Twilio
+  if (conversation.channel === 'whatsapp' && !isNote && conversation.channel_config_id) {
+    const service = createServiceClient()
+    const { data: channelConfig } = await service
+      .from('channel_configs')
+      .select('credentials, is_active')
+      .eq('id', conversation.channel_config_id)
+      .single()
+
+    if (channelConfig?.is_active) {
+      const creds = channelConfig.credentials as Record<string, string>
+      const contact = conversation.contact as unknown as { phone: string | null } | null
+      const to = contact?.phone
+      if (to && creds.accountSid && creds.authToken && creds.whatsappNumber) {
+        try {
+          await sendWhatsAppMessage(to, content.trim(), {
+            accountSid: creds.accountSid,
+            authToken: creds.authToken,
+            whatsappNumber: creds.whatsappNumber,
+          })
+        } catch (err) {
+          console.error('[reply] WhatsApp send failed:', err)
+          return NextResponse.json({ error: 'Failed to send via WhatsApp' }, { status: 500 })
         }
       }
     }

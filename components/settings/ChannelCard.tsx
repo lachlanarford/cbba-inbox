@@ -3,7 +3,12 @@
 import { useState } from 'react'
 import type { ChannelConfig, StaffUser } from '@/types/database'
 
-const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'] as const
+const DEPARTMENTS = [
+  { value: 'Reps',  label: 'Reps' },
+  { value: 'Comps', label: 'Comps' },
+  { value: 'LTP',   label: 'Learn to Play' },
+  { value: 'Other', label: 'Other' },
+] as const
 
 interface ChannelCardProps {
   channelType: string
@@ -227,7 +232,7 @@ export default function ChannelCard({
                         className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-gray-300 focus:outline-none focus:border-cbba-purple cursor-pointer transition-colors"
                       >
                         <option value="">None</option>
-                        {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                        {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
                       </select>
                     </div>
                     <div className="flex items-center gap-2">

@@ -13,7 +13,12 @@ const STATUS_TABS = [
   { value: 'all',         label: 'All' },
 ]
 
-const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other']
+const DEPARTMENTS = [
+  { value: 'Reps',  label: 'Reps' },
+  { value: 'Comps', label: 'Comps' },
+  { value: 'LTP',   label: 'Learn to Play' },
+  { value: 'Other', label: 'Other' },
+]
 const PRIORITIES = [
   { value: 'low',    label: 'Low' },
   { value: 'medium', label: 'Medium' },
@@ -103,7 +108,7 @@ export default function FilterBar({ filters, onFilterChange, onClearAll, filters
               label="Department"
               value={filters.department}
               onChange={(v) => onFilterChange('department', v)}
-              options={DEPARTMENTS.map((d) => ({ value: d, label: d }))}
+              options={DEPARTMENTS}
             />
             <FilterPill
               label="Priority"

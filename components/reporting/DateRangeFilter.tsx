@@ -42,7 +42,12 @@ const CHANNELS = [
   { value: 'form',      label: 'Form' },
   { value: 'chat',      label: 'Chat' },
 ]
-const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other']
+const DEPARTMENTS = [
+  { value: 'Reps',  label: 'Reps' },
+  { value: 'Comps', label: 'Comps' },
+  { value: 'LTP',   label: 'Learn to Play' },
+  { value: 'Other', label: 'Other' },
+]
 
 interface Props {
   filters: ReportFilters
@@ -127,7 +132,7 @@ export default function DateRangeFilter({ filters, onChange }: Props) {
         className={inputCls(!!filters.department)}
       >
         <option value="">All departments</option>
-        {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+        {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
       </select>
     </div>
   )

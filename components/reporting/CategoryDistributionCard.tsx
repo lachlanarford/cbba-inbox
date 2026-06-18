@@ -22,6 +22,7 @@ const DEPT_COLORS: Record<string, string> = {
   Reps: '#604484',
   Comps: '#FBB33F',
   LTP: '#F58945',
+  'Learn to Play': '#F58945',
   Other: '#60a5fa',
   Unassigned: '#6b7280',
 }
@@ -34,7 +35,10 @@ export default function CategoryDistributionCard({ filters }: { filters: ReportF
     setLoading(true)
     fetch(`/api/reporting/category-distribution?${buildParams(filters)}`)
       .then((r) => r.json())
-      .then((d: DataPoint[]) => { setData(d); setLoading(false) })
+      .then((d: DataPoint[]) => {
+        setData(d.map((p) => ({ ...p, name: p.name === 'LTP' ? 'Learn to Play' : p.name })))
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [filters])
 

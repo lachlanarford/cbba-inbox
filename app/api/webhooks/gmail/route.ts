@@ -91,6 +91,7 @@ export async function POST(request: Request) {
         department: defaultDepartment,
         assignedTo: defaultAssignedTo,
         externalThreadId: email.threadId,
+        externalMessageId: email.messageId,
       })
       triggerCategorise(result.conversationId, email.body, email.subject)
 

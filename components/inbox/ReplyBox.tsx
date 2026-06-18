@@ -19,9 +19,10 @@ interface AttachmentFile {
 interface ReplyBoxProps {
   conversationId: string
   channel?: string
+  contactEmail?: string | null
 }
 
-export default function ReplyBox({ conversationId, channel }: ReplyBoxProps) {
+export default function ReplyBox({ conversationId, channel, contactEmail }: ReplyBoxProps) {
   const [collapsed, setCollapsed] = useState(true)
   const [content, setContent] = useState('')
   const [isNote, setIsNote] = useState(false)
@@ -34,6 +35,7 @@ export default function ReplyBox({ conversationId, channel }: ReplyBoxProps) {
   const [cannedSearch, setCannedSearch] = useState('')
   const [attachments, setAttachments] = useState<AttachmentFile[]>([])
   const [showCcBcc, setShowCcBcc] = useState(false)
+  const [toEmail, setToEmail] = useState(contactEmail ?? '')
   const [cc, setCc] = useState('')
   const [bcc, setBcc] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -48,6 +50,7 @@ export default function ReplyBox({ conversationId, channel }: ReplyBoxProps) {
     setIsNote(false)
     setCollapsed(true)
     setAttachments([])
+    setToEmail(contactEmail ?? '')
     setCc('')
     setBcc('')
     setShowCcBcc(false)
@@ -97,6 +100,7 @@ export default function ReplyBox({ conversationId, channel }: ReplyBoxProps) {
         isNote,
         isAiSuggested: aiSuggested && !isNote,
         attachments: isNote ? [] : attachments,
+        to: (!isNote && isGmail && toEmail.trim()) ? toEmail.trim() : undefined,
         cc: (!isNote && isGmail && cc.trim()) ? cc.split(',').map((e) => e.trim()).filter(Boolean) : [],
         bcc: (!isNote && isGmail && bcc.trim()) ? bcc.split(',').map((e) => e.trim()).filter(Boolean) : [],
       }),
@@ -118,6 +122,7 @@ export default function ReplyBox({ conversationId, channel }: ReplyBoxProps) {
     setShowCcBcc(false)
     setSending(false)
     setCollapsed(true)
+    setToEmail(contactEmail ?? '')
   }, [content, conversationId, isNote, sending, aiSuggested])
 
   useEffect(() => {
@@ -256,29 +261,43 @@ export default function ReplyBox({ conversationId, channel }: ReplyBoxProps) {
         </button>
       </div>
 
-      {/* CC / BCC fields */}
-      {isGmail && !isNote && showCcBcc && (
+      {/* To / CC / BCC fields */}
+      {isGmail && !isNote && (
         <div className="mx-4 mt-2 space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-gray-500 w-7 flex-shrink-0">CC</span>
+            <span className="text-[11px] text-gray-500 w-7 flex-shrink-0">To</span>
             <input
-              type="text"
-              value={cc}
-              onChange={(e) => setCc(e.target.value)}
-              placeholder="name@example.com, another@example.com"
+              type="email"
+              value={toEmail}
+              onChange={(e) => setToEmail(e.target.value)}
+              placeholder="recipient@example.com"
               className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple transition-colors"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-gray-500 w-7 flex-shrink-0">BCC</span>
-            <input
-              type="text"
-              value={bcc}
-              onChange={(e) => setBcc(e.target.value)}
-              placeholder="name@example.com"
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple transition-colors"
-            />
-          </div>
+          {showCcBcc && (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-gray-500 w-7 flex-shrink-0">CC</span>
+                <input
+                  type="text"
+                  value={cc}
+                  onChange={(e) => setCc(e.target.value)}
+                  placeholder="name@example.com, another@example.com"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple transition-colors"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-gray-500 w-7 flex-shrink-0">BCC</span>
+                <input
+                  type="text"
+                  value={bcc}
+                  onChange={(e) => setBcc(e.target.value)}
+                  placeholder="name@example.com"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cbba-purple transition-colors"
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
 

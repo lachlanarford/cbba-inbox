@@ -13,6 +13,7 @@ export interface IncomingMessage {
   department?: string | null
   assignedTo?: string | null
   externalThreadId?: string | null
+  externalMessageId?: string | null
 }
 
 export interface ProcessResult {
@@ -161,7 +162,16 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
     conversationId = created.id
   }
 
-  // 3. Create message
+  // 3. Create message — skip if we've already stored this external message
+  if (msg.externalMessageId) {
+    const { data: existing } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('external_message_id', msg.externalMessageId)
+      .maybeSingle()
+    if (existing) return { contactId, conversationId, messageId: existing.id }
+  }
+
   const { data: message, error: msgError } = await supabase
     .from('messages')
     .insert({
@@ -170,6 +180,7 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
       sender_id: null,
       content: msg.content,
       is_internal_note: false,
+      ...(msg.externalMessageId ? { external_message_id: msg.externalMessageId } : {}),
     })
     .select('id')
     .single()

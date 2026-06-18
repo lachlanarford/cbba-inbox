@@ -3,9 +3,9 @@ import { createServiceClient } from '@/lib/supabase/service'
 
 export async function POST(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: conversationId } = params
+  const { id: conversationId } = await params
   const supabase = createServiceClient()
 
   const { data: conv, error: convError } = await supabase

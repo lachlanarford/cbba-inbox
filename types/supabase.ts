@@ -246,6 +246,7 @@ export type Database = {
           is_internal_note: boolean
           is_ai_suggested: boolean
           created_at: string
+          external_message_id: string | null
         }
         Insert: {
           id?: string
@@ -256,6 +257,7 @@ export type Database = {
           is_internal_note?: boolean
           is_ai_suggested?: boolean
           created_at?: string
+          external_message_id?: string | null
         }
         Update: {
           id?: string
@@ -266,6 +268,7 @@ export type Database = {
           is_internal_note?: boolean
           is_ai_suggested?: boolean
           created_at?: string
+          external_message_id?: string | null
         }
         Relationships: []
       }

@@ -13,7 +13,12 @@ const CHANNELS: Array<{ value: Channel; label: string }> = [
   { value: 'form',      label: 'Form' },
   { value: 'chat',      label: 'Chat' },
 ]
-const DEPARTMENTS: Department[] = ['Reps', 'Comps', 'LTP', 'Other']
+const DEPARTMENTS: Array<{ value: Department; label: string }> = [
+  { value: 'Reps',  label: 'Reps' },
+  { value: 'Comps', label: 'Comps' },
+  { value: 'LTP',   label: 'Learn to Play' },
+  { value: 'Other', label: 'Other' },
+]
 const PRIORITIES: Array<{ value: Priority; label: string }> = [
   { value: 'low',    label: 'Low' },
   { value: 'medium', label: 'Medium' },
@@ -232,7 +237,7 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
                 className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-cbba-purple transition-colors cursor-pointer"
               >
                 <option value="">None</option>
-                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
             <div>

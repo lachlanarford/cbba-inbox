@@ -22,7 +22,12 @@ interface ConversationWithConfig extends ConversationDetailType {
 type ConversationUpdate = Database['public']['Tables']['conversations']['Update']
 
 const STATUSES = ['open', 'in_progress', 'waiting', 'closed']
-const DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other']
+const DEPARTMENTS = [
+  { value: 'Reps',  label: 'Reps' },
+  { value: 'Comps', label: 'Comps' },
+  { value: 'LTP',   label: 'Learn to Play' },
+  { value: 'Other', label: 'Other' },
+]
 const PRIORITIES = ['low', 'medium', 'high', 'urgent']
 
 interface ConversationDetailProps {
@@ -45,6 +50,7 @@ export default function ConversationDetail({
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [feedbackRequest, setFeedbackRequest] = useState<FeedbackRequest | null>(null)
   const [closing, setClosing] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
   const [feedbackEmailReady, setFeedbackEmailReady] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
@@ -116,6 +122,7 @@ export default function ConversationDetail({
       }
     }
 
+    setUpdateError(null)
     const res = await fetch(`/api/conversations/${conversationId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -124,6 +131,10 @@ export default function ConversationDetail({
     if (res.ok) {
       const data = await res.json()
       setConversation(data as unknown as ConversationWithConfig)
+    } else {
+      const err = await res.json().catch(() => ({})) as { error?: string }
+      setUpdateError(err.error ?? 'Update failed')
+      setTimeout(() => setUpdateError(null), 3000)
     }
   }
 
@@ -266,7 +277,7 @@ export default function ConversationDetail({
                 className="absolute inset-0 opacity-0 cursor-pointer w-full"
               >
                 <option value="">No department</option>
-                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
               {conversation.department
                 ? <DepartmentBadge department={conversation.department} />
@@ -443,11 +454,22 @@ export default function ConversationDetail({
           </div>
         </div>
 
+        {/* Update error toast */}
+        {updateError && (
+          <div className="flex-shrink-0 mx-5 mt-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            {updateError}
+          </div>
+        )}
+
         {/* Messages */}
         <MessageThread conversationId={conversationId} currentUserId={currentUser.id} channel={conversation.channel} />
 
         {/* Reply box */}
-        <ReplyBox conversationId={conversationId} channel={conversation.channel} />
+        <ReplyBox
+          conversationId={conversationId}
+          channel={conversation.channel}
+          contactEmail={(conversation.contact as unknown as { email?: string | null })?.email ?? null}
+        />
       </div>
 
       {/* Sidebar */}
