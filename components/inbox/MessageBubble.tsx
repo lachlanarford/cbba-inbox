@@ -47,12 +47,6 @@ function isHtml(content: string): boolean {
   )
 }
 
-// Rich HTML needs the iframe sandbox (has tables, external images, complex CSS)
-function isRichHtml(html: string): boolean {
-  const lower = html.toLowerCase()
-  return lower.includes('<table') || lower.includes('<img')
-}
-
 // Strip HTML tags to plain readable text for previews and simple rendering
 function stripHtml(html: string): string {
   return html
@@ -85,7 +79,6 @@ export default function MessageBubble({ message, currentUserId, channel, default
   const isNote = message.is_internal_note
   const { cleanContent, attachments } = parseAttachments(message.content)
   const contentIsHtml = isHtml(cleanContent)
-  const useIframe = contentIsHtml && isRichHtml(cleanContent)
   const showSent = isOutbound && !isNote && message.sender_type === 'staff' && OUTBOUND_CHANNELS.has(channel)
   const isEmailChannel = channel === 'gmail'
 
@@ -165,7 +158,7 @@ export default function MessageBubble({ message, currentUserId, channel, default
           {/* Body */}
           {expanded && (
             <div className="border-t border-white/[0.05]">
-              {useIframe ? (
+              {contentIsHtml ? (
                 <>
                   <HtmlEmailViewer html={cleanContent} />
                   {attachments.length > 0 && (
