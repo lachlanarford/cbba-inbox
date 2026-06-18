@@ -94,7 +94,7 @@ export default function Sidebar({ user, logoUrl, initialLiveChatUsers }: Sidebar
   const otherLiveUsers = liveChatUsers.filter((u) => u.id !== user.id)
 
   return (
-    <aside className="w-60 flex-shrink-0 flex flex-col bg-cbba-navy-dark border-r border-white/5 h-screen">
+    <aside className="hidden md:flex w-60 flex-shrink-0 flex-col bg-cbba-navy-dark border-r border-white/5 h-screen">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/5">
         <Link href="/inbox" className="flex items-center">

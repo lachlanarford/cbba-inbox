@@ -5,6 +5,7 @@ import { AppUserProvider } from '@/contexts/AppUserContext'
 import Sidebar from '@/components/layout/Sidebar'
 import TopBar from '@/components/layout/TopBar'
 import PushInit from '@/components/layout/PushInit'
+import MobileBottomNav from '@/components/layout/MobileBottomNav'
 
 export default async function AppLayout({
   children,
@@ -96,11 +97,12 @@ export default async function AppLayout({
         <Sidebar user={appUser} logoUrl={logoUrl} initialLiveChatUsers={liveChatUsers ?? []} />
         <div className="flex flex-col flex-1 min-w-0">
           <TopBar userId={appUser.id} />
-          <main className="flex-1 overflow-auto p-6 relative">
+          <main className="flex-1 overflow-auto p-3 md:p-6 relative pb-20 md:pb-6">
             {children}
           </main>
         </div>
       </div>
+      <MobileBottomNav user={appUser} />
     </AppUserProvider>
   )
 }
