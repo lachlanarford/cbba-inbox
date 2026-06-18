@@ -71,7 +71,26 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ total, closed, closedRate, avgResponseHours, avgRating })
+  // App-initiated: conversations where the first message is from staff
+  let appInitiated = 0
+  if (convIds.length) {
+    const { data: allFirstMsgs } = await supabase
+      .from('messages')
+      .select('conversation_id, sender_type, created_at')
+      .in('conversation_id', convIds)
+      .eq('is_internal_note', false)
+      .order('created_at', { ascending: true })
+
+    const firstMsgBySender = new Map<string, string>()
+    for (const m of allFirstMsgs ?? []) {
+      if (!firstMsgBySender.has(m.conversation_id)) {
+        firstMsgBySender.set(m.conversation_id, m.sender_type)
+      }
+    }
+    appInitiated = Array.from(firstMsgBySender.values()).filter((t) => t === 'staff').length
+  }
+
+  return NextResponse.json({ total, closed, closedRate, avgResponseHours, avgRating, appInitiated })
 }
 
 function today(): string { return new Date().toISOString().slice(0, 10) }

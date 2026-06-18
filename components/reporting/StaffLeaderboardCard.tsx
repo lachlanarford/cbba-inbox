@@ -10,6 +10,14 @@ interface StaffRow {
   total: number
   closed: number
   messages: number
+  chatMins: number
+}
+
+function formatMins(mins: number): string {
+  if (mins < 60) return `${mins}m`
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
 
 export default function StaffLeaderboardCard({ filters }: { filters: ReportFilters }) {
@@ -36,16 +44,17 @@ export default function StaffLeaderboardCard({ filters }: { filters: ReportFilte
         <div className="h-40 flex items-center justify-center text-xs text-gray-600">No data for this period</div>
       ) : (
         <div className="space-y-2">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-2 mb-1">
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-2 mb-1">
             <span className="text-xs text-gray-600">Member</span>
             <span className="text-xs text-gray-600 w-14 text-right">Handled</span>
             <span className="text-xs text-gray-600 w-14 text-right">Closed</span>
             <span className="text-xs text-gray-600 w-16 text-right">Replies</span>
+            <span className="text-xs text-gray-600 w-16 text-right">Live Chat</span>
           </div>
           {data.slice(0, 8).map((row, i) => (
             <div
               key={row.id}
-              className="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
+              className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 items-center px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-xs text-gray-600 w-4 flex-shrink-0">{i + 1}</span>
@@ -61,6 +70,7 @@ export default function StaffLeaderboardCard({ filters }: { filters: ReportFilte
               <span className="text-xs text-white w-14 text-right">{row.total}</span>
               <span className="text-xs text-[#4ade80] w-14 text-right">{row.closed}</span>
               <span className="text-xs text-gray-400 w-16 text-right">{row.messages}</span>
+              <span className="text-xs text-[#FBB33F] w-16 text-right">{formatMins(row.chatMins)}</span>
             </div>
           ))}
         </div>

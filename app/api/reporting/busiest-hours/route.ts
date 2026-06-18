@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   const to = url.searchParams.get('to') ?? today()
   const channel = url.searchParams.get('channel') ?? ''
   const department = url.searchParams.get('department') ?? ''
+  const tz = url.searchParams.get('tz') ?? 'Australia/Sydney'
 
   const supabase = createServiceClient()
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
 
   const counts = new Array(24).fill(0) as number[]
   for (const conv of data ?? []) {
-    const hour = new Date(conv.created_at).getUTCHours()
+    const hour = getLocalHour(conv.created_at, tz)
     counts[hour]++
   }
 
@@ -37,4 +38,14 @@ export async function GET(request: Request) {
 function today(): string { return new Date().toISOString().slice(0, 10) }
 function thirtyDaysAgo(): string {
   const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10)
+}
+
+function getLocalHour(isoString: string, tz: string): number {
+  try {
+    const parts = new Intl.DateTimeFormat('en', { timeZone: tz, hour: 'numeric', hour12: false }).formatToParts(new Date(isoString))
+    const h = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10)
+    return h === 24 ? 0 : h
+  } catch {
+    return new Date(isoString).getUTCHours()
+  }
 }

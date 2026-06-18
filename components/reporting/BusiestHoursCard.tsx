@@ -24,7 +24,8 @@ export default function BusiestHoursCard({ filters }: { filters: ReportFilters }
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/reporting/busiest-hours?${buildParams(filters)}`)
+    const tz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'Australia/Sydney'
+    fetch(`/api/reporting/busiest-hours?${buildParams(filters)}&tz=${encodeURIComponent(tz)}`)
       .then((r) => r.json())
       .then((d: HourData[]) => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))
@@ -36,7 +37,7 @@ export default function BusiestHoursCard({ filters }: { filters: ReportFilters }
     <div className="bg-cbba-navy-light rounded-xl p-5">
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-white">Busiest Hours</h3>
-        <p className="text-xs text-gray-500 mt-0.5">Conversations by hour of day (UTC)</p>
+        <p className="text-xs text-gray-500 mt-0.5">Conversations by hour of day (local time)</p>
       </div>
       {loading ? (
         <div className="h-48 flex items-center justify-center text-xs text-gray-600">Loading...</div>

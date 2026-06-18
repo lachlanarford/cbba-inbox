@@ -57,6 +57,19 @@ export async function GET(request: Request) {
     stats.set(msg.sender_id, s)
   }
 
+  const { data: chatSessions } = await supabase
+    .from('live_chat_sessions')
+    .select('user_id, started_at, ended_at')
+    .gte('started_at', from)
+    .lte('started_at', to + 'T23:59:59')
+
+  const chatMinutes = new Map<string, number>()
+  for (const s of chatSessions ?? []) {
+    const end = s.ended_at ? new Date(s.ended_at) : new Date()
+    const mins = Math.max(0, (end.getTime() - new Date(s.started_at).getTime()) / 60000)
+    chatMinutes.set(s.user_id, (chatMinutes.get(s.user_id) ?? 0) + mins)
+  }
+
   const result = Array.from(stats.entries())
     .map(([id, s]) => ({
       id,
@@ -65,6 +78,7 @@ export async function GET(request: Request) {
       total: s.total,
       closed: s.closed,
       messages: s.messages,
+      chatMins: Math.round(chatMinutes.get(id) ?? 0),
     }))
     .filter((r) => r.total > 0 || r.messages > 0)
     .sort((a, b) => b.total - a.total || b.messages - a.messages)

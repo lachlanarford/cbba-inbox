@@ -9,6 +9,7 @@ interface SummaryData {
   closedRate: number
   avgResponseHours: number | null
   avgRating: number | null
+  appInitiated: number
 }
 
 export default function SummaryStatsCard({ filters }: { filters: ReportFilters }) {
@@ -49,14 +50,23 @@ export default function SummaryStatsCard({ filters }: { filters: ReportFilters }
       value: loading ? '-' : data?.avgRating != null ? `${data.avgRating}/5` : 'N/A',
       color: '#FBB33F',
     },
+    {
+      label: 'Staff Initiated',
+      value: loading ? '-' : String(data?.appInitiated ?? 0),
+      subtitle: 'Conversations started by staff',
+      color: '#F58945',
+    },
   ]
 
   return (
-    <div className="grid grid-cols-5 gap-4">
+    <div className="grid grid-cols-6 gap-4">
       {stats.map((s) => (
         <div key={s.label} className="bg-cbba-navy-light rounded-xl p-5">
           <p className="text-xs text-gray-500 mb-1">{s.label}</p>
           <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
+          {'subtitle' in s && s.subtitle && (
+            <p className="text-xs text-gray-600 mt-1">{s.subtitle}</p>
+          )}
         </div>
       ))}
     </div>
