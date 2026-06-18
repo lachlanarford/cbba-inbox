@@ -398,6 +398,41 @@ export async function sendReply(
   })
 }
 
+// Returns { threadId, messageId } of the newly created Gmail thread
+export async function sendNewEmail(
+  channelConfigId: string,
+  opts: { to: string; from: string; subject: string; body: string; bcc?: string[] }
+): Promise<{ threadId: string; messageId: string }> {
+  const auth = await getAuthenticatedClient(channelConfigId)
+  const gmail = google.gmail({ version: 'v1', auth })
+
+  const isHtml = opts.body.trimStart().startsWith('<')
+  const bodyContentType = isHtml ? 'text/html' : 'text/plain'
+  const bccHeaders = opts.bcc && opts.bcc.length > 0 ? [`Bcc: ${opts.bcc.join(', ')}`] : []
+
+  const raw = [
+    `From: ${opts.from}`,
+    `To: ${opts.to}`,
+    ...bccHeaders,
+    `Subject: ${opts.subject}`,
+    `Content-Type: ${bodyContentType}; charset=utf-8`,
+    'MIME-Version: 1.0',
+    '',
+    opts.body,
+  ].join('\r\n')
+
+  const encoded = Buffer.from(raw).toString('base64url')
+  const res = await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: { raw: encoded },
+  })
+
+  return {
+    threadId: res.data.threadId ?? res.data.id ?? '',
+    messageId: res.data.id ?? '',
+  }
+}
+
 export async function markAsRead(channelConfigId: string, messageId: string): Promise<void> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })

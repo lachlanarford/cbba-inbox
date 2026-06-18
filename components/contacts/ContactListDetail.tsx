@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import ChannelIcon from '@/components/ui/ChannelIcon'
 import ContactModal from './ContactModal'
+import ComposeModal from './ComposeModal'
 import type { Contact } from '@/types/database'
 
 interface ListMember extends Contact {
@@ -32,6 +33,9 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState(list.name)
   const [savingName, setSavingName] = useState(false)
+
+  const [composeContact, setComposeContact] = useState<ListMember | null>(null)
+  const [showEmailAll, setShowEmailAll] = useState(false)
 
   // Add contact states
   const [showNewContact, setShowNewContact] = useState(false)
@@ -208,6 +212,18 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
           </svg>
           Find contact
         </button>
+
+        {members.some((m) => m.email) && (
+          <button
+            onClick={() => setShowEmailAll(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-xs font-medium hover:text-cbba-purple hover:border-cbba-purple/40 transition-colors flex-shrink-0"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+            Email all
+          </button>
+        )}
       </div>
 
       {selected.size > 0 && (
@@ -241,7 +257,7 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
                   className="w-3.5 h-3.5 accent-[#604484] cursor-pointer"
                 />
               </th>
-              {['Name', 'Email', 'Phone', 'Channel', 'Added'].map((h) => (
+              {['Name', 'Email', 'Phone', 'Channel', 'Added', ''].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -250,14 +266,14 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i} className="border-b border-white/5">
-                  {Array.from({ length: 6 }).map((__, j) => (
+                  {Array.from({ length: 7 }).map((__, j) => (
                     <td key={j} className="px-4 py-3"><div className="h-4 bg-white/5 rounded animate-pulse" /></td>
                   ))}
                 </tr>
               ))
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-500">
                   {search ? 'No members match your search.' : 'No contacts in this list yet.'}
                 </td>
               </tr>
@@ -288,6 +304,19 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {new Date(member.added_at).toLocaleDateString()}
                   </td>
+                  <td className="px-4 py-3">
+                    {member.email && (
+                      <button
+                        onClick={() => setComposeContact(member)}
+                        className="p-1 rounded text-gray-600 hover:text-cbba-purple hover:bg-white/5 transition-colors"
+                        title="Send email"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                        </svg>
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))
             )}
@@ -309,6 +338,25 @@ export default function ContactListDetail({ list, onBack, onDelete }: Props) {
             })
             await loadMembers()
           }}
+        />
+      )}
+
+      {/* Individual compose modal */}
+      {composeContact && (
+        <ComposeModal
+          to={composeContact.email ?? ''}
+          contactId={composeContact.id}
+          contactName={composeContact.full_name ?? undefined}
+          onClose={() => setComposeContact(null)}
+        />
+      )}
+
+      {/* Email all modal */}
+      {showEmailAll && (
+        <ComposeModal
+          bccList={members.filter((m) => m.email).map((m) => m.email as string)}
+          listName={list.name}
+          onClose={() => setShowEmailAll(false)}
         />
       )}
 
