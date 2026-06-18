@@ -12,11 +12,21 @@ interface MessageThreadProps {
 
 export default function MessageThread({ conversationId, currentUserId, channel }: MessageThreadProps) {
   const { messages, loading } = useMessages(conversationId)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const topRef = useRef<HTMLDivElement>(null)
+  const isInitialLoad = useRef(true)
+  const prevCount = useRef(0)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false
+      prevCount.current = messages.length
+      return
+    }
+    if (messages.length > prevCount.current) {
+      topRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    prevCount.current = messages.length
+  }, [messages.length])
 
   if (loading) {
     return (
@@ -34,17 +44,20 @@ export default function MessageThread({ conversationId, currentUserId, channel }
     )
   }
 
+  const reversed = [...messages].reverse()
+
   return (
     <div className="flex-1 overflow-y-auto py-4 space-y-0.5">
-      {messages.map((message) => (
+      <div ref={topRef} />
+      {reversed.map((message, index) => (
         <MessageBubble
           key={message.id}
           message={message}
           currentUserId={currentUserId}
           channel={channel}
+          defaultExpanded={index === 0}
         />
       ))}
-      <div ref={bottomRef} />
     </div>
   )
 }

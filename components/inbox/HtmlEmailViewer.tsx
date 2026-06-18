@@ -47,16 +47,14 @@ export default function HtmlEmailViewer({ html }: Props) {
     : `<!DOCTYPE html><html><head>${WRAPPER}</head><body>${html}</body></html>`
 
   return (
-    <div className="rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm">
-      <iframe
-        ref={iframeRef}
-        srcDoc={wrapped}
-        sandbox="allow-same-origin"
-        onLoad={onLoad}
-        className="w-full border-0 block"
-        style={{ minHeight: 80, height: 120 }}
-        title="Email content"
-      />
-    </div>
+    <iframe
+      ref={iframeRef}
+      srcDoc={wrapped}
+      sandbox="allow-same-origin"
+      onLoad={onLoad}
+      className="w-full border-0 block"
+      style={{ minHeight: 80, height: 120 }}
+      title="Email content"
+    />
   )
 }
