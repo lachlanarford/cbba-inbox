@@ -88,6 +88,7 @@ export interface ParsedEmail {
 
 export interface FetchHistoryResult {
   messages: ParsedEmail[]
+  sentMessages: ParsedEmail[]
   closedThreadIds: string[]
   newHistoryId: string | null
 }
@@ -107,13 +108,17 @@ export async function fetchMessagesFromHistory(
   })
 
   const messages: ParsedEmail[] = []
+  const sentMessages: ParsedEmail[] = []
   const closedThreadIds = new Set<string>()
 
   for (const record of historyRes.data.history ?? []) {
     for (const added of record.messagesAdded ?? []) {
       if (!added.message?.id) continue
-      if (!added.message.labelIds?.includes('INBOX')) continue
-      if (added.message.labelIds?.includes('SENT')) continue
+      const labels = added.message.labelIds ?? []
+      const isInbox = labels.includes('INBOX')
+      const isSent = labels.includes('SENT')
+
+      if (!isInbox && !isSent) continue
 
       const full = await gmail.users.messages.get({
         userId: 'me',
@@ -121,7 +126,18 @@ export async function fetchMessagesFromHistory(
         format: 'full',
       })
       const parsed = await parseMessage(gmail, full.data)
-      if (parsed) messages.push(parsed)
+      if (!parsed) continue
+
+      if (isInbox && !isSent) {
+        messages.push(parsed)
+      } else if (isSent && !isInbox) {
+        // Outbound message sent from Gmail directly (not via app)
+        sentMessages.push(parsed)
+      }
+      // isInbox && isSent = sent to self / CC'd self — treat as inbound
+      if (isInbox && isSent) {
+        messages.push(parsed)
+      }
     }
 
     // INBOX label removed = archived or moved to a folder
@@ -147,6 +163,7 @@ export async function fetchMessagesFromHistory(
 
   return {
     messages,
+    sentMessages,
     closedThreadIds: Array.from(closedThreadIds),
     newHistoryId: historyRes.data.historyId ?? null,
   }
@@ -408,7 +425,7 @@ export async function watchInbox(channelConfigId: string): Promise<string> {
     userId: 'me',
     requestBody: {
       topicName: process.env.GMAIL_PUBSUB_TOPIC ?? '',
-      labelIds: ['INBOX'],
+      labelIds: ['INBOX', 'SENT'],
     },
   })
   return res.data.historyId ?? ''

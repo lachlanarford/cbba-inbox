@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { fetchMessagesFromHistory, markAsRead } from '@/lib/gmail/client'
-import { processIncomingMessage } from '@/lib/channels/processor'
+import { processIncomingMessage, processStaffGmailReply } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
 import { sendPushToAll } from '@/lib/push/send'
 
@@ -72,11 +72,20 @@ export async function POST(request: Request) {
       return new Response('', { status: 200 })
     }
 
-    const { messages: emails, closedThreadIds, newHistoryId } = await fetchMessagesFromHistory(
+    const { messages: emails, sentMessages, closedThreadIds, newHistoryId } = await fetchMessagesFromHistory(
       config.id,
       storedHistoryId,
       emailAddress
     )
+
+    for (const email of sentMessages) {
+      await processStaffGmailReply({
+        channelConfigId: config.id,
+        externalThreadId: email.threadId,
+        externalMessageId: email.messageId,
+        content: email.body,
+      }).catch((err) => console.error('[webhook/gmail] sent message error:', err))
+    }
 
     for (const email of emails) {
       const result = await processIncomingMessage({

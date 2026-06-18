@@ -23,6 +23,46 @@ export interface ProcessResult {
   messageId: string
 }
 
+export async function processStaffGmailReply(opts: {
+  channelConfigId: string
+  externalThreadId: string
+  externalMessageId: string
+  content: string
+}): Promise<void> {
+  const supabase = createServiceClient()
+
+  const { data: conv } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('external_thread_id', opts.externalThreadId)
+    .eq('channel_config_id', opts.channelConfigId)
+    .maybeSingle()
+
+  if (!conv) return
+
+  const { data: existing } = await supabase
+    .from('messages')
+    .select('id')
+    .eq('external_message_id', opts.externalMessageId)
+    .maybeSingle()
+
+  if (existing) return
+
+  await supabase.from('messages').insert({
+    conversation_id: conv.id,
+    sender_type: 'staff',
+    sender_id: null,
+    content: opts.content,
+    is_internal_note: false,
+    external_message_id: opts.externalMessageId,
+  })
+
+  await supabase
+    .from('conversations')
+    .update({ last_message_at: new Date().toISOString(), is_read: true })
+    .eq('id', conv.id)
+}
+
 export async function processIncomingMessage(msg: IncomingMessage): Promise<ProcessResult> {
   const supabase = createServiceClient()
 
