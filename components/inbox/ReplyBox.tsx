@@ -20,9 +20,10 @@ interface ReplyBoxProps {
   conversationId: string
   channel?: string
   contactEmail?: string | null
+  lastInboundCc?: string[]
 }
 
-export default function ReplyBox({ conversationId, channel, contactEmail }: ReplyBoxProps) {
+export default function ReplyBox({ conversationId, channel, contactEmail, lastInboundCc = [] }: ReplyBoxProps) {
   const [collapsed, setCollapsed] = useState(true)
   const [content, setContent] = useState('')
   const [isNote, setIsNote] = useState(false)
@@ -34,6 +35,7 @@ export default function ReplyBox({ conversationId, channel, contactEmail }: Repl
   const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([])
   const [cannedSearch, setCannedSearch] = useState('')
   const [attachments, setAttachments] = useState<AttachmentFile[]>([])
+  const [replyAll, setReplyAll] = useState(false)
   const [showCc, setShowCc] = useState(false)
   const [showBcc, setShowBcc] = useState(false)
   const [toEmail, setToEmail] = useState(contactEmail ?? '')
@@ -55,6 +57,7 @@ export default function ReplyBox({ conversationId, channel, contactEmail }: Repl
     setBcc('')
     setShowCc(false)
     setShowBcc(false)
+    setReplyAll(false)
     try {
       const saved = localStorage.getItem(`cbba-draft:${conversationId}`)
       if (saved) {
@@ -120,6 +123,7 @@ export default function ReplyBox({ conversationId, channel, contactEmail }: Repl
     setBcc('')
     setShowCc(false)
     setShowBcc(false)
+    setReplyAll(false)
     setSending(false)
     setCollapsed(true)
     setToEmail(contactEmail ?? '')
@@ -219,18 +223,39 @@ export default function ReplyBox({ conversationId, channel, contactEmail }: Repl
       {/* Tab row */}
       <div className="flex items-center gap-0 px-4 pt-3">
         <div className="flex items-center">
+          {/* Reply (single recipient) */}
           <button
-            onClick={() => setIsNote(false)}
+            onClick={() => { setIsNote(false); setReplyAll(false) }}
             className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
-              !isNote
+              !isNote && !replyAll
                 ? 'bg-cbba-navy-light text-white border-white/10'
                 : 'text-gray-500 border-transparent hover:text-gray-300'
             }`}
           >
             Reply
           </button>
+
+          {/* Reply All — only shown for Gmail when there are CC recipients */}
+          {isGmail && lastInboundCc.length > 0 && (
+            <button
+              onClick={() => {
+                setIsNote(false)
+                setReplyAll(true)
+                setShowCc(true)
+                setCc(lastInboundCc.join(', '))
+              }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
+                !isNote && replyAll
+                  ? 'bg-cbba-navy-light text-white border-white/10'
+                  : 'text-gray-500 border-transparent hover:text-gray-300'
+              }`}
+            >
+              Reply All
+            </button>
+          )}
+
           <button
-            onClick={() => setIsNote(true)}
+            onClick={() => { setIsNote(true); setReplyAll(false) }}
             className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
               isNote
                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'

@@ -247,6 +247,7 @@ export type Database = {
           is_ai_suggested: boolean
           created_at: string
           external_message_id: string | null
+          cc_addresses: string[] | null
         }
         Insert: {
           id?: string
@@ -258,6 +259,7 @@ export type Database = {
           is_ai_suggested?: boolean
           created_at?: string
           external_message_id?: string | null
+          cc_addresses?: string[] | null
         }
         Update: {
           id?: string
@@ -269,6 +271,7 @@ export type Database = {
           is_ai_suggested?: boolean
           created_at?: string
           external_message_id?: string | null
+          cc_addresses?: string[] | null
         }
         Relationships: []
       }

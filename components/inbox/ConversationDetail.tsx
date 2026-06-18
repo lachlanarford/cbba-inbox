@@ -73,6 +73,7 @@ export default function ConversationDetail({
   const [feedbackRequest, setFeedbackRequest] = useState<FeedbackRequest | null>(null)
   const [closing, setClosing] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
+  const [lastInboundCc, setLastInboundCc] = useState<string[]>([])
   const [feedbackEmailReady, setFeedbackEmailReady] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
@@ -105,6 +106,19 @@ export default function ConversationDetail({
       .maybeSingle()
       .then(({ data }) => {
         setFeedbackRequest(data as FeedbackRequest | null)
+      })
+
+    // Fetch CC recipients from the last inbound message (for Reply All)
+    supabase
+      .from('messages')
+      .select('cc_addresses')
+      .eq('conversation_id', conversationId)
+      .eq('sender_type', 'contact')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        setLastInboundCc(data?.cc_addresses ?? [])
       })
 
     // Realtime: refresh when this conversation is updated
@@ -484,6 +498,7 @@ export default function ConversationDetail({
           conversationId={conversationId}
           channel={conversation.channel}
           contactEmail={(conversation.contact as unknown as { email?: string | null })?.email ?? null}
+          lastInboundCc={lastInboundCc}
         />
       </div>
 

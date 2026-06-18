@@ -14,6 +14,7 @@ export interface IncomingMessage {
   assignedTo?: string | null
   externalThreadId?: string | null
   externalMessageId?: string | null
+  ccAddresses?: string[]
 }
 
 export interface ProcessResult {
@@ -181,6 +182,7 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
       content: msg.content,
       is_internal_note: false,
       ...(msg.externalMessageId ? { external_message_id: msg.externalMessageId } : {}),
+      ...(msg.ccAddresses && msg.ccAddresses.length > 0 ? { cc_addresses: msg.ccAddresses } : {}),
     })
     .select('id')
     .single()

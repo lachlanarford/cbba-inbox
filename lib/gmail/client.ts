@@ -83,6 +83,7 @@ export interface ParsedEmail {
   body: string
   internalDate: string
   attachments: AttachmentMeta[]
+  cc: string[]
 }
 
 export interface FetchHistoryResult {
@@ -211,7 +212,15 @@ async function parseMessage(
     body = body + `<!--CBBA_ATT:${JSON.stringify({ msgId: messageId, items: attachments })}-->`
   }
 
-  return { messageId, threadId, from: fromEmail, fromName, subject, body, internalDate, attachments }
+  const ccRaw = get('cc')
+  const cc = ccRaw
+    ? ccRaw.split(',').map((addr) => {
+        const m = addr.match(/<([^>]+)>/)
+        return (m ? m[1] : addr).trim().toLowerCase()
+      }).filter(Boolean)
+    : []
+
+  return { messageId, threadId, from: fromEmail, fromName, subject, body, internalDate, attachments, cc }
 }
 
 type GmailPart = import('googleapis').gmail_v1.Schema$MessagePart
