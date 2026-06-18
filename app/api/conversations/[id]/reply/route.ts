@@ -87,7 +87,8 @@ export async function POST(
 
   // For non-internal replies on Facebook/Instagram, send via Meta Graph API
   if ((conversation.channel === 'facebook' || conversation.channel === 'instagram') && !isNote && conversation.channel_config_id) {
-    const { data: channelConfig } = await supabase
+    const metaService = createServiceClient()
+    const { data: channelConfig } = await metaService
       .from('channel_configs')
       .select('credentials, is_active')
       .eq('id', conversation.channel_config_id)
