@@ -16,7 +16,7 @@ const WRAPPER = `
       font-size: 14px;
       line-height: 1.6;
       color: #111827;
-      background: #ffffff;
+      background: #f8f9fa;
       word-break: break-word;
     }
     img { max-width: 100%; height: auto; }

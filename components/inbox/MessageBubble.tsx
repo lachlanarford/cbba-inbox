@@ -47,6 +47,31 @@ function isHtml(content: string): boolean {
   )
 }
 
+// Rich HTML needs the iframe sandbox (has tables, external images, complex CSS)
+function isRichHtml(html: string): boolean {
+  const lower = html.toLowerCase()
+  return lower.includes('<table') || lower.includes('<img')
+}
+
+// Strip HTML tags to plain readable text for previews and simple rendering
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 interface MessageBubbleProps {
   message: MessageWithSender
   currentUserId: string
@@ -60,18 +85,26 @@ export default function MessageBubble({ message, currentUserId, channel, default
   const isNote = message.is_internal_note
   const { cleanContent, attachments } = parseAttachments(message.content)
   const contentIsHtml = isHtml(cleanContent)
+  const useIframe = contentIsHtml && isRichHtml(cleanContent)
   const showSent = isOutbound && !isNote && message.sender_type === 'staff' && OUTBOUND_CHANNELS.has(channel)
+  const isEmailChannel = channel === 'gmail'
 
   const senderName = message.sender_type === 'contact'
     ? 'Contact'
     : message.sender?.full_name ?? (isCurrentUser ? 'You' : 'Staff')
   const senderInitial = senderName.charAt(0).toUpperCase()
 
+  // Preview text for collapsed cards
+  const previewText = contentIsHtml
+    ? stripHtml(cleanContent).replace(/\s+/g, ' ').slice(0, 90)
+    : cleanContent.replace(/\s+/g, ' ').slice(0, 90)
+
   const [expanded, setExpanded] = useState(defaultExpanded)
 
+  // Internal note
   if (isNote) {
     return (
-      <div className="px-4 py-2">
+      <div className="px-4 py-1.5">
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
           <div className="flex items-center gap-2 mb-1.5">
             <span className="text-xs font-medium text-amber-400 uppercase tracking-wide">Internal Note</span>
@@ -86,33 +119,42 @@ export default function MessageBubble({ message, currentUserId, channel, default
     )
   }
 
-  // HTML email — collapsible card with dark header
-  if (contentIsHtml) {
+  // Email card (HTML or plain text on email channel)
+  if (contentIsHtml || isEmailChannel) {
+    const plainText = contentIsHtml ? stripHtml(cleanContent) : cleanContent
+
     return (
-      <div className="px-4 py-1.5">
-        <div className="rounded-xl overflow-hidden border border-white/[0.08]">
-          {/* Header — always visible, click to toggle */}
+      <div className="px-4 py-1">
+        <div className="rounded-xl overflow-hidden border border-white/[0.07]">
+          {/* Header */}
           <button
-            className="w-full flex items-center gap-3 px-4 py-3 bg-cbba-navy-light hover:bg-white/[0.04] transition-colors text-left"
+            className="w-full flex items-center gap-3 px-4 py-2.5 bg-cbba-navy-light hover:bg-white/[0.035] transition-colors text-left"
             onClick={() => setExpanded((v) => !v)}
           >
             {/* Avatar */}
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 select-none ${
-              isOutbound ? 'bg-cbba-purple/30 text-cbba-purple-light' : 'bg-white/10 text-gray-300'
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 select-none ${
+              isOutbound ? 'bg-cbba-purple/35 text-cbba-purple-light' : 'bg-white/10 text-gray-300'
             }`}>
               {message.sender_type === 'ai' ? 'AI' : senderInitial}
             </div>
 
-            {/* Sender name */}
-            <span className="flex-1 text-sm font-medium text-white truncate">{senderName}</span>
+            {/* Sender + preview */}
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-white">{senderName}</span>
+              {!expanded && previewText && (
+                <span className="ml-2 text-xs text-gray-500 truncate inline-block max-w-[240px] align-bottom">
+                  {previewText}
+                </span>
+              )}
+            </div>
 
-            {/* Right-side meta */}
+            {/* Meta */}
             <div className="flex items-center gap-2 flex-shrink-0">
               {message.sender_type === 'ai' && <AiBadge />}
               {showSent && <SentBadge />}
-              <span className="text-xs text-gray-500">{formatDateTime(message.created_at)}</span>
+              <span className="text-xs text-gray-500 whitespace-nowrap">{formatDateTime(message.created_at)}</span>
               <svg
-                className={`w-3.5 h-3.5 text-gray-600 transition-transform duration-200 ${expanded ? '' : '-rotate-90'}`}
+                className={`w-3.5 h-3.5 text-gray-600 transition-transform duration-200 flex-shrink-0 ${expanded ? '' : '-rotate-90'}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -122,11 +164,24 @@ export default function MessageBubble({ message, currentUserId, channel, default
 
           {/* Body */}
           {expanded && (
-            <div className="border-t border-white/[0.06]">
-              <HtmlEmailViewer html={cleanContent} />
-              {attachments.length > 0 && (
-                <div className="px-4 py-3 border-t border-white/[0.06]">
-                  <AttachmentChips attachments={attachments} conversationId={message.conversation_id} />
+            <div className="border-t border-white/[0.05]">
+              {useIframe ? (
+                <>
+                  <HtmlEmailViewer html={cleanContent} />
+                  {attachments.length > 0 && (
+                    <div className="px-4 py-3 border-t border-white/[0.05]">
+                      <AttachmentChips attachments={attachments} conversationId={message.conversation_id} />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="px-5 py-4">
+                  <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{plainText}</p>
+                  {attachments.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-white/[0.05]">
+                      <AttachmentChips attachments={attachments} conversationId={message.conversation_id} />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -140,14 +195,11 @@ export default function MessageBubble({ message, currentUserId, channel, default
   return (
     <div className={`px-4 py-1.5 flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[75%] space-y-1 flex flex-col ${isOutbound ? 'items-end' : 'items-start'}`}>
-        {/* Sender + time */}
         <div className={`flex items-center gap-2 ${isOutbound ? 'flex-row-reverse' : 'flex-row'}`}>
           <span className="text-xs font-medium text-gray-400">{senderName}</span>
           {message.sender_type === 'ai' && <AiBadge />}
           <span className="text-xs text-gray-600">{formatDateTime(message.created_at)}</span>
         </div>
-
-        {/* Bubble */}
         <div className={`px-3.5 py-2.5 rounded-2xl text-sm whitespace-pre-wrap break-words ${
           isOutbound
             ? 'bg-cbba-purple text-white rounded-tr-sm'
@@ -155,7 +207,6 @@ export default function MessageBubble({ message, currentUserId, channel, default
         }`}>
           {cleanContent}
         </div>
-
         {attachments.length > 0 && (
           <AttachmentChips attachments={attachments} conversationId={message.conversation_id} />
         )}
@@ -171,7 +222,7 @@ export default function MessageBubble({ message, currentUserId, channel, default
 
 function AttachmentChips({ attachments, conversationId }: { attachments: AttachmentChip[]; conversationId: string }) {
   return (
-    <div className="flex flex-wrap gap-2 mt-1">
+    <div className="flex flex-wrap gap-2">
       {attachments.map((att) => (
         <a
           key={att.id}
