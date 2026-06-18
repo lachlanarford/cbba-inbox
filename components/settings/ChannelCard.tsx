@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import type { ChannelConfig, StaffUser } from '@/types/database'
 
 const DEPARTMENTS = [
@@ -85,7 +85,23 @@ export default function ChannelCard({
   onUpdateMetadata,
 }: ChannelCardProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [renewingWatch, setRenewingWatch] = useState(false)
+  const [renewResult, setRenewResult] = useState<'ok' | 'error' | null>(null)
   const meta = CHANNEL_META[channelType] ?? { label: channelType, description: '', icon: null }
+
+  const handleRenewWatch = useCallback(async () => {
+    setRenewingWatch(true)
+    setRenewResult(null)
+    try {
+      const res = await fetch('/api/gmail/watch/renew')
+      setRenewResult(res.ok ? 'ok' : 'error')
+    } catch {
+      setRenewResult('error')
+    } finally {
+      setRenewingWatch(false)
+      setTimeout(() => setRenewResult(null), 3000)
+    }
+  }, [])
 
   async function copyToClipboard(value: string, field: string) {
     await navigator.clipboard.writeText(value)
@@ -194,13 +210,23 @@ export default function ChannelCard({
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {channelType === 'gmail' && (
-                      <button
-                        onClick={() => { window.location.href = `/api/gmail/auth/start?email=${encodeURIComponent(config.identifier)}` }}
-                        className="text-xs text-gray-500 hover:text-cbba-purple transition-colors"
-                        title="Re-authorise this account with Google"
-                      >
-                        Reconnect
-                      </button>
+                      <>
+                        <button
+                          onClick={handleRenewWatch}
+                          disabled={renewingWatch}
+                          className="text-xs text-gray-500 hover:text-cbba-purple transition-colors disabled:opacity-50"
+                          title="Renew Gmail Pub/Sub watch subscription"
+                        >
+                          {renewingWatch ? 'Renewing...' : renewResult === 'ok' ? 'Renewed!' : renewResult === 'error' ? 'Failed' : 'Renew watch'}
+                        </button>
+                        <button
+                          onClick={() => { window.location.href = `/api/gmail/auth/start?email=${encodeURIComponent(config.identifier)}` }}
+                          className="text-xs text-gray-500 hover:text-cbba-purple transition-colors"
+                          title="Re-authorise this account with Google"
+                        >
+                          Reconnect
+                        </button>
+                      </>
                     )}
                     <Toggle
                       checked={config.is_active}
