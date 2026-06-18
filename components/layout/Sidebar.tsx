@@ -99,8 +99,11 @@ export default function Sidebar({ user, logoUrl, initialLiveChatUsers }: Sidebar
       <div className="px-5 py-5 border-b border-white/5">
         <Link href="/inbox" className="flex items-center">
           {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="Logo" className="h-8 w-auto max-w-[160px] object-contain" />
+            <div className="flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt="Logo" className="h-8 w-auto max-w-[120px] object-contain" />
+              <span className="text-white/50 font-light text-sm tracking-widest uppercase">Inbox</span>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <span className="text-cbba-gold font-bold text-xl tracking-tight">CBBA</span>
