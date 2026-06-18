@@ -276,12 +276,12 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
         </button>
       </div>
 
-      {/* Compose box */}
-      <div className={`mx-4 mb-4 rounded-b-xl rounded-tr-xl border overflow-hidden ${isNote ? 'border-amber-500/20' : 'border-white/10'}`}>
+      {/* Compose box — flex column so action bar never scrolls off screen */}
+      <div className={`mx-4 mb-4 rounded-b-xl rounded-tr-xl border flex flex-col overflow-hidden max-h-[60vh] ${isNote ? 'border-amber-500/20' : 'border-white/10'}`}>
 
-        {/* To / CC / BCC — Gmail reply only */}
+        {/* To / CC / BCC — Gmail reply only, always visible */}
         {isGmail && !isNote && (
-          <div className="border-b border-white/8">
+          <div className="border-b border-white/8 flex-shrink-0">
             {/* To row */}
             <div className="flex items-center gap-2 px-3 py-2">
               <span className="text-[11px] text-gray-600 w-6 flex-shrink-0">To</span>
@@ -340,29 +340,31 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
           </div>
         )}
 
-        {/* Editor */}
-        {isNote ? (
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => { setContent(e.target.value); if (aiSuggested) setAiSuggested(false) }}
-            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); handleSend() } }}
-            placeholder="Add an internal note visible only to your team..."
-            rows={5}
-            className="w-full px-3 pt-3 bg-transparent text-sm text-white placeholder-gray-600 resize-none focus:outline-none"
-          />
-        ) : (
-          <RichTextEditor
-            value={content}
-            onChange={handleContentChange}
-            placeholder="Type your reply..."
-            minRows={5}
-          />
-        )}
+        {/* Editor — scrolls when content is long, fills available space */}
+        <div className="overflow-y-auto flex-1 min-h-[100px]">
+          {isNote ? (
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => { setContent(e.target.value); if (aiSuggested) setAiSuggested(false) }}
+              onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); handleSend() } }}
+              placeholder="Add an internal note visible only to your team..."
+              rows={5}
+              className="w-full h-full px-3 pt-3 bg-transparent text-sm text-white placeholder-gray-600 resize-none focus:outline-none"
+            />
+          ) : (
+            <RichTextEditor
+              value={content}
+              onChange={handleContentChange}
+              placeholder="Type your reply..."
+              minRows={5}
+            />
+          )}
+        </div>
 
-        {/* Attachment chips */}
+        {/* Attachment chips — always visible, never scrolls away */}
         {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 px-3 py-2 border-t border-white/5">
+          <div className="flex-shrink-0 flex flex-wrap gap-1.5 px-3 py-2 border-t border-white/5">
             {attachments.map((att, i) => (
               <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 max-w-[180px]">
                 <svg className="w-3 h-3 flex-shrink-0 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -382,15 +384,15 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
           </div>
         )}
 
-        {/* Error */}
+        {/* Error — always visible */}
         {error && (
-          <div className="px-3 py-2 border-t border-white/5 text-xs text-red-400">
+          <div className="flex-shrink-0 px-3 py-2 border-t border-white/5 text-xs text-red-400">
             {error}
           </div>
         )}
 
-        {/* Action bar */}
-        <div className={`flex items-center justify-between px-3 py-2.5 border-t ${isNote ? 'border-amber-500/10 bg-amber-500/3' : 'border-white/5'}`}>
+        {/* Action bar — flex-shrink-0 so Send is always visible */}
+        <div className={`flex-shrink-0 flex items-center justify-between px-3 py-2.5 border-t ${isNote ? 'border-amber-500/10 bg-amber-500/3' : 'border-white/5'}`}>
           <div className="flex items-center gap-1">
             {!isNote && (
               <>
