@@ -241,8 +241,8 @@ export default function InboxLayout() {
             </div>
           ) : (
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-white">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm font-semibold text-white truncate">
                   {filters.showSnoozed ? 'Snoozed' : 'Conversations'}
                 </span>
                 <button
@@ -253,7 +253,7 @@ export default function InboxLayout() {
                     clearChecked()
                   }}
                   title={filters.showSnoozed ? 'Back to inbox' : 'View snoozed'}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
                     filters.showSnoozed
                       ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                       : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
@@ -262,10 +262,10 @@ export default function InboxLayout() {
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                   </svg>
-                  {filters.showSnoozed ? 'Snoozed' : 'Snoozed'}
+                  {filters.showSnoozed ? 'Back' : 'Snoozed'}
                 </button>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button
                   onClick={() => setListCollapsed(true)}
                   title="Collapse panel"

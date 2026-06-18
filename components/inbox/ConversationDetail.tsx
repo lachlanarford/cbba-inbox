@@ -4,9 +4,6 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAppUser } from '@/contexts/AppUserContext'
 import { useUsers } from '@/lib/hooks/useUsers'
-import StatusBadge from '@/components/ui/StatusBadge'
-import DepartmentBadge from '@/components/ui/DepartmentBadge'
-import PriorityBadge from '@/components/ui/PriorityBadge'
 import ChannelIcon from '@/components/ui/ChannelIcon'
 import MessageThread from './MessageThread'
 import ReplyBox from './ReplyBox'
@@ -18,6 +15,31 @@ import type { Database } from '@/types/supabase'
 interface ConversationWithConfig extends ConversationDetailType {
   channel_config: { id: string; identifier: string } | null
 }
+
+const STATUS_CLASSES: Record<string, string> = {
+  open:        'bg-blue-500/15 text-blue-400 border-blue-500/20',
+  in_progress: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+  waiting:     'bg-orange-500/15 text-orange-400 border-orange-500/20',
+  closed:      'bg-gray-500/15 text-gray-400 border-gray-500/20',
+}
+const DEPT_CLASSES: Record<string, string> = {
+  Reps:  'bg-blue-500/15 text-blue-400 border-blue-500/20',
+  Comps: 'bg-green-500/15 text-green-400 border-green-500/20',
+  LTP:   'bg-purple-500/15 text-purple-400 border-purple-500/20',
+  Other: 'bg-gray-500/15 text-gray-400 border-gray-500/20',
+}
+const PRIORITY_CLASSES: Record<string, string> = {
+  low:    'bg-gray-500/10 text-gray-400 border-gray-500/20',
+  medium: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  high:   'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  urgent: 'bg-red-500/10 text-red-400 border-red-500/20',
+}
+
+const chevron = (
+  <svg className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+  </svg>
+)
 
 type ConversationUpdate = Database['public']['Tables']['conversations']['Update']
 
@@ -250,21 +272,17 @@ export default function ConversationDetail({
                 value={conversation.status}
                 onChange={(e) => {
                   const newStatus = e.target.value
-                  if (newStatus === 'closed') {
-                    closeConversation()
-                  } else {
-                    updateConversation({ status: newStatus })
-                  }
+                  if (newStatus === 'closed') closeConversation()
+                  else updateConversation({ status: newStatus })
                 }}
                 disabled={closing}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full disabled:cursor-not-allowed"
+                className={`appearance-none cursor-pointer rounded-full pl-2.5 pr-6 py-0.5 text-xs font-medium border focus:outline-none disabled:cursor-not-allowed ${STATUS_CLASSES[conversation.status] ?? 'bg-gray-500/15 text-gray-400 border-gray-500/20'}`}
               >
                 {STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>{s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
                 ))}
               </select>
-              <StatusBadge status={conversation.status} />
-              <svg className="w-3 h-3 ml-0.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              {chevron}
             </div>
 
             <span className="text-gray-700">|</span>
@@ -274,15 +292,16 @@ export default function ConversationDetail({
               <select
                 value={conversation.department ?? ''}
                 onChange={(e) => updateConversation({ department: e.target.value || null })}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                className={`appearance-none cursor-pointer rounded-full pl-2.5 pr-6 py-0.5 text-xs font-medium border focus:outline-none ${
+                  conversation.department
+                    ? (DEPT_CLASSES[conversation.department] ?? 'bg-gray-500/15 text-gray-400 border-gray-500/20')
+                    : 'bg-white/5 text-gray-500 border-white/10'
+                }`}
               >
                 <option value="">No department</option>
                 {DEPARTMENTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
-              {conversation.department
-                ? <DepartmentBadge department={conversation.department} />
-                : <span className="text-xs text-gray-500">No dept</span>}
-              <svg className="w-3 h-3 ml-0.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              {chevron}
             </div>
 
             <span className="text-gray-700">|</span>
@@ -292,12 +311,11 @@ export default function ConversationDetail({
               <select
                 value={conversation.priority}
                 onChange={(e) => updateConversation({ priority: e.target.value })}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                className={`appearance-none cursor-pointer rounded-full pl-2.5 pr-6 py-0.5 text-xs font-medium border focus:outline-none ${PRIORITY_CLASSES[conversation.priority] ?? 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}
               >
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
               </select>
-              <PriorityBadge priority={conversation.priority} showLabel />
-              <svg className="w-3 h-3 ml-0.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              {chevron}
             </div>
 
             <span className="text-gray-700">|</span>
@@ -307,17 +325,14 @@ export default function ConversationDetail({
               <select
                 value={assigned_user?.id ?? ''}
                 onChange={(e) => updateConversation({ assigned_to: e.target.value || null })}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                className="appearance-none cursor-pointer rounded-full pl-2.5 pr-6 py-0.5 text-xs border bg-white/5 text-gray-400 border-white/10 focus:outline-none"
               >
                 <option value="">Unassigned</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>{u.full_name ?? u.email}</option>
                 ))}
               </select>
-              <span className="text-xs text-gray-400">
-                {assigned_user ? (assigned_user.full_name ?? 'Assigned') : 'Unassigned'}
-              </span>
-              <svg className="w-3 h-3 ml-0.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              {chevron}
             </div>
 
             {/* Feedback */}
