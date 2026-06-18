@@ -24,8 +24,8 @@ export default function ReportsPage() {
   const [filters, setFilters] = useState<ReportFilters>(DEFAULT_FILTERS)
 
   return (
-    <div className="p-6 h-full overflow-y-auto">
-      <div className="max-w-6xl mx-auto space-y-5">
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-6xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
@@ -39,26 +39,26 @@ export default function ReportsPage() {
         <SummaryStatsCard filters={filters} />
 
         {/* Volume + Busiest hours */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <VolumeByChannelCard filters={filters} />
           <BusiestHoursCard filters={filters} />
         </div>
 
         {/* Response time + Resolution + Staff vs AI */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <ResponseTimeCard filters={filters} />
           <ResolutionRateCard filters={filters} />
           <StaffVsAiCard filters={filters} />
         </div>
 
         {/* Staff leaderboard + Priority distribution */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StaffLeaderboardCard filters={filters} />
           <PriorityDistributionCard filters={filters} />
         </div>
 
         {/* Category distribution + Feedback scores + Live chat */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <CategoryDistributionCard filters={filters} />
           <FeedbackScoresCard filters={filters} />
           <LiveChatReportCard filters={filters} />

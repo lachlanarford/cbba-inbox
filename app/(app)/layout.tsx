@@ -96,7 +96,7 @@ export default async function AppLayout({
       <div className="flex h-screen overflow-hidden bg-cbba-navy" style={cssVars}>
         <Sidebar user={appUser} logoUrl={logoUrl} initialLiveChatUsers={liveChatUsers ?? []} />
         <div className="flex flex-col flex-1 min-w-0">
-          <TopBar userId={appUser.id} />
+          <TopBar userId={appUser.id} logoUrl={logoUrl} />
           <main className="flex-1 overflow-auto p-3 md:p-6 relative pb-20 md:pb-6">
             {children}
           </main>
