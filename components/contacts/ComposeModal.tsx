@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import EmailInput from '@/components/ui/EmailInput'
 
 interface ComposeModalProps {
   // Single recipient mode
@@ -90,12 +91,12 @@ export default function ComposeModal({ to, contactId, contactName, bccList, list
                   <span className="text-sm text-cbba-purple">{recipientLabel}</span>
                 </div>
               ) : (
-                <input
-                  type="email"
+                <EmailInput
                   value={toInput}
-                  onChange={(e) => setToInput(e.target.value)}
+                  onChange={setToInput}
                   placeholder="recipient@example.com"
-                  className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 focus:outline-none py-1.5"
+                  className="w-full bg-transparent text-sm text-white placeholder-gray-600 focus:outline-none py-1.5"
+                  single
                 />
               )}
             </div>

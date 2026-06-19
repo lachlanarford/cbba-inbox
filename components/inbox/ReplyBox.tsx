@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import RichTextEditor from '@/components/ui/RichTextEditor'
+import EmailInput from '@/components/ui/EmailInput'
 
 interface CannedResponse {
   id: string
@@ -285,12 +286,12 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
             {/* To row */}
             <div className="flex items-center gap-2 px-3 py-2">
               <span className="text-[11px] text-gray-600 w-6 flex-shrink-0">To</span>
-              <input
-                type="email"
+              <EmailInput
                 value={toEmail}
-                onChange={(e) => setToEmail(e.target.value)}
+                onChange={setToEmail}
                 placeholder="recipient@example.com"
-                className="flex-1 bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none"
+                className="w-full bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none"
+                single
               />
               <div className="flex items-center gap-1 flex-shrink-0">
                 {!showCc && (
@@ -314,26 +315,24 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
             {showCc && (
               <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5">
                 <span className="text-[11px] text-gray-600 w-6 flex-shrink-0">CC</span>
-                <input
-                  type="text"
+                <EmailInput
                   value={cc}
-                  onChange={(e) => setCc(e.target.value)}
+                  onChange={setCc}
                   placeholder="name@example.com, another@example.com"
                   autoFocus
-                  className="flex-1 bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none"
+                  className="w-full bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none"
                 />
               </div>
             )}
             {showBcc && (
               <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5">
                 <span className="text-[11px] text-gray-600 w-6 flex-shrink-0">BCC</span>
-                <input
-                  type="text"
+                <EmailInput
                   value={bcc}
-                  onChange={(e) => setBcc(e.target.value)}
+                  onChange={setBcc}
                   placeholder="name@example.com"
                   autoFocus={!showCc}
-                  className="flex-1 bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none"
+                  className="w-full bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none"
                 />
               </div>
             )}
