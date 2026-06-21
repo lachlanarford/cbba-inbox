@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { AppUser } from '@/types/supabase'
 import { isAdmin } from '@/lib/auth'
@@ -46,8 +46,6 @@ const navItems = [
 
 export default function Sidebar({ user, logoUrl, initialLiveChatUsers }: SidebarProps) {
   const pathname = usePathname()
-  const [changelogOpen, setChangelogOpen] = useState(false)
-  const changelogRef = useRef<HTMLDivElement>(null)
   const [liveChatUsers, setLiveChatUsers] = useState<LiveUser[]>(initialLiveChatUsers)
 
   // Realtime subscription for other users' live chat status
@@ -71,17 +69,6 @@ export default function Sidebar({ user, logoUrl, initialLiveChatUsers }: Sidebar
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [])
-
-  useEffect(() => {
-    if (!changelogOpen) return
-    function handleClick(e: MouseEvent) {
-      if (changelogRef.current && !changelogRef.current.contains(e.target as Node)) {
-        setChangelogOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [changelogOpen])
 
   function isActive(href: string) {
     if (href === '/inbox') return pathname === '/inbox' || pathname.startsWith('/inbox/')
@@ -136,33 +123,16 @@ export default function Sidebar({ user, logoUrl, initialLiveChatUsers }: Sidebar
       </nav>
 
       {/* What's new */}
-      <div ref={changelogRef} className="px-3 pb-2 border-t border-white/5 pt-3 relative">
-        <button
-          onClick={() => setChangelogOpen((v) => !v)}
+      <div className="px-3 pb-2 border-t border-white/5 pt-3">
+        <Link
+          href="/changelog"
           className={`flex items-center gap-1.5 w-full px-3 py-1.5 rounded-lg text-xs transition-colors ${
-            changelogOpen ? 'text-white bg-white/10' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+            pathname === '/changelog' ? 'text-white bg-white/10' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
           }`}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-cbba-purple flex-shrink-0" />
           What&apos;s new
-        </button>
-
-        {changelogOpen && (
-          <div className="absolute bottom-0 left-full ml-2 z-50 w-72 bg-cbba-navy border border-white/10 rounded-xl shadow-2xl flex flex-col" style={{ maxHeight: 360 }}>
-            <div className="px-4 py-3 border-b border-white/5 flex-shrink-0">
-              <p className="text-xs font-semibold text-white">What&apos;s new</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">Recent updates to CBBA Inbox</p>
-            </div>
-            <ul className="overflow-y-auto flex-1 py-2 px-1">
-              {CHANGELOG.map((entry, i) => (
-                <li key={i} className="flex gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
-                  <span className="flex-shrink-0 text-[11px] text-gray-600 mt-0.5 w-12">{entry.date}</span>
-                  <span className="text-[12px] text-gray-300 leading-snug">{entry.text}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        </Link>
       </div>
 
       {/* Chat widget toggle */}
