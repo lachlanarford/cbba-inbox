@@ -6,7 +6,7 @@ import { useAppUser } from '@/contexts/AppUserContext'
 import type { Contact, Channel, Department, Priority } from '@/types/database'
 
 const CHANNELS: Array<{ value: Channel; label: string }> = [
-  { value: 'gmail',     label: 'Gmail' },
+  { value: 'gmail',     label: 'Gmail (sends email)' },
   { value: 'whatsapp',  label: 'WhatsApp' },
   { value: 'facebook',  label: 'Facebook' },
   { value: 'instagram', label: 'Instagram' },
@@ -47,6 +47,10 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  const isGmail = channel === 'gmail'
+
+  const contactEmail = isNewContact ? newContactEmail.trim() : (selectedContact?.email ?? '')
+
   const searchContacts = useCallback(async (term: string) => {
     if (!term.trim()) { setResults([]); return }
     const supabase = createClient()
@@ -67,6 +71,7 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
     if (!message.trim()) { setError('Please enter an initial message.'); return }
     if (!selectedContact && !isNewContact) { setError('Please select or create a contact.'); return }
     if (isNewContact && !newContactName.trim()) { setError('Please enter a contact name.'); return }
+    if (isGmail && !contactEmail) { setError('An email address is required to send via Gmail.'); return }
 
     setSubmitting(true)
     setError('')
@@ -92,6 +97,37 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
       contactId = newContact.id
     }
 
+    // Gmail: send via the compose API so the email is actually dispatched
+    if (isGmail) {
+      try {
+        const res = await fetch('/api/compose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: contactEmail,
+            subject: subject.trim() || '(no subject)',
+            content: message.trim(),
+            contactId: contactId || undefined,
+            department: department || null,
+            priority,
+            assignedTo: currentUser.id,
+          }),
+        })
+        const data = await res.json() as { success?: boolean; conversationId?: string; error?: string }
+        if (!res.ok) {
+          setError(data.error ?? 'Failed to send email')
+          setSubmitting(false)
+          return
+        }
+        onCreated(data.conversationId!)
+      } catch {
+        setError('Network error, please try again')
+        setSubmitting(false)
+      }
+      return
+    }
+
+    // Non-Gmail channels: create internal conversation record only (no outbound message)
     const { data: conv, error: convError } = await supabase
       .from('conversations')
       .insert({
@@ -181,7 +217,7 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
                   type="email"
                   value={newContactEmail}
                   onChange={(e) => setNewContactEmail(e.target.value)}
-                  placeholder="Email (optional)"
+                  placeholder={isGmail ? 'Email address (required for Gmail)' : 'Email (optional)'}
                   className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cbba-purple transition-colors"
                 />
                 <button onClick={() => setIsNewContact(false)} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
@@ -193,6 +229,9 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
                 <div>
                   <p className="text-sm text-white">{selectedContact!.full_name ?? 'Unknown'}</p>
                   {selectedContact!.email && <p className="text-xs text-gray-400">{selectedContact!.email}</p>}
+                  {isGmail && !selectedContact!.email && (
+                    <p className="text-xs text-amber-400 mt-0.5">No email address -- cannot send via Gmail</p>
+                  )}
                 </div>
                 <button onClick={() => setSelectedContact(null)} className="text-gray-500 hover:text-white transition-colors">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -215,14 +254,16 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
             </select>
           </div>
 
-          {/* Subject */}
+          {/* Subject -- required for Gmail */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">Subject</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+              Subject{isGmail ? ' (required)' : ' (optional)'}
+            </label>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Optional subject"
+              placeholder={isGmail ? 'Email subject' : 'Optional subject'}
               className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cbba-purple transition-colors"
             />
           </div>
@@ -254,15 +295,23 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
 
           {/* Message */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">Initial message</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+              {isGmail ? 'Email body' : 'Initial message'}
+            </label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Write the first message..."
+              placeholder={isGmail ? 'Write your email...' : 'Write the first message...'}
               rows={4}
               className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cbba-purple transition-colors resize-none"
             />
           </div>
+
+          {isGmail && (
+            <p className="text-[11px] text-gray-600">
+              This will be sent as an email from your connected Gmail inbox. Your email signature will be appended automatically.
+            </p>
+          )}
 
           {error && <p className="text-xs text-red-400">{error}</p>}
         </div>
@@ -277,7 +326,9 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
             disabled={submitting}
             className="px-4 py-2 bg-cbba-purple text-white text-sm font-medium rounded-lg hover:bg-cbba-purple-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {submitting ? 'Creating...' : 'Create Conversation'}
+            {submitting
+              ? (isGmail ? 'Sending...' : 'Creating...')
+              : (isGmail ? 'Send Email' : 'Create Conversation')}
           </button>
         </div>
       </div>

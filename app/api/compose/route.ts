@@ -11,14 +11,23 @@ export async function POST(request: Request) {
   const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
   if (!appUser) return NextResponse.json({ error: 'User not found' }, { status: 401 })
 
-  let body: { to: string; bcc?: string[]; subject: string; content: string; contactId?: string }
+  let body: {
+    to: string
+    bcc?: string[]
+    subject: string
+    content: string
+    contactId?: string
+    department?: string | null
+    priority?: string | null
+    assignedTo?: string | null
+  }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { to, bcc, subject, content, contactId } = body
+  const { to, bcc, subject, content, contactId, department, priority, assignedTo } = body
   const isBulk = (!to?.trim()) && bcc && bcc.length > 0
   if (!isBulk && !to?.trim()) return NextResponse.json({ error: 'to required' }, { status: 400 })
   if (!subject?.trim()) return NextResponse.json({ error: 'subject required' }, { status: 400 })
@@ -67,7 +76,6 @@ export async function POST(request: Request) {
   // Create conversation record
   const { data: conversation, error: convError } = await service
     .from('conversations')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .insert({
       channel: 'gmail',
       channel_config_id: channelConfig.id,
@@ -77,6 +85,9 @@ export async function POST(request: Request) {
       external_thread_id: threadId,
       last_message_at: new Date().toISOString(),
       is_read: true,
+      department: (department ?? null) as unknown as string,
+      priority: (priority ?? 'low') as unknown as string,
+      assigned_to: (assignedTo ?? null) as unknown as string,
     })
     .select('id')
     .single()
