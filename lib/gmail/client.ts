@@ -275,7 +275,10 @@ function extractAttachments(payload: GmailPart | undefined): AttachmentMeta[] {
   function walk(part: GmailPart) {
     const headers = part.headers ?? []
     const contentId = headers.find((h) => h.name?.toLowerCase() === 'content-id')?.value
-    if (contentId) return // inline image — handled separately
+    // Only skip parts that are inline images (image/* with content-id, no filename).
+    // Outlook and some clients add Content-ID to all attachments including spreadsheets --
+    // check for a real filename before skipping so those are not silently dropped.
+    if (contentId && part.mimeType?.startsWith('image/') && !part.filename) return
     if (part.filename && part.filename.length > 0 && part.body?.attachmentId) {
       attachments.push({
         id: part.body.attachmentId,
@@ -283,6 +286,7 @@ function extractAttachments(payload: GmailPart | undefined): AttachmentMeta[] {
         mimeType: part.mimeType ?? 'application/octet-stream',
         size: part.body.size ?? 0,
       })
+      return // don't walk children of a leaf attachment part
     }
     for (const child of part.parts ?? []) walk(child)
   }
@@ -329,6 +333,11 @@ export interface OutboundAttachment {
   data: string // base64-encoded file data
 }
 
+// RFC 2045 requires base64 lines to be at most 76 chars in MIME bodies
+function chunkBase64(b64: string): string {
+  return b64.match(/.{1,76}/g)?.join('\r\n') ?? b64
+}
+
 export async function sendReply(
   channelConfigId: string,
   opts: { threadId: string; to: string; from: string; subject: string; body: string; attachments?: OutboundAttachment[]; cc?: string[]; bcc?: string[] }
@@ -370,7 +379,7 @@ export async function sendReply(
         `Content-Disposition: attachment; filename="${att.name}"`,
         `Content-Transfer-Encoding: base64`,
         '',
-        att.data,
+        chunkBase64(att.data),
       )
     }
     parts.push(`--${boundary}--`)

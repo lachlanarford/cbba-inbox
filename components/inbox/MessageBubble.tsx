@@ -213,24 +213,45 @@ export default function MessageBubble({ message, currentUserId, channel, default
   )
 }
 
+function getFileTypeLabel(mimeType: string, name: string): { label: string; color: string } {
+  const ext = name.split('.').pop()?.toLowerCase()
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || ext === 'csv' || ext === 'xlsx' || ext === 'xls' || ext === 'ods') {
+    return { label: 'XLS', color: 'text-green-400' }
+  }
+  if (mimeType.includes('wordprocessing') || mimeType.includes('msword') || ext === 'doc' || ext === 'docx') {
+    return { label: 'DOC', color: 'text-blue-400' }
+  }
+  if (mimeType === 'application/pdf' || ext === 'pdf') {
+    return { label: 'PDF', color: 'text-red-400' }
+  }
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || ext === 'ppt' || ext === 'pptx') {
+    return { label: 'PPT', color: 'text-orange-400' }
+  }
+  if (mimeType.startsWith('image/')) {
+    return { label: 'IMG', color: 'text-purple-400' }
+  }
+  return { label: 'FILE', color: 'text-gray-400' }
+}
+
 function AttachmentChips({ attachments, conversationId }: { attachments: AttachmentChip[]; conversationId: string }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {attachments.map((att) => (
-        <a
-          key={att.id}
-          href={`/api/conversations/${conversationId}/attachment?msgId=${encodeURIComponent(att.msgId)}&attId=${encodeURIComponent(att.id)}&name=${encodeURIComponent(att.name)}`}
-          download={att.name}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:text-white hover:border-white/25 transition-colors"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-          </svg>
-          <span className="max-w-[180px] truncate">{att.name}</span>
-          {att.size > 0 && <span className="text-gray-500 flex-shrink-0">{formatFileSize(att.size)}</span>}
-        </a>
-      ))}
+      {attachments.map((att) => {
+        const { label, color } = getFileTypeLabel(att.mimeType, att.name)
+        return (
+          <a
+            key={att.id}
+            href={`/api/conversations/${conversationId}/attachment?msgId=${encodeURIComponent(att.msgId)}&attId=${encodeURIComponent(att.id)}&name=${encodeURIComponent(att.name)}`}
+            download={att.name}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:text-white hover:border-white/25 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className={`text-[10px] font-bold flex-shrink-0 ${color}`}>{label}</span>
+            <span className="max-w-[180px] truncate">{att.name}</span>
+            {att.size > 0 && <span className="text-gray-500 flex-shrink-0">{formatFileSize(att.size)}</span>}
+          </a>
+        )
+      })}
     </div>
   )
 }

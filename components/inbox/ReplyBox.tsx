@@ -144,6 +144,24 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
     setAiSuggested(false)
   }
 
+  function resolveFileMimeType(file: File): string {
+    if (file.type) return file.type
+    // Browsers sometimes return empty type for Office files -- fall back by extension
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    const byExt: Record<string, string> = {
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      xls:  'application/vnd.ms-excel',
+      csv:  'text/csv',
+      ods:  'application/vnd.oasis.opendocument.spreadsheet',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      doc:  'application/msword',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      ppt:  'application/vnd.ms-powerpoint',
+      pdf:  'application/pdf',
+    }
+    return (ext && byExt[ext]) || 'application/octet-stream'
+  }
+
   async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
@@ -155,7 +173,7 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
             reader.onload = () => {
               const dataUrl = reader.result as string
               const base64 = dataUrl.split(',')[1] ?? ''
-              resolve({ name: file.name, mimeType: file.type || 'application/octet-stream', data: base64, size: file.size })
+              resolve({ name: file.name, mimeType: resolveFileMimeType(file), data: base64, size: file.size })
             }
             reader.onerror = reject
             reader.readAsDataURL(file)
