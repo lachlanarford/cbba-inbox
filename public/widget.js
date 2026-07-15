@@ -32,7 +32,7 @@
   var contactInfo = {};
   var container, bubble, bubbleHint, panel, messagesEl, footerEl, inputEl, sendBtn, statusEl, endBtn;
 
-  var DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Other'];
+  var DEPARTMENTS = ['Reps', 'Comps', 'LTP', 'Referees', 'Other'];
 
   function injectStyles() {
     var style = document.createElement('style');

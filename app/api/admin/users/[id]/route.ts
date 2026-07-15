@@ -23,7 +23,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Cannot modify your own account' }, { status: 400 })
   }
 
-  const VALID_DEPTS = ['Reps', 'Comps', 'LTP', 'Other']
+  const VALID_DEPTS = ['Reps', 'Comps', 'LTP', 'Other', 'Referees']
   const body = await request.json() as { role?: string; is_active?: boolean; department?: string | null }
   const updates: { role?: 'admin' | 'staff'; is_active?: boolean; department?: string | null } = {}
 

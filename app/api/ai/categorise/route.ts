@@ -34,8 +34,9 @@ export async function POST(request: Request) {
 
 Departments:
 - Reps: representative basketball, MJL, grading, trials, rep team enquiries
-- Comps: domestic competitions, draws, results, registrations, referees, courts
+- Comps: domestic competitions, draws, results, registrations, courts
 - LTP: Learn to Play, Aussie Hoops, junior development, beginner programs
+- Referees: referee enquiries, referee registration, referee payments, referee availability, referee appointments, officiating
 - Other: anything that does not fit the above
 
 Priorities:
@@ -49,7 +50,7 @@ Enquiry content: ${content}
 
 Respond with exactly this JSON structure:
 {
-  "department": "Reps | Comps | LTP | Other",
+  "department": "Reps | Comps | LTP | Referees | Other",
   "priority": "urgent | high | medium | low",
   "confidence": 0.0-1.0,
   "reasoning": "one sentence explanation"

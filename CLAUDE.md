@@ -21,7 +21,7 @@ Internal customer communications platform for City of Blacktown Basketball Assoc
 - Conversations: a ticket/thread (one per customer interaction)
 - Messages: individual messages within a conversation
 - Channels: gmail | whatsapp | facebook | instagram | form | chat
-- Departments: Reps | Comps | LTP | Other
+- Departments: Reps | Comps | LTP | Other | Referees
 - Priorities: Low | Medium | High | Urgent
 - Statuses: Open | In Progress | Waiting | Closed
 - Roles: admin | staff

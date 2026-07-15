@@ -18,6 +18,6 @@ export async function GET() {
     },
     required_fields: ['full_name', 'email', 'subject', 'message'],
     optional_fields: ['phone', 'department'],
-    department_values: ['Reps', 'Comps', 'LTP', 'Other'],
+    department_values: ['Reps', 'Comps', 'LTP', 'Other', 'Referees'],
   })
 }

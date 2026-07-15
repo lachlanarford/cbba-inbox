@@ -23,6 +23,7 @@ const DEPT_COLORS: Record<string, string> = {
   Comps: '#FBB33F',
   LTP: '#F58945',
   'Learn to Play': '#F58945',
+  Referees: '#14b8a6',
   Other: '#60a5fa',
   Unassigned: '#6b7280',
 }

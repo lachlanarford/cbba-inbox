@@ -27,6 +27,7 @@ const DEPT_CLASSES: Record<string, string> = {
   Comps: 'bg-green-500/15 text-green-400 border-green-500/20',
   LTP:   'bg-purple-500/15 text-purple-400 border-purple-500/20',
   Other: 'bg-gray-500/15 text-gray-400 border-gray-500/20',
+  Referees: 'bg-teal-500/15 text-teal-400 border-teal-500/20',
 }
 const PRIORITY_CLASSES: Record<string, string> = {
   low:    'bg-gray-500/10 text-gray-400 border-gray-500/20',
@@ -48,6 +49,7 @@ const DEPARTMENTS = [
   { value: 'Reps',  label: 'Reps' },
   { value: 'Comps', label: 'Comps' },
   { value: 'LTP',   label: 'Learn to Play' },
+  { value: 'Referees', label: 'Referees' },
   { value: 'Other', label: 'Other' },
 ]
 const PRIORITIES = ['low', 'medium', 'high', 'urgent']

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAdmin } from '@/lib/auth'
 
-const VALID_DEPTS = ['Reps', 'Comps', 'LTP', 'Other']
+const VALID_DEPTS = ['Reps', 'Comps', 'LTP', 'Other', 'Referees']
 
 export async function GET() {
   const supabase = await createClient()

@@ -17,6 +17,7 @@ const DEPARTMENTS: Array<{ value: Department; label: string }> = [
   { value: 'Reps',  label: 'Reps' },
   { value: 'Comps', label: 'Comps' },
   { value: 'LTP',   label: 'Learn to Play' },
+  { value: 'Referees', label: 'Referees' },
   { value: 'Other', label: 'Other' },
 ]
 const PRIORITIES: Array<{ value: Priority; label: string }> = [

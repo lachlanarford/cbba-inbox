@@ -17,6 +17,7 @@ const DEPARTMENTS = [
   { value: 'Reps',  label: 'Reps' },
   { value: 'Comps', label: 'Comps' },
   { value: 'LTP',   label: 'Learn to Play' },
+  { value: 'Referees', label: 'Referees' },
   { value: 'Other', label: 'Other' },
 ]
 const PRIORITIES = [

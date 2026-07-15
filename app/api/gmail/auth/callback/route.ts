@@ -9,6 +9,7 @@ const INBOX_DEPARTMENTS: Record<string, string> = {
   'competitions@blacktownbasketball.com': 'Comps',
   'reps@blacktownbasketball.com': 'Reps',
   'learntoplay@blacktownbasketball.com': 'LTP',
+  'referees@blacktownbasketball.com': 'Referees',
 }
 
 export async function GET(request: Request) {

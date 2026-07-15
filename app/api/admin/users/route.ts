@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const userId = inviteData.user.id
 
   // Pre-insert the user row with the desired role before they accept the invite
-  const VALID_DEPTS = ['Reps', 'Comps', 'LTP', 'Other']
+  const VALID_DEPTS = ['Reps', 'Comps', 'LTP', 'Other', 'Referees']
   // Insert without department first (type-safe), then patch department separately
   const { data: newUser, error: insertError } = await service
     .from('users')

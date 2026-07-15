@@ -3,7 +3,7 @@
 
 export type Channel = 'gmail' | 'whatsapp' | 'facebook' | 'instagram' | 'form' | 'chat'
 export type ConversationStatus = 'open' | 'in_progress' | 'waiting' | 'closed'
-export type Department = 'Reps' | 'Comps' | 'LTP' | 'Other'
+export type Department = 'Reps' | 'Comps' | 'LTP' | 'Other' | 'Referees'
 export type Priority = 'low' | 'medium' | 'high' | 'urgent'
 export type SenderType = 'staff' | 'contact' | 'ai'
 export type LabelType = 'department' | 'priority' | 'custom'
