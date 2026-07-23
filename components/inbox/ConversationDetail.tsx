@@ -255,11 +255,11 @@ export default function ConversationDetail({
                 <h2 className="text-[15px] font-semibold text-white tracking-tight truncate">
                   {conversation.subject ?? 'No subject'}
                 </h2>
-                <p className="text-xs text-gray-400 mt-0.5 truncate tracking-tight">
+                <p className="text-xs text-gray-300 mt-0.5 truncate tracking-tight">
                   {contact?.full_name ?? contact?.email ?? 'Unknown contact'}
                 </p>
                 {conversation.channel === 'gmail' && conversation.channel_config?.identifier && (
-                  <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 truncate tracking-tight">
+                  <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 truncate tracking-tight">
                     <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
@@ -355,7 +355,7 @@ export default function ConversationDetail({
               <select
                 value={assigned_user?.id ?? ''}
                 onChange={(e) => updateConversation({ assigned_to: e.target.value || null })}
-                className="appearance-none cursor-pointer rounded-full pl-2.5 pr-6 py-0.5 text-xs border bg-white/5 text-gray-400 border-white/10 focus:outline-none"
+                className="appearance-none cursor-pointer rounded-full pl-2.5 pr-6 py-0.5 text-xs font-medium border bg-white/5 text-gray-300 border-white/10 focus:outline-none"
               >
                 <option value="">Unassigned</option>
                 {users.map((u) => (

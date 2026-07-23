@@ -21,7 +21,7 @@ export default function DepartmentBadge({ department }: { department: string | n
   const classes = DEPT_CONFIG[department as Department] ?? 'bg-gray-500/15 text-gray-400 border-gray-500/20'
   const label = DEPT_LABELS[department as Department] ?? department
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none border ${classes}`}>
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border ${classes}`}>
       {label}
     </span>
   )

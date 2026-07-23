@@ -13,7 +13,7 @@ export default function StatusBadge({ status }: { status: string }) {
     classes: 'bg-gray-500/15 text-gray-400 border-gray-500/20',
   }
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${config.classes}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${config.classes}`}>
       {config.label}
     </span>
   )
