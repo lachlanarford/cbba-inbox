@@ -52,6 +52,8 @@ export async function POST(
     ? `${content.trim()}\n\n--\n${signature.trim()}`
     : content.trim()
 
+  let sentFromAddress: string | null = null
+
   // For non-internal replies on Gmail conversations, send via Gmail API
   if (conversation.channel === 'gmail' && !isNote && conversation.external_thread_id) {
     const service = createServiceClient()
@@ -95,6 +97,7 @@ export async function POST(
         cc: cc ?? [],
         bcc: bcc ?? [],
       })
+      sentFromAddress = channelConfig.identifier
     } catch (err) {
       console.error('[reply] Gmail send failed:', err)
       return NextResponse.json({ error: 'Failed to send via Gmail' }, { status: 500 })
@@ -165,6 +168,7 @@ export async function POST(
       content: bodyWithSig,
       is_internal_note: isNote,
       is_ai_suggested: isAiSuggested ?? false,
+      ...(sentFromAddress ? { from_address: sentFromAddress } : {}),
     })
     .select('id')
     .single()

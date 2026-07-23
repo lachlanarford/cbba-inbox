@@ -248,6 +248,7 @@ export type Database = {
           created_at: string
           external_message_id: string | null
           cc_addresses: string[] | null
+          from_address: string | null
         }
         Insert: {
           id?: string
@@ -260,6 +261,7 @@ export type Database = {
           created_at?: string
           external_message_id?: string | null
           cc_addresses?: string[] | null
+          from_address?: string | null
         }
         Update: {
           id?: string
@@ -272,6 +274,7 @@ export type Database = {
           created_at?: string
           external_message_id?: string | null
           cc_addresses?: string[] | null
+          from_address?: string | null
         }
         Relationships: []
       }

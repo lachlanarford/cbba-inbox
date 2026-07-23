@@ -102,6 +102,7 @@ export interface Message {
   content: string
   is_internal_note: boolean
   is_ai_suggested: boolean
+  from_address?: string | null
   created_at: string
 }
 

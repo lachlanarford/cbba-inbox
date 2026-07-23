@@ -9,9 +9,16 @@ interface MessageThreadProps {
   currentUserId: string
   channel: string
   contact?: { full_name: string | null; email: string | null } | null
+  inboxFromAddress?: string | null
 }
 
-export default function MessageThread({ conversationId, currentUserId, channel, contact = null }: MessageThreadProps) {
+export default function MessageThread({
+  conversationId,
+  currentUserId,
+  channel,
+  contact = null,
+  inboxFromAddress = null,
+}: MessageThreadProps) {
   const { messages, loading } = useMessages(conversationId)
   const topRef = useRef<HTMLDivElement>(null)
   const isInitialLoad = useRef(true)
@@ -57,6 +64,7 @@ export default function MessageThread({ conversationId, currentUserId, channel, 
           currentUserId={currentUserId}
           channel={channel}
           contact={contact}
+          inboxFromAddress={inboxFromAddress}
           defaultExpanded={index === 0}
         />
       ))}

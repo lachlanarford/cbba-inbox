@@ -28,6 +28,7 @@ export async function processStaffGmailReply(opts: {
   externalThreadId: string
   externalMessageId: string
   content: string
+  fromAddress?: string | null
 }): Promise<void> {
   const supabase = createServiceClient()
 
@@ -55,6 +56,7 @@ export async function processStaffGmailReply(opts: {
     content: opts.content,
     is_internal_note: false,
     external_message_id: opts.externalMessageId,
+    ...(opts.fromAddress ? { from_address: opts.fromAddress } : {}),
   })
 
   await supabase

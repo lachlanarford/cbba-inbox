@@ -256,7 +256,7 @@ function FilterPill({
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-30 bg-[#1a1b26] border border-white/10 rounded-xl shadow-2xl py-1 min-w-[140px] max-h-48 overflow-y-auto">
+        <div className="absolute top-full mt-1 left-0 z-30 bg-cbba-navy-dark border border-white/10 rounded-xl shadow-2xl py-1 min-w-[140px] max-h-48 overflow-y-auto">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -340,7 +340,7 @@ function DateRangePill({
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-30 bg-[#1a1b26] border border-white/10 rounded-xl shadow-2xl p-3 min-w-[200px]">
+        <div className="absolute top-full mt-1 left-0 z-30 bg-cbba-navy-dark border border-white/10 rounded-xl shadow-2xl p-3 min-w-[200px]">
           <div className="space-y-2.5">
             <div>
               <label className="block text-xs text-gray-500 mb-1">From</label>

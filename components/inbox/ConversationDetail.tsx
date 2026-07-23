@@ -255,11 +255,11 @@ export default function ConversationDetail({
                 <h2 className="text-[15px] font-semibold text-white tracking-tight truncate">
                   {conversation.subject ?? 'No subject'}
                 </h2>
-                <p className="text-xs text-gray-400 mt-0.5 truncate">
+                <p className="text-xs text-gray-400 mt-0.5 truncate tracking-tight">
                   {contact?.full_name ?? contact?.email ?? 'Unknown contact'}
                 </p>
                 {conversation.channel === 'gmail' && conversation.channel_config?.identifier && (
-                  <p className="text-[11px] text-gray-600 mt-0.5 flex items-center gap-1 truncate">
+                  <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 truncate tracking-tight">
                     <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
@@ -515,6 +515,7 @@ export default function ConversationDetail({
             full_name: conversation.contact.full_name,
             email: conversation.contact.email,
           } : null}
+          inboxFromAddress={conversation.channel_config?.identifier ?? null}
         />
 
         {/* Reply box */}

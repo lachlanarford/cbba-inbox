@@ -84,6 +84,7 @@ export async function POST(request: Request) {
         externalThreadId: email.threadId,
         externalMessageId: email.messageId,
         content: email.body,
+        fromAddress: emailAddress,
       }).catch((err) => console.error('[webhook/gmail] sent message error:', err))
     }
 

@@ -64,13 +64,13 @@ export default function ConversationRow({
         {/* Main content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-0.5">
-            <span className={`text-sm truncate tracking-tight ${!is_read ? 'font-semibold text-white' : 'font-medium text-gray-300'}`}>
+            <span className={`text-sm truncate tracking-tight leading-tight ${!is_read ? 'font-semibold text-white' : 'font-medium text-gray-300'}`}>
               {contact?.full_name ?? contact?.email ?? 'Unknown'}
             </span>
-            <span className="text-[11px] text-gray-500 flex-shrink-0 tabular-nums">{formatTimeAgo(last_message_at)}</span>
+            <span className="text-[11px] text-gray-500 flex-shrink-0 tabular-nums tracking-tight">{formatTimeAgo(last_message_at)}</span>
           </div>
 
-          <p className={`text-xs truncate mb-1.5 leading-snug ${!is_read ? 'text-gray-300' : 'text-gray-500'}`}>
+          <p className={`text-xs truncate mb-1.5 leading-snug tracking-tight ${!is_read ? 'text-gray-300' : 'text-gray-500'}`}>
             {subject ?? 'No subject'}
           </p>
 

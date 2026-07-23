@@ -153,6 +153,7 @@ export async function POST(request: Request) {
           content: bodyWithSig,
           is_internal_note: false,
           external_message_id: result.messageId,
+          from_address: channelConfig.identifier,
         })
 
         conversationIds.push(conversation.id)
@@ -232,6 +233,7 @@ export async function POST(request: Request) {
     content: bodyWithSig,
     is_internal_note: false,
     external_message_id: gmailMessageId,
+    from_address: channelConfig.identifier,
   })
 
   return NextResponse.json({ success: true, conversationId: conversation.id })
