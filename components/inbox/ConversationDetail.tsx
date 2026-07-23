@@ -112,7 +112,7 @@ export default function ConversationDetail({
         setFeedbackRequest(data as FeedbackRequest | null)
       })
 
-    // Fetch CC recipients from the last inbound message (for Reply All)
+    // Fetch other recipients from the last inbound message (for Reply All)
     supabase
       .from('messages')
       .select('cc_addresses')
@@ -122,7 +122,8 @@ export default function ConversationDetail({
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
-        setLastInboundCc(data?.cc_addresses ?? [])
+        const row = data as { cc_addresses?: string[] | null } | null
+        setLastInboundCc(row?.cc_addresses ?? [])
       })
 
     // Realtime: refresh when this conversation is updated

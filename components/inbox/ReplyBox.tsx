@@ -65,6 +65,34 @@ export default function ReplyBox({
   const selectedFromEmail = gmailAccounts.find((a) => a.id === fromConfigId)?.identifier ?? conversationFromEmail
   const fromOverridden = !!(fromConfigId && channelConfigId && fromConfigId !== channelConfigId)
 
+  // Other people on the thread for Reply All — exclude our sending address and the To contact
+  const replyAllRecipients = lastInboundCc.filter((addr) => {
+    const lower = addr.toLowerCase()
+    if (selectedFromEmail && lower === selectedFromEmail.toLowerCase()) return false
+    if (conversationFromEmail && lower === conversationFromEmail.toLowerCase()) return false
+    if (contactEmail && lower === contactEmail.toLowerCase()) return false
+    return true
+  })
+
+  function applyReplyAll() {
+    setIsNote(false)
+    setReplyAll(true)
+    if (replyAllRecipients.length > 0) {
+      setShowCc(true)
+      setCc(replyAllRecipients.join(', '))
+    } else {
+      setShowCc(false)
+      setCc('')
+    }
+  }
+
+  function applyReplyOnly() {
+    setIsNote(false)
+    setReplyAll(false)
+    setShowCc(false)
+    setCc('')
+  }
+
   const draftKey = `cbba-draft:${conversationId}`
 
   useEffect(() => {
@@ -73,12 +101,19 @@ export default function ReplyBox({
     setCollapsed(true)
     setAttachments([])
     setToEmail(contactEmail ?? '')
-    setCc('')
     setBcc('')
-    setShowCc(false)
     setShowBcc(false)
-    setReplyAll(false)
     setFromConfigId(channelConfigId ?? '')
+    // Default to Reply All when the inbound message had other recipients
+    if (replyAllRecipients.length > 0) {
+      setReplyAll(true)
+      setShowCc(true)
+      setCc(replyAllRecipients.join(', '))
+    } else {
+      setReplyAll(false)
+      setShowCc(false)
+      setCc('')
+    }
     try {
       const saved = localStorage.getItem(`cbba-draft:${conversationId}`)
       if (saved) {
@@ -90,7 +125,21 @@ export default function ReplyBox({
         }
       }
     } catch {}
-  }, [conversationId, channelConfigId, contactEmail])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- apply CCs when conversation or inbound CC list changes
+  }, [conversationId, channelConfigId, contactEmail, lastInboundCc.join('|')])
+
+  // Keep Reply All CCs in sync if the From account changes (drop our own address)
+  useEffect(() => {
+    if (!replyAll || isNote) return
+    if (replyAllRecipients.length === 0) {
+      setCc('')
+      setShowCc(false)
+      return
+    }
+    setShowCc(true)
+    setCc(replyAllRecipients.join(', '))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromConfigId, replyAllRecipients.join('|'), replyAll, isNote])
 
   useEffect(() => {
     if (!isGmail) return
@@ -157,16 +206,22 @@ export default function ReplyBox({
     setContent('')
     setAiSuggested(false)
     setAttachments([])
-    setCc('')
     setBcc('')
-    setShowCc(false)
     setShowBcc(false)
-    setReplyAll(false)
     setSending(false)
     setCollapsed(true)
     setToEmail(contactEmail ?? '')
     setFromConfigId(channelConfigId ?? fromConfigId)
-  }, [content, conversationId, isNote, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail, fromConfigId, channelConfigId])
+    if (replyAllRecipients.length > 0) {
+      setReplyAll(true)
+      setShowCc(true)
+      setCc(replyAllRecipients.join(', '))
+    } else {
+      setReplyAll(false)
+      setShowCc(false)
+      setCc('')
+    }
+  }, [content, conversationId, isNote, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail, fromConfigId, channelConfigId, lastInboundCc, selectedFromEmail, conversationFromEmail])
 
   useEffect(() => {
     fetch('/api/canned-responses')
@@ -280,9 +335,9 @@ export default function ReplyBox({
       {/* Tab row */}
       <div className="flex items-center gap-0 px-4 pt-3">
         <div className="flex items-center">
-          {/* Reply (single recipient) */}
+          {/* Reply (single recipient — clears CC) */}
           <button
-            onClick={() => { setIsNote(false); setReplyAll(false) }}
+            onClick={applyReplyOnly}
             className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
               !isNote && !replyAll
                 ? 'bg-cbba-navy-light text-white border-white/10'
@@ -292,15 +347,10 @@ export default function ReplyBox({
             Reply
           </button>
 
-          {/* Reply All — only shown for Gmail when there are CC recipients */}
-          {isGmail && lastInboundCc.length > 0 && (
+          {/* Reply All — include everyone who was on the inbound thread */}
+          {isGmail && replyAllRecipients.length > 0 && (
             <button
-              onClick={() => {
-                setIsNote(false)
-                setReplyAll(true)
-                setShowCc(true)
-                setCc(lastInboundCc.join(', '))
-              }}
+              onClick={applyReplyAll}
               className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
                 !isNote && replyAll
                   ? 'bg-cbba-navy-light text-white border-white/10'

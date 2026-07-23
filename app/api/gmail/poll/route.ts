@@ -60,6 +60,8 @@ export async function GET(request: Request) {
           content: msg.body,
           department: metadata.default_department ?? null,
           externalThreadId: msg.threadId,
+          externalMessageId: msg.messageId,
+          ccAddresses: msg.cc.length > 0 ? msg.cc : undefined,
         })
         await markAsRead(config.id, msg.messageId)
       }

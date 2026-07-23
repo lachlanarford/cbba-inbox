@@ -83,6 +83,7 @@ export interface ParsedEmail {
   body: string
   internalDate: string
   attachments: AttachmentMeta[]
+  /** Other recipients (Cc + To except From) for Reply All */
   cc: string[]
 }
 
@@ -229,13 +230,21 @@ async function parseMessage(
     body = body + `<!--CBBA_ATT:${JSON.stringify({ msgId: messageId, items: attachments })}-->`
   }
 
-  const ccRaw = get('cc')
-  const cc = ccRaw
-    ? ccRaw.split(',').map((addr) => {
-        const m = addr.match(/<([^>]+)>/)
-        return (m ? m[1] : addr).trim().toLowerCase()
-      }).filter(Boolean)
-    : []
+  const fromEmailNorm = fromEmail.trim().toLowerCase()
+  const parseAddressList = (raw: string): string[] => {
+    if (!raw) return []
+    return raw.split(',').map((addr) => {
+      const m = addr.match(/<([^>]+)>/)
+      return (m ? m[1] : addr).trim().toLowerCase()
+    }).filter(Boolean)
+  }
+
+  // Reply All recipients = everyone on To/Cc except the sender (From)
+  // Our own inbox address is filtered later when composing using the From account
+  const toAddrs = parseAddressList(get('to'))
+  const ccAddrs = parseAddressList(get('cc'))
+  const cc = Array.from(new Set([...toAddrs, ...ccAddrs]))
+    .filter((addr) => addr !== fromEmailNorm)
 
   return { messageId, threadId, from: fromEmail, fromName, subject, body, internalDate, attachments, cc }
 }
