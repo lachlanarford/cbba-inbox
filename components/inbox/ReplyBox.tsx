@@ -311,10 +311,10 @@ export default function ReplyBox({
       <div className="flex-shrink-0 border-t border-white/5 bg-cbba-navy px-4 py-3">
         <button
           onClick={() => setCollapsed(false)}
-          className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+          className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm active:scale-[0.99] transition-[border-color,background-color,color,transform] duration-150 ease-out ${
             hasDraft
-              ? 'border-cbba-purple/40 bg-cbba-purple/5 text-gray-300 hover:border-cbba-purple/60'
-              : 'border-white/10 bg-cbba-navy-light text-gray-500 hover:text-gray-300 hover:border-white/20'
+              ? 'border-cbba-purple/40 bg-cbba-purple/5 text-gray-300 [@media(hover:hover)]:hover:border-cbba-purple/60'
+              : 'border-white/10 bg-cbba-navy-light text-gray-500 [@media(hover:hover)]:hover:text-gray-300 [@media(hover:hover)]:hover:border-white/20'
           }`}
         >
           {hasDraft ? (
@@ -532,7 +532,7 @@ export default function ReplyBox({
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   title="Attach files"
-                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 text-xs hover:text-white hover:bg-white/5 transition-colors"
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 text-xs [@media(hover:hover)]:hover:text-white [@media(hover:hover)]:hover:bg-white/5 active:scale-[0.97] transition-[color,background-color,transform] duration-150 ease-out"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32" />
@@ -548,7 +548,7 @@ export default function ReplyBox({
                     <button
                       onClick={() => { setShowCanned((v) => !v); setCannedSearch('') }}
                       title="Insert a template"
-                      className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 text-xs hover:text-white hover:bg-white/5 transition-colors"
+                      className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 text-xs [@media(hover:hover)]:hover:text-white [@media(hover:hover)]:hover:bg-white/5 active:scale-[0.97] transition-[color,background-color,transform] duration-150 ease-out"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
@@ -594,7 +594,7 @@ export default function ReplyBox({
                   onClick={handleSuggestReply}
                   disabled={suggesting}
                   title="Suggest a reply with AI"
-                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 text-xs hover:text-purple-400 hover:bg-purple-500/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 text-xs [@media(hover:hover)]:hover:text-purple-400 [@media(hover:hover)]:hover:bg-purple-500/5 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 transition-[color,background-color,transform] duration-150 ease-out"
                 >
                   {suggesting ? (
                     <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -622,7 +622,7 @@ export default function ReplyBox({
             onClick={handleSend}
             disabled={isEmpty || sending}
             title={`${typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? 'Cmd' : 'Ctrl'}+Enter`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium [@media(hover:hover)]:hover:bg-cbba-purple-light active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 transition-[background-color,transform] duration-150 ease-out"
           >
             {sending ? (
               <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">

@@ -73,10 +73,10 @@ export default function FilterBar({ filters, onFilterChange, onClearAll, filters
           <button
             key={tab.value}
             onClick={() => onFilterChange('status', tab.value)}
-            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`px-2.5 py-1 rounded-md text-xs font-medium active:scale-[0.97] transition-[background-color,color,transform] duration-150 ease-out whitespace-nowrap ${
               filters.status === tab.value
                 ? 'bg-cbba-purple text-white'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                : 'text-gray-400 [@media(hover:hover)]:hover:text-white [@media(hover:hover)]:hover:bg-white/5'
             }`}
           >
             {tab.label}
@@ -229,10 +229,10 @@ function FilterPill({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-1.5 pl-2.5 pr-2 py-1 rounded-full text-xs border transition-colors whitespace-nowrap ${
+        className={`flex items-center gap-1.5 pl-2.5 pr-2 py-1 rounded-full text-xs border active:scale-[0.97] transition-[background-color,border-color,color,transform] duration-150 ease-out whitespace-nowrap ${
           value
             ? 'bg-cbba-purple/20 border-cbba-purple/40 text-white'
-            : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200'
+            : 'bg-white/5 border-white/10 text-gray-400 [@media(hover:hover)]:hover:border-white/25 [@media(hover:hover)]:hover:text-gray-200'
         }`}
       >
         <span>{value ? selectedLabel : label}</span>
@@ -247,7 +247,7 @@ function FilterPill({
           </span>
         ) : (
           <svg
-            className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`}
+            className={`w-3 h-3 transition-transform duration-150 ease-out ${open ? 'rotate-180' : ''}`}
             viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -261,7 +261,7 @@ function FilterPill({
             <button
               key={opt.value}
               onClick={() => { onChange(opt.value); setOpen(false) }}
-              className={`w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-white/5 ${
+              className={`w-full text-left px-3 py-1.5 text-xs transition-[background-color,color] duration-150 ease-out [@media(hover:hover)]:hover:bg-white/5 ${
                 value === opt.value ? 'text-cbba-purple font-medium' : 'text-gray-300'
               }`}
             >

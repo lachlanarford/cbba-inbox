@@ -110,10 +110,10 @@ export default function Sidebar({ user, logoUrl, initialLiveChatUsers }: Sidebar
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] transition-[background-color,color,transform] duration-150 ease-out ${
                 isActive(href)
                   ? 'bg-cbba-purple text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  : 'text-gray-400 [@media(hover:hover)]:hover:text-white [@media(hover:hover)]:hover:bg-white/5'
               }`}
             >
               <Icon className={`w-4 h-4 flex-shrink-0 ${isActive(href) ? 'text-cbba-gold' : 'text-current'}`} />
@@ -126,8 +126,8 @@ export default function Sidebar({ user, logoUrl, initialLiveChatUsers }: Sidebar
       <div className="px-3 pb-2 border-t border-white/5 pt-3">
         <Link
           href="/changelog"
-          className={`flex items-center gap-1.5 w-full px-3 py-1.5 rounded-lg text-xs transition-colors ${
-            pathname === '/changelog' ? 'text-white bg-white/10' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+          className={`flex items-center gap-1.5 w-full px-3 py-1.5 rounded-lg text-xs active:scale-[0.98] transition-[background-color,color,transform] duration-150 ease-out ${
+            pathname === '/changelog' ? 'text-white bg-white/10' : 'text-gray-500 [@media(hover:hover)]:hover:text-gray-300 [@media(hover:hover)]:hover:bg-white/5'
           }`}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-cbba-purple flex-shrink-0" />

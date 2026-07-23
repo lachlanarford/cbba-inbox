@@ -259,10 +259,10 @@ export default function InboxLayout() {
                 clearChecked()
               }}
               title={filters.showSnoozed ? 'Back to inbox' : 'View snoozed'}
-              className={`flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium active:scale-[0.97] transition-[color,background-color,border-color,transform] duration-150 ease-out ${
                 filters.showSnoozed
                   ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                  : 'text-gray-500 [@media(hover:hover)]:hover:text-gray-300 [@media(hover:hover)]:hover:bg-white/5'
               }`}
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -286,8 +286,8 @@ export default function InboxLayout() {
             <button
               onClick={() => setFiltersOpen((v) => !v)}
               title={filtersOpen ? 'Hide filters' : 'Show filters'}
-              className={`relative p-1 rounded transition-colors ${
-                filtersOpen ? 'text-white bg-white/10' : 'text-gray-500 hover:text-white hover:bg-white/5'
+              className={`relative p-1 rounded active:scale-[0.97] transition-[color,background-color,transform] duration-150 ease-out ${
+                filtersOpen ? 'text-white bg-white/10' : 'text-gray-500 [@media(hover:hover)]:hover:text-white [@media(hover:hover)]:hover:bg-white/5'
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -301,7 +301,7 @@ export default function InboxLayout() {
             </button>
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium [@media(hover:hover)]:hover:bg-cbba-purple-light active:scale-[0.97] transition-[background-color,transform] duration-150 ease-out"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />

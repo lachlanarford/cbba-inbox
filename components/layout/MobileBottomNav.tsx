@@ -64,7 +64,7 @@ export default function MobileBottomNav({ user: _user }: Props) {
             <Link
               key={href}
               href={href}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors ${
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium active:scale-[0.97] transition-[color,transform] duration-150 ease-out ${
                 active ? 'text-cbba-purple' : 'text-gray-500'
               }`}
             >
