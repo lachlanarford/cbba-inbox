@@ -47,7 +47,6 @@ function isHtml(content: string): boolean {
   )
 }
 
-// Strip HTML tags to plain readable text for previews and simple rendering
 function stripHtml(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -66,88 +65,133 @@ function stripHtml(html: string): string {
     .trim()
 }
 
+interface ContactInfo {
+  full_name: string | null
+  email: string | null
+}
+
 interface MessageBubbleProps {
   message: MessageWithSender
   currentUserId: string
   channel: string
   defaultExpanded?: boolean
+  contact?: ContactInfo | null
 }
 
-export default function MessageBubble({ message, currentUserId, channel, defaultExpanded = true }: MessageBubbleProps) {
-  const isOutbound = message.sender_type === 'staff' || message.sender_type === 'ai'
+function resolveSender(
+  message: MessageWithSender,
+  currentUserId: string,
+  contact?: ContactInfo | null
+): { name: string; email: string | null; initial: string } {
+  if (message.sender_type === 'ai') {
+    return { name: 'AI Assistant', email: null, initial: 'AI' }
+  }
+
+  if (message.sender_type === 'contact') {
+    const name = contact?.full_name?.trim() || contact?.email || 'Contact'
+    const email = contact?.email ?? null
+    return {
+      name,
+      email: email && email !== name ? email : (contact?.full_name ? email : null),
+      initial: name.charAt(0).toUpperCase(),
+    }
+  }
+
+  // Staff
   const isCurrentUser = message.sender_id === currentUserId
+  const name = message.sender?.full_name?.trim() || (isCurrentUser ? 'You' : 'Staff')
+  const email = message.sender?.email ?? null
+  return {
+    name,
+    email: email && email !== name ? email : null,
+    initial: name.charAt(0).toUpperCase(),
+  }
+}
+
+export default function MessageBubble({
+  message,
+  currentUserId,
+  channel,
+  defaultExpanded = true,
+  contact = null,
+}: MessageBubbleProps) {
+  const isOutbound = message.sender_type === 'staff' || message.sender_type === 'ai'
   const isNote = message.is_internal_note
   const { cleanContent, attachments } = parseAttachments(message.content)
   const contentIsHtml = isHtml(cleanContent)
   const showSent = isOutbound && !isNote && message.sender_type === 'staff' && OUTBOUND_CHANNELS.has(channel)
   const isEmailChannel = channel === 'gmail'
+  const sender = resolveSender(message, currentUserId, contact)
 
-  const senderName = message.sender_type === 'contact'
-    ? 'Contact'
-    : message.sender?.full_name ?? (isCurrentUser ? 'You' : 'Staff')
-  const senderInitial = senderName.charAt(0).toUpperCase()
-
-  // Preview text for collapsed cards
   const previewText = contentIsHtml
     ? stripHtml(cleanContent).replace(/\s+/g, ' ').slice(0, 90)
     : cleanContent.replace(/\s+/g, ' ').slice(0, 90)
 
   const [expanded, setExpanded] = useState(defaultExpanded)
 
-  // Internal note
   if (isNote) {
     return (
       <div className="px-4 py-1.5">
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-xs font-medium text-amber-400 uppercase tracking-wide">Internal Note</span>
-            <span className="text-xs text-gray-500">{formatDateTime(message.created_at)}</span>
-            {message.sender && (
-              <span className="text-xs text-gray-500">{message.sender.full_name}</span>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">Internal Note</span>
+            {message.sender?.full_name && (
+              <span className="text-xs text-gray-400">{message.sender.full_name}</span>
             )}
+            <span className="text-xs text-gray-600 ml-auto">{formatDateTime(message.created_at)}</span>
           </div>
-          <p className="text-sm text-amber-100/80 whitespace-pre-wrap">{message.content}</p>
+          <p className="text-sm text-amber-100/80 whitespace-pre-wrap leading-relaxed">{message.content}</p>
         </div>
       </div>
     )
   }
 
-  // Email card (HTML or plain text on email channel)
   if (contentIsHtml || isEmailChannel) {
     const plainText = contentIsHtml ? stripHtml(cleanContent) : cleanContent
 
     return (
       <div className="px-4 py-1">
-        <div className="rounded-xl overflow-hidden border border-white/[0.07]">
-          {/* Header */}
+        <div className="rounded-xl overflow-hidden border border-white/[0.07] bg-cbba-navy-light/40">
           <button
-            className="w-full flex items-center gap-3 px-4 py-2.5 bg-cbba-navy-light hover:bg-white/[0.035] transition-colors text-left"
+            type="button"
+            className="w-full flex items-center gap-3 px-4 py-3 bg-cbba-navy-light/80 hover:bg-white/[0.04] active:scale-[0.995] transition-[background-color,transform] duration-150 ease-out text-left"
             onClick={() => setExpanded((v) => !v)}
           >
-            {/* Avatar */}
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 select-none ${
-              isOutbound ? 'bg-cbba-purple/35 text-cbba-purple-light' : 'bg-white/10 text-gray-300'
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 select-none tracking-tight ${
+              isOutbound ? 'bg-cbba-purple/30 text-cbba-purple-light' : 'bg-white/10 text-gray-200'
             }`}>
-              {message.sender_type === 'ai' ? 'AI' : senderInitial}
+              {message.sender_type === 'ai' ? 'AI' : sender.initial}
             </div>
 
-            {/* Sender + preview */}
             <div className="flex-1 min-w-0">
-              <span className="text-sm font-medium text-white">{senderName}</span>
-              {!expanded && previewText && (
-                <span className="ml-2 text-xs text-gray-500 truncate inline-block max-w-[240px] align-bottom">
-                  {previewText}
+              <div className="flex items-baseline gap-2 min-w-0">
+                <span className="text-[13px] font-semibold text-white tracking-tight truncate">
+                  {sender.name}
                 </span>
+                {sender.email && (
+                  <span className="text-[11px] text-gray-500 truncate hidden sm:inline">
+                    {sender.email}
+                  </span>
+                )}
+              </div>
+              {sender.email && (
+                <p className="text-[11px] text-gray-500 truncate sm:hidden mt-0.5">{sender.email}</p>
+              )}
+              {!expanded && previewText && (
+                <p className="text-[11px] text-gray-600 truncate mt-0.5 leading-snug">
+                  {previewText}
+                </p>
               )}
             </div>
 
-            {/* Meta */}
             <div className="flex items-center gap-2 flex-shrink-0">
               {message.sender_type === 'ai' && <AiBadge />}
               {showSent && <SentBadge />}
-              <span className="text-xs text-gray-500 whitespace-nowrap">{formatDateTime(message.created_at)}</span>
+              <span className="text-[11px] text-gray-600 whitespace-nowrap tabular-nums">
+                {formatDateTime(message.created_at)}
+              </span>
               <svg
-                className={`w-3.5 h-3.5 text-gray-600 transition-transform duration-200 flex-shrink-0 ${expanded ? '' : '-rotate-90'}`}
+                className={`w-3.5 h-3.5 text-gray-600 transition-transform duration-200 ease-out flex-shrink-0 ${expanded ? '' : '-rotate-90'}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -155,7 +199,6 @@ export default function MessageBubble({ message, currentUserId, channel, default
             </div>
           </button>
 
-          {/* Body */}
           {expanded && (
             <div className="border-t border-white/[0.05]">
               {contentIsHtml ? (
@@ -184,16 +227,20 @@ export default function MessageBubble({ message, currentUserId, channel, default
     )
   }
 
-  // Plain-text / social chat bubble
   return (
     <div className={`px-4 py-1.5 flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[75%] space-y-1 flex flex-col ${isOutbound ? 'items-end' : 'items-start'}`}>
-        <div className={`flex items-center gap-2 ${isOutbound ? 'flex-row-reverse' : 'flex-row'}`}>
-          <span className="text-xs font-medium text-gray-400">{senderName}</span>
+        <div className={`flex items-center gap-2 min-w-0 ${isOutbound ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div className={`min-w-0 ${isOutbound ? 'text-right' : 'text-left'}`}>
+            <span className="text-xs font-medium text-gray-300">{sender.name}</span>
+            {sender.email && (
+              <span className="text-[10px] text-gray-600 ml-1.5">{sender.email}</span>
+            )}
+          </div>
           {message.sender_type === 'ai' && <AiBadge />}
-          <span className="text-xs text-gray-600">{formatDateTime(message.created_at)}</span>
+          <span className="text-[10px] text-gray-600 flex-shrink-0 tabular-nums">{formatDateTime(message.created_at)}</span>
         </div>
-        <div className={`px-3.5 py-2.5 rounded-2xl text-sm whitespace-pre-wrap break-words ${
+        <div className={`px-3.5 py-2.5 rounded-2xl text-sm whitespace-pre-wrap break-words leading-relaxed ${
           isOutbound
             ? 'bg-cbba-purple text-white rounded-tr-sm'
             : 'bg-cbba-navy-light border border-white/10 text-gray-200 rounded-tl-sm'
@@ -243,7 +290,7 @@ function AttachmentChips({ attachments, conversationId }: { attachments: Attachm
             key={att.id}
             href={`/api/conversations/${conversationId}/attachment?msgId=${encodeURIComponent(att.msgId)}&attId=${encodeURIComponent(att.id)}&name=${encodeURIComponent(att.name)}`}
             download={att.name}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:text-white hover:border-white/25 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:text-white hover:border-white/25 active:scale-[0.97] transition-[color,border-color,transform] duration-150 ease-out"
             onClick={(e) => e.stopPropagation()}
           >
             <span className={`text-[10px] font-bold flex-shrink-0 ${color}`}>{label}</span>

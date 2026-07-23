@@ -506,7 +506,15 @@ export default function ConversationDetail({
         )}
 
         {/* Messages */}
-        <MessageThread conversationId={conversationId} currentUserId={currentUser.id} channel={conversation.channel} />
+        <MessageThread
+          conversationId={conversationId}
+          currentUserId={currentUser.id}
+          channel={conversation.channel}
+          contact={conversation.contact ? {
+            full_name: conversation.contact.full_name,
+            email: conversation.contact.email,
+          } : null}
+        />
 
         {/* Reply box */}
         <ReplyBox

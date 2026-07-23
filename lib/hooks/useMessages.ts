@@ -21,7 +21,7 @@ export function useMessages(conversationId: string | null) {
       .from('messages')
       .select(`
         *,
-        sender:users(id, full_name, avatar_url)
+        sender:users(id, full_name, avatar_url, email)
       `)
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
@@ -47,8 +47,20 @@ export function useMessages(conversationId: string | null) {
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          // Append new message immediately without a full refetch
-          setMessages((prev) => [...prev, payload.new as MessageWithSender])
+          const inserted = payload.new as { id: string }
+          // Refetch the joined row so staff name/email are available (realtime payload has no joins)
+          void (async () => {
+            const { data } = await supabase
+              .from('messages')
+              .select('*, sender:users(id, full_name, avatar_url, email)')
+              .eq('id', inserted.id)
+              .single()
+            if (!data) return
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === inserted.id)) return prev
+              return [...prev, data as unknown as MessageWithSender]
+            })
+          })()
         }
       )
       .subscribe()

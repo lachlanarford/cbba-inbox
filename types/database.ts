@@ -120,6 +120,7 @@ export interface MessageWithSender extends Message {
     id: string
     full_name: string | null
     avatar_url: string | null
+    email?: string | null
   } | null
 }
 

@@ -8,9 +8,10 @@ interface MessageThreadProps {
   conversationId: string
   currentUserId: string
   channel: string
+  contact?: { full_name: string | null; email: string | null } | null
 }
 
-export default function MessageThread({ conversationId, currentUserId, channel }: MessageThreadProps) {
+export default function MessageThread({ conversationId, currentUserId, channel, contact = null }: MessageThreadProps) {
   const { messages, loading } = useMessages(conversationId)
   const topRef = useRef<HTMLDivElement>(null)
   const isInitialLoad = useRef(true)
@@ -47,7 +48,7 @@ export default function MessageThread({ conversationId, currentUserId, channel }
   const reversed = [...messages].reverse()
 
   return (
-    <div className="flex-1 overflow-y-auto py-4 space-y-0.5">
+    <div className="flex-1 overflow-y-auto py-4 space-y-1">
       <div ref={topRef} />
       {reversed.map((message, index) => (
         <MessageBubble
@@ -55,6 +56,7 @@ export default function MessageThread({ conversationId, currentUserId, channel }
           message={message}
           currentUserId={currentUserId}
           channel={channel}
+          contact={contact}
           defaultExpanded={index === 0}
         />
       ))}
