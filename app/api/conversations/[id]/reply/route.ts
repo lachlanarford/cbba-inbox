@@ -18,14 +18,23 @@ export async function POST(
   const { data: appUser } = await supabase.from('users').select('*').eq('id', user.id).single()
   if (!appUser) return NextResponse.json({ error: 'User not found' }, { status: 401 })
 
-  let body: { content: string; isNote: boolean; isAiSuggested?: boolean; attachments?: OutboundAttachment[]; to?: string; cc?: string[]; bcc?: string[] }
+  let body: {
+    content: string
+    isNote: boolean
+    isAiSuggested?: boolean
+    attachments?: OutboundAttachment[]
+    to?: string
+    cc?: string[]
+    bcc?: string[]
+    channelConfigId?: string
+  }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { content, isNote, isAiSuggested, attachments, to, cc, bcc } = body
+  const { content, isNote, isAiSuggested, attachments, to, cc, bcc, channelConfigId: overrideConfigId } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
   // Fetch conversation to determine channel and thread context
@@ -44,16 +53,23 @@ export async function POST(
     : content.trim()
 
   // For non-internal replies on Gmail conversations, send via Gmail API
-  if (conversation.channel === 'gmail' && !isNote && conversation.channel_config_id && conversation.external_thread_id) {
+  if (conversation.channel === 'gmail' && !isNote && conversation.external_thread_id) {
     const service = createServiceClient()
+    // Optional From override for this send only — does not reassign the conversation inbox
+    const sendConfigId = overrideConfigId || conversation.channel_config_id
+    if (!sendConfigId) {
+      return NextResponse.json({ error: 'Gmail channel not configured' }, { status: 500 })
+    }
+
     const { data: channelConfig } = await service
       .from('channel_configs')
-      .select('identifier, is_active')
-      .eq('id', conversation.channel_config_id)
+      .select('id, identifier, is_active')
+      .eq('id', sendConfigId)
+      .eq('channel_type', 'gmail')
       .single()
 
     if (!channelConfig) {
-      console.error('[reply] Gmail channel config not found:', conversation.channel_config_id)
+      console.error('[reply] Gmail channel config not found:', sendConfigId)
       return NextResponse.json({ error: 'Gmail channel not configured' }, { status: 500 })
     }
     if (!channelConfig.is_active) {
@@ -69,7 +85,7 @@ export async function POST(
     }
 
     try {
-      await sendGmailReply(conversation.channel_config_id, {
+      await sendGmailReply(channelConfig.id, {
         threadId: conversation.external_thread_id,
         to: contactEmail,
         from: channelConfig.identifier,

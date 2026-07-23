@@ -1,15 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import EmailInput from '@/components/ui/EmailInput'
+
+interface GmailAccount {
+  id: string
+  identifier: string
+}
 
 interface ComposeModalProps {
   // Single recipient mode
   to?: string
   contactId?: string
   contactName?: string
-  // Bulk mode (email all)
+  // Bulk mode (email all) — one email per recipient
   bccList?: string[]
   listName?: string
   onClose: () => void
@@ -23,15 +28,29 @@ export default function ComposeModal({ to, contactId, contactName, bccList, list
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [gmailAccounts, setGmailAccounts] = useState<GmailAccount[]>([])
+  const [fromConfigId, setFromConfigId] = useState('')
+
+  useEffect(() => {
+    fetch('/api/channel-configs/gmail')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: GmailAccount[]) => {
+        const accounts = Array.isArray(data) ? data : []
+        setGmailAccounts(accounts)
+        setFromConfigId(accounts[0]?.id ?? '')
+      })
+      .catch(() => setGmailAccounts([]))
+  }, [])
 
   const recipientLabel = isBulk
-    ? `${bccList!.length} contact${bccList!.length !== 1 ? 's' : ''} via BCC${listName ? ` (${listName})` : ''}`
+    ? `${bccList!.length} contact${bccList!.length !== 1 ? 's' : ''} (individual emails)${listName ? ` — ${listName}` : ''}`
     : contactName ? `${contactName} <${toInput}>` : toInput
 
   async function handleSend() {
     if (!toInput.trim() && !isBulk) { setError('To address is required'); return }
     if (!subject.trim()) { setError('Subject is required'); return }
     if (!body.trim()) { setError('Message body is required'); return }
+    if (!fromConfigId) { setError('Select a From address'); return }
 
     setSending(true)
     setError('')
@@ -42,14 +61,22 @@ export default function ComposeModal({ to, contactId, contactName, bccList, list
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: isBulk ? '' : toInput.trim(),
-          bcc: isBulk ? bccList : undefined,
+          recipients: isBulk ? bccList : undefined,
           subject: subject.trim(),
           content: body.trim(),
           contactId: contactId ?? undefined,
+          channelConfigId: fromConfigId,
         }),
       })
 
-      const data = await res.json() as { success?: boolean; conversationId?: string; error?: string }
+      const data = await res.json() as {
+        success?: boolean
+        conversationId?: string
+        conversationIds?: string[]
+        sent?: number
+        failed?: Array<{ email: string; error: string }>
+        error?: string
+      }
 
       if (!res.ok) {
         setError(data.error ?? 'Failed to send')
@@ -58,7 +85,9 @@ export default function ComposeModal({ to, contactId, contactName, bccList, list
       }
 
       onClose()
-      if (data.conversationId) {
+      if (isBulk) {
+        router.push('/inbox')
+      } else if (data.conversationId) {
         router.push(`/inbox/${data.conversationId}`)
       }
     } catch {
@@ -82,6 +111,30 @@ export default function ComposeModal({ to, contactId, contactName, bccList, list
 
         {/* Fields */}
         <div className="flex-1 overflow-y-auto">
+          {/* From */}
+          <div className="px-5 py-3 border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 w-14 flex-shrink-0">From</span>
+              {gmailAccounts.length === 0 ? (
+                <span className="text-sm text-gray-500">Loading accounts...</span>
+              ) : gmailAccounts.length === 1 ? (
+                <span className="text-sm text-white truncate">{gmailAccounts[0].identifier}</span>
+              ) : (
+                <select
+                  value={fromConfigId}
+                  onChange={(e) => setFromConfigId(e.target.value)}
+                  className="flex-1 bg-transparent text-sm text-white focus:outline-none cursor-pointer"
+                >
+                  {gmailAccounts.map((a) => (
+                    <option key={a.id} value={a.id} className="bg-cbba-navy text-white">
+                      {a.identifier}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+
           {/* To */}
           <div className="px-5 py-3 border-b border-white/5">
             <div className="flex items-start gap-2">
@@ -89,6 +142,9 @@ export default function ComposeModal({ to, contactId, contactName, bccList, list
               {isBulk ? (
                 <div className="flex-1 py-1.5">
                   <span className="text-sm text-cbba-purple">{recipientLabel}</span>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Each person gets their own email and conversation thread.
+                  </p>
                 </div>
               ) : (
                 <EmailInput
@@ -134,7 +190,9 @@ export default function ComposeModal({ to, contactId, contactName, bccList, list
             <p className="text-xs text-red-400">{error}</p>
           ) : (
             <span className="text-xs text-gray-600">
-              {isBulk ? `Sending to ${bccList!.length} recipients via BCC` : 'Sent via Gmail'}
+              {isBulk
+                ? `Sending ${bccList!.length} individual email${bccList!.length !== 1 ? 's' : ''}`
+                : 'Sent via Gmail'}
             </span>
           )}
           <div className="flex items-center gap-3">
@@ -143,7 +201,7 @@ export default function ComposeModal({ to, contactId, contactName, bccList, list
             </button>
             <button
               onClick={handleSend}
-              disabled={sending}
+              disabled={sending || !fromConfigId}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light transition-colors disabled:opacity-50"
             >
               {sending ? (

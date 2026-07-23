@@ -514,6 +514,8 @@ export default function ConversationDetail({
           channel={conversation.channel}
           contactEmail={(conversation.contact as unknown as { email?: string | null })?.email ?? null}
           lastInboundCc={lastInboundCc}
+          channelConfigId={conversation.channel_config_id ?? null}
+          fromEmail={conversation.channel_config?.identifier ?? null}
         />
       </div>
 

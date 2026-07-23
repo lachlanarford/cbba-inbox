@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useUsers } from '@/lib/hooks/useUsers'
-import { createClient } from '@/lib/supabase/client'
 import type { InboxFilters } from '@/types/database'
 
 const STATUS_TABS = [
@@ -47,13 +46,12 @@ export default function FilterBar({ filters, onFilterChange, onClearAll, filters
   const [gmailAccounts, setGmailAccounts] = useState<Array<{ id: string; identifier: string }>>([])
 
   useEffect(() => {
-    const supabase = createClient()
-    supabase
-      .from('channel_configs')
-      .select('id, identifier')
-      .eq('channel_type', 'gmail')
-      .eq('is_active', true)
-      .then(({ data }) => setGmailAccounts(data ?? []))
+    fetch('/api/channel-configs/gmail')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Array<{ id: string; identifier: string }>) => {
+        setGmailAccounts(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setGmailAccounts([]))
   }, [])
 
   const hasActiveFilters =

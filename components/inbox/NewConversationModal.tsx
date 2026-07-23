@@ -27,6 +27,11 @@ const PRIORITIES: Array<{ value: Priority; label: string }> = [
   { value: 'urgent', label: 'Urgent' },
 ]
 
+interface GmailAccount {
+  id: string
+  identifier: string
+}
+
 interface NewConversationModalProps {
   onClose: () => void
   onCreated: (conversationId: string) => void
@@ -47,10 +52,23 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [gmailAccounts, setGmailAccounts] = useState<GmailAccount[]>([])
+  const [fromConfigId, setFromConfigId] = useState('')
 
   const isGmail = channel === 'gmail'
 
   const contactEmail = isNewContact ? newContactEmail.trim() : (selectedContact?.email ?? '')
+
+  useEffect(() => {
+    fetch('/api/channel-configs/gmail')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: GmailAccount[]) => {
+        const accounts = Array.isArray(data) ? data : []
+        setGmailAccounts(accounts)
+        setFromConfigId(accounts[0]?.id ?? '')
+      })
+      .catch(() => setGmailAccounts([]))
+  }, [])
 
   const searchContacts = useCallback(async (term: string) => {
     if (!term.trim()) { setResults([]); return }
@@ -73,6 +91,7 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
     if (!selectedContact && !isNewContact) { setError('Please select or create a contact.'); return }
     if (isNewContact && !newContactName.trim()) { setError('Please enter a contact name.'); return }
     if (isGmail && !contactEmail) { setError('An email address is required to send via Gmail.'); return }
+    if (isGmail && !fromConfigId) { setError('Select a From address.'); return }
 
     setSubmitting(true)
     setError('')
@@ -109,6 +128,7 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
             subject: subject.trim() || '(no subject)',
             content: message.trim(),
             contactId: contactId || undefined,
+            channelConfigId: fromConfigId,
             department: department || null,
             priority,
             assignedTo: currentUser.id,
@@ -255,6 +275,30 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
             </select>
           </div>
 
+          {/* From — Gmail only */}
+          {isGmail && (
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">From</label>
+              {gmailAccounts.length === 0 ? (
+                <p className="text-sm text-gray-500">Loading accounts...</p>
+              ) : gmailAccounts.length === 1 ? (
+                <p className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white">
+                  {gmailAccounts[0].identifier}
+                </p>
+              ) : (
+                <select
+                  value={fromConfigId}
+                  onChange={(e) => setFromConfigId(e.target.value)}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-cbba-purple transition-colors cursor-pointer"
+                >
+                  {gmailAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>{a.identifier}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           {/* Subject -- required for Gmail */}
           <div>
             <label className="block text-xs font-medium text-gray-400 mb-1.5">
@@ -310,7 +354,7 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
 
           {isGmail && (
             <p className="text-[11px] text-gray-600">
-              This will be sent as an email from your connected Gmail inbox. Your email signature will be appended automatically.
+              This will be sent as an email from the selected Gmail inbox. Your email signature will be appended automatically.
             </p>
           )}
 
@@ -324,7 +368,7 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
           </button>
           <button
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || (isGmail && !fromConfigId)}
             className="px-4 py-2 bg-cbba-purple text-white text-sm font-medium rounded-lg hover:bg-cbba-purple-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {submitting
