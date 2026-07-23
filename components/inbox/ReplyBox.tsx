@@ -17,14 +17,28 @@ interface AttachmentFile {
   size: number
 }
 
+interface GmailAccount {
+  id: string
+  identifier: string
+}
+
 interface ReplyBoxProps {
   conversationId: string
   channel?: string
   contactEmail?: string | null
   lastInboundCc?: string[]
+  channelConfigId?: string | null
+  fromEmail?: string | null
 }
 
-export default function ReplyBox({ conversationId, channel, contactEmail, lastInboundCc = [] }: ReplyBoxProps) {
+export default function ReplyBox({
+  conversationId,
+  channel,
+  contactEmail,
+  lastInboundCc = [],
+  channelConfigId,
+  fromEmail,
+}: ReplyBoxProps) {
   const [collapsed, setCollapsed] = useState(true)
   const [content, setContent] = useState('')
   const [isNote, setIsNote] = useState(false)
@@ -42,9 +56,14 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
   const [toEmail, setToEmail] = useState(contactEmail ?? '')
   const [cc, setCc] = useState('')
   const [bcc, setBcc] = useState('')
+  const [gmailAccounts, setGmailAccounts] = useState<GmailAccount[]>([])
+  const [fromConfigId, setFromConfigId] = useState(channelConfigId ?? '')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isGmail = channel === 'gmail'
+  const conversationFromEmail = fromEmail ?? gmailAccounts.find((a) => a.id === channelConfigId)?.identifier ?? null
+  const selectedFromEmail = gmailAccounts.find((a) => a.id === fromConfigId)?.identifier ?? conversationFromEmail
+  const fromOverridden = !!(fromConfigId && channelConfigId && fromConfigId !== channelConfigId)
 
   const draftKey = `cbba-draft:${conversationId}`
 
@@ -59,6 +78,7 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
     setShowCc(false)
     setShowBcc(false)
     setReplyAll(false)
+    setFromConfigId(channelConfigId ?? '')
     try {
       const saved = localStorage.getItem(`cbba-draft:${conversationId}`)
       if (saved) {
@@ -70,7 +90,23 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
         }
       }
     } catch {}
-  }, [conversationId])
+  }, [conversationId, channelConfigId, contactEmail])
+
+  useEffect(() => {
+    if (!isGmail) return
+    fetch('/api/channel-configs/gmail')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: GmailAccount[]) => {
+        const accounts = Array.isArray(data) ? data : []
+        setGmailAccounts(accounts)
+        setFromConfigId((prev) => {
+          if (prev && accounts.some((a) => a.id === prev)) return prev
+          if (channelConfigId && accounts.some((a) => a.id === channelConfigId)) return channelConfigId
+          return accounts[0]?.id ?? ''
+        })
+      })
+      .catch(() => setGmailAccounts([]))
+  }, [isGmail, channelConfigId])
 
   useEffect(() => {
     if (!content) {
@@ -106,6 +142,7 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
         to: (!isNote && isGmail && toEmail.trim()) ? toEmail.trim() : undefined,
         cc: (!isNote && isGmail && cc.trim()) ? cc.split(',').map((e) => e.trim()).filter(Boolean) : [],
         bcc: (!isNote && isGmail && bcc.trim()) ? bcc.split(',').map((e) => e.trim()).filter(Boolean) : [],
+        channelConfigId: (!isNote && isGmail && fromConfigId) ? fromConfigId : undefined,
       }),
     })
 
@@ -128,7 +165,8 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
     setSending(false)
     setCollapsed(true)
     setToEmail(contactEmail ?? '')
-  }, [content, conversationId, isNote, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail])
+    setFromConfigId(channelConfigId ?? fromConfigId)
+  }, [content, conversationId, isNote, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail, fromConfigId, channelConfigId])
 
   useEffect(() => {
     fetch('/api/canned-responses')
@@ -298,12 +336,38 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
       {/* Compose box — flex column so action bar never scrolls off screen */}
       <div className={`mx-4 mb-4 rounded-b-xl rounded-tr-xl border flex flex-col overflow-hidden max-h-[60vh] ${isNote ? 'border-amber-500/20' : 'border-white/10'}`}>
 
-        {/* To / CC / BCC — Gmail reply only, always visible */}
+        {/* From / To / CC / BCC — Gmail reply only, always visible */}
         {isGmail && !isNote && (
           <div className="border-b border-white/8 flex-shrink-0">
+            {/* From row */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
+              <span className="text-[11px] text-gray-600 w-8 flex-shrink-0">From</span>
+              {gmailAccounts.length > 1 ? (
+                <select
+                  value={fromConfigId}
+                  onChange={(e) => setFromConfigId(e.target.value)}
+                  className="flex-1 bg-transparent text-xs text-white focus:outline-none cursor-pointer truncate"
+                >
+                  {gmailAccounts.map((a) => (
+                    <option key={a.id} value={a.id} className="bg-cbba-navy text-white">
+                      {a.identifier}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="flex-1 text-xs text-white truncate">
+                  {selectedFromEmail ?? 'No Gmail account'}
+                </span>
+              )}
+            </div>
+            {fromOverridden && conversationFromEmail && selectedFromEmail && (
+              <p className="px-3 py-1.5 text-[10px] text-amber-400/90 border-b border-white/5 bg-amber-500/5">
+                Sending from {selectedFromEmail}; conversation stays on {conversationFromEmail}
+              </p>
+            )}
             {/* To row */}
             <div className="flex items-center gap-2 px-3 py-2">
-              <span className="text-[11px] text-gray-600 w-6 flex-shrink-0">To</span>
+              <span className="text-[11px] text-gray-600 w-8 flex-shrink-0">To</span>
               <EmailInput
                 value={toEmail}
                 onChange={setToEmail}
@@ -332,7 +396,7 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
             </div>
             {showCc && (
               <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5">
-                <span className="text-[11px] text-gray-600 w-6 flex-shrink-0">CC</span>
+                <span className="text-[11px] text-gray-600 w-8 flex-shrink-0">CC</span>
                 <EmailInput
                   value={cc}
                   onChange={setCc}
@@ -344,7 +408,7 @@ export default function ReplyBox({ conversationId, channel, contactEmail, lastIn
             )}
             {showBcc && (
               <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5">
-                <span className="text-[11px] text-gray-600 w-6 flex-shrink-0">BCC</span>
+                <span className="text-[11px] text-gray-600 w-8 flex-shrink-0">BCC</span>
                 <EmailInput
                   value={bcc}
                   onChange={setBcc}
