@@ -5,6 +5,9 @@ import type { Database } from '@/types/supabase'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+/** Keep well under Vercel's ~25s middleware limit so Auth blips return a redirect, not a 504. */
+const AUTH_FETCH_TIMEOUT_MS = 4_000
+
 function isConfigured(): boolean {
   return (
     !!supabaseUrl &&
@@ -14,9 +17,41 @@ function isConfigured(): boolean {
   )
 }
 
+function isPublicPath(pathname: string): boolean {
+  return (
+    pathname === '/login' ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/api/webhooks/') ||
+    pathname.startsWith('/api/gmail/auth/') ||
+    pathname === '/api/gmail/poll' ||
+    pathname === '/api/gmail/watch/renew' ||
+    pathname.startsWith('/api/chat') ||
+    pathname.startsWith('/widget') ||
+    pathname.startsWith('/api/feedback/')
+  )
+}
+
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const timeoutSignal = AbortSignal.timeout(AUTH_FETCH_TIMEOUT_MS)
+  const callerSignal = init?.signal
+  const signal =
+    callerSignal && typeof AbortSignal.any === 'function'
+      ? AbortSignal.any([callerSignal, timeoutSignal])
+      : timeoutSignal
+
+  return fetch(input, { ...init, signal })
+}
+
 export async function updateSession(request: NextRequest) {
   // If Supabase is not yet configured, allow all requests through
   if (!isConfigured()) {
+    return NextResponse.next({ request })
+  }
+
+  const pathname = request.nextUrl.pathname
+
+  // Webhooks / cron / widget do not need session refresh — skip Auth entirely
+  if (isPublicPath(pathname) && pathname !== '/login') {
     return NextResponse.next({ request })
   }
 
@@ -26,6 +61,9 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        fetch: fetchWithTimeout,
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -43,25 +81,17 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user: { id: string } | null = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (err) {
+    // Auth hung or timed out — fail closed for protected routes instead of a 504
+    console.error('[middleware] auth.getUser failed:', err instanceof Error ? err.message : err)
+    user = null
+  }
 
-  const pathname = request.nextUrl.pathname
-
-  // Unauthenticated users can only access /login, /auth/*, and /api/webhooks/*
-  const isPublicPath =
-    pathname === '/login' ||
-    pathname.startsWith('/auth/') ||
-    pathname.startsWith('/api/webhooks/') ||
-    pathname.startsWith('/api/gmail/auth/') ||
-    pathname === '/api/gmail/poll' ||
-    pathname === '/api/gmail/watch/renew' ||
-    pathname.startsWith('/api/chat') ||
-    pathname.startsWith('/widget') ||
-    pathname.startsWith('/api/feedback/')
-
-  if (!user && !isPublicPath) {
+  if (!user && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
