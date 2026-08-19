@@ -91,11 +91,11 @@ function resolveSender(
   }
 
   if (message.sender_type === 'contact') {
-    const name = contact?.full_name?.trim() || contact?.email || 'Contact'
-    const email = contact?.email ?? null
+    const email = message.from_address?.trim() || contact?.email || null
+    const name = message.from_name?.trim() || contact?.full_name?.trim() || email || 'Contact'
     return {
       name,
-      subtitle: email && email !== name ? email : (contact?.full_name ? email : null),
+      subtitle: email && email !== name ? email : null,
       initial: name.charAt(0).toUpperCase(),
     }
   }

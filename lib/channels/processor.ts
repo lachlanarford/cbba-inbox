@@ -15,6 +15,7 @@ export interface IncomingMessage {
   externalThreadId?: string | null
   externalMessageId?: string | null
   ccAddresses?: string[]
+  rfcMessageId?: string | null
 }
 
 export interface ProcessResult {
@@ -72,20 +73,25 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
   let contactId: string
 
   if (msg.contactEmail) {
-    const { data: existing } = await supabase
+    const email = msg.contactEmail.trim().toLowerCase()
+    const { data: existingRows } = await supabase
       .from('contacts')
-      .select('id')
-      .eq('email', msg.contactEmail)
-      .maybeSingle()
+      .select('id, full_name')
+      .ilike('email', email)
+      .limit(1)
 
+    const existing = existingRows?.[0]
     if (existing) {
       contactId = existing.id
+      if (msg.contactFullName && !existing.full_name) {
+        await supabase.from('contacts').update({ full_name: msg.contactFullName }).eq('id', existing.id)
+      }
     } else {
       const { data: created, error } = await supabase
         .from('contacts')
         .insert({
           full_name: msg.contactFullName,
-          email: msg.contactEmail,
+          email,
           phone: msg.contactPhone ?? null,
           channel: msg.channel,
         })
@@ -155,15 +161,45 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
   if (msg.externalThreadId) {
     const { data: existing } = await supabase
       .from('conversations')
-      .select('id, status')
+      .select('id, status, contact_id')
       .eq('external_thread_id', msg.externalThreadId)
       .maybeSingle()
 
     if (existing) {
       conversationId = existing.id
+      const convUpdate: {
+        is_read: boolean
+        status?: string
+        contact_id?: string
+      } = {
+        is_read: false,
+        ...(existing.status === 'closed' ? { status: 'open' } : {}),
+      }
+      // CC (or another party) replied: retarget the conversation to the actual sender.
+      // Stamp the original contact onto older messages that have no stored sender
+      // so their cards keep showing the right person.
+      if (existing.contact_id !== contactId) {
+        const { data: previousContact } = await supabase
+          .from('contacts')
+          .select('full_name, email')
+          .eq('id', existing.contact_id)
+          .maybeSingle()
+        if (previousContact) {
+          await supabase
+            .from('messages')
+            .update({
+              from_name: previousContact.full_name,
+              from_address: previousContact.email,
+            })
+            .eq('conversation_id', conversationId)
+            .eq('sender_type', 'contact')
+            .is('from_address', null)
+        }
+        convUpdate.contact_id = contactId
+      }
       await supabase
         .from('conversations')
-        .update({ is_read: false, ...(existing.status === 'closed' ? { status: 'open' } : {}) })
+        .update(convUpdate)
         .eq('id', conversationId)
     } else {
       const { data: created, error } = await supabase
@@ -225,6 +261,9 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
       is_internal_note: false,
       ...(msg.externalMessageId ? { external_message_id: msg.externalMessageId } : {}),
       ...(msg.ccAddresses && msg.ccAddresses.length > 0 ? { cc_addresses: msg.ccAddresses } : {}),
+      ...(msg.contactEmail ? { from_address: msg.contactEmail.trim().toLowerCase() } : {}),
+      ...(msg.contactFullName ? { from_name: msg.contactFullName } : {}),
+      ...(msg.rfcMessageId ? { rfc_message_id: msg.rfcMessageId } : {}),
     })
     .select('id')
     .single()

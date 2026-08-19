@@ -62,6 +62,7 @@ export async function GET(request: Request) {
           externalThreadId: msg.threadId,
           externalMessageId: msg.messageId,
           ccAddresses: msg.cc.length > 0 ? msg.cc : undefined,
+          rfcMessageId: msg.rfcMessageId,
         })
         await markAsRead(config.id, msg.messageId)
       }

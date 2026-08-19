@@ -103,6 +103,7 @@ export async function POST(request: Request) {
         externalThreadId: email.threadId,
         externalMessageId: email.messageId,
         ccAddresses: email.cc.length > 0 ? email.cc : undefined,
+        rfcMessageId: email.rfcMessageId,
       })
       triggerCategorise(result.conversationId, email.body, email.subject)
 

@@ -103,6 +103,8 @@ export interface Message {
   is_internal_note: boolean
   is_ai_suggested: boolean
   from_address?: string | null
+  from_name?: string | null
+  rfc_message_id?: string | null
   created_at: string
 }
 

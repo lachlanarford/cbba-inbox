@@ -29,6 +29,7 @@ interface ReplyBoxProps {
   lastInboundCc?: string[]
   channelConfigId?: string | null
   fromEmail?: string | null
+  onSent?: () => void
 }
 
 export default function ReplyBox({
@@ -38,6 +39,7 @@ export default function ReplyBox({
   lastInboundCc = [],
   channelConfigId,
   fromEmail,
+  onSent,
 }: ReplyBoxProps) {
   const [collapsed, setCollapsed] = useState(true)
   const [content, setContent] = useState('')
@@ -202,6 +204,8 @@ export default function ReplyBox({
       return
     }
 
+    onSent?.()
+
     localStorage.removeItem(`cbba-draft:${conversationId}`)
     setContent('')
     setAiSuggested(false)
@@ -211,7 +215,6 @@ export default function ReplyBox({
     setSending(false)
     setCollapsed(true)
     setToEmail(contactEmail ?? '')
-    setFromConfigId(channelConfigId ?? fromConfigId)
     if (replyAllRecipients.length > 0) {
       setReplyAll(true)
       setShowCc(true)
@@ -221,7 +224,7 @@ export default function ReplyBox({
       setShowCc(false)
       setCc('')
     }
-  }, [content, conversationId, isNote, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail, fromConfigId, channelConfigId, lastInboundCc, selectedFromEmail, conversationFromEmail])
+  }, [content, conversationId, isNote, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail, fromConfigId, channelConfigId, lastInboundCc, selectedFromEmail, conversationFromEmail, onSent])
 
   useEffect(() => {
     fetch('/api/canned-responses')
@@ -412,7 +415,7 @@ export default function ReplyBox({
             </div>
             {fromOverridden && conversationFromEmail && selectedFromEmail && (
               <p className="px-3 py-1.5 text-[10px] text-amber-400/90 border-b border-white/5 bg-amber-500/5">
-                Sending from {selectedFromEmail}; conversation stays on {conversationFromEmail}
+                This reply will send from {selectedFromEmail} and move the conversation to that inbox so you can keep the thread.
               </p>
             )}
             {/* To row */}

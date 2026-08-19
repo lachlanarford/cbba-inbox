@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendReply as sendGmailReply, type OutboundAttachment } from '@/lib/gmail/client'
+import { sendReply as sendGmailReply, formatGmailError, type OutboundAttachment } from '@/lib/gmail/client'
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
 
@@ -87,8 +87,28 @@ export async function POST(
     }
 
     try {
-      await sendGmailReply(channelConfig.id, {
-        threadId: conversation.external_thread_id,
+      const sendingFromOtherInbox = !!(
+        overrideConfigId &&
+        conversation.channel_config_id &&
+        overrideConfigId !== conversation.channel_config_id
+      )
+
+      let inReplyTo: string | null = null
+      const { data: lastInbound } = await service
+        .from('messages')
+        .select('rfc_message_id')
+        .eq('conversation_id', conversationId)
+        .eq('sender_type', 'contact')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      inReplyTo = (lastInbound as { rfc_message_id?: string | null } | null)?.rfc_message_id ?? null
+
+      // Gmail thread IDs belong to one mailbox. Sending from a different department
+      // account must not reuse info@'s threadId (that is the "Failed to send via Gmail" error).
+      const sent = await sendGmailReply(channelConfig.id, {
+        threadId: sendingFromOtherInbox ? null : conversation.external_thread_id,
+        inReplyTo,
         to: contactEmail,
         from: channelConfig.identifier,
         subject: conversation.subject ?? '(no subject)',
@@ -98,9 +118,22 @@ export async function POST(
         bcc: bcc ?? [],
       })
       sentFromAddress = channelConfig.identifier
+
+      if (sendingFromOtherInbox && sent.threadId) {
+        await service
+          .from('conversations')
+          .update({
+            channel_config_id: channelConfig.id,
+            external_thread_id: sent.threadId,
+          })
+          .eq('id', conversationId)
+      }
     } catch (err) {
       console.error('[reply] Gmail send failed:', err)
-      return NextResponse.json({ error: 'Failed to send via Gmail' }, { status: 500 })
+      return NextResponse.json(
+        { error: `Failed to send via Gmail: ${formatGmailError(err)}` },
+        { status: 500 }
+      )
     }
   }
 

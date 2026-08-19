@@ -85,6 +85,8 @@ export interface ParsedEmail {
   attachments: AttachmentMeta[]
   /** Other recipients (Cc + To except From) for Reply All */
   cc: string[]
+  /** RFC 5322 Message-ID header, used for cross-inbox In-Reply-To */
+  rfcMessageId: string | null
 }
 
 export interface FetchHistoryResult {
@@ -192,7 +194,8 @@ async function parseMessage(
 
   const fromMatch = from.match(/^(?:"?([^"<]+)"?\s*)?<?([^>]+)>?$/)
   const fromName = fromMatch?.[1]?.trim() || null
-  const fromEmail = fromMatch?.[2]?.trim() ?? from
+  const fromEmail = (fromMatch?.[2]?.trim() ?? from).toLowerCase()
+  const rfcMessageId = get('message-id').trim() || null
 
   let body = extractBody(msg.payload)
 
@@ -246,7 +249,7 @@ async function parseMessage(
   const cc = Array.from(new Set([...toAddrs, ...ccAddrs]))
     .filter((addr) => addr !== fromEmailNorm)
 
-  return { messageId, threadId, from: fromEmail, fromName, subject, body, internalDate, attachments, cc }
+  return { messageId, threadId, from: fromEmail, fromName, subject, body, internalDate, attachments, cc, rfcMessageId }
 }
 
 type GmailPart = import('googleapis').gmail_v1.Schema$MessagePart
@@ -347,10 +350,25 @@ function chunkBase64(b64: string): string {
   return b64.match(/.{1,76}/g)?.join('\r\n') ?? b64
 }
 
+export function formatGmailError(err: unknown): string {
+  const rec = err as { message?: string; response?: { data?: { error?: { message?: string } } } }
+  return rec.response?.data?.error?.message || rec.message || 'Unknown Gmail error'
+}
+
 export async function sendReply(
   channelConfigId: string,
-  opts: { threadId: string; to: string; from: string; subject: string; body: string; attachments?: OutboundAttachment[]; cc?: string[]; bcc?: string[] }
-): Promise<void> {
+  opts: {
+    threadId?: string | null
+    inReplyTo?: string | null
+    to: string
+    from: string
+    subject: string
+    body: string
+    attachments?: OutboundAttachment[]
+    cc?: string[]
+    bcc?: string[]
+  }
+): Promise<{ threadId: string; messageId: string }> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
 
@@ -362,6 +380,9 @@ export async function sendReply(
 
   const ccHeaders = opts.cc && opts.cc.length > 0 ? [`Cc: ${opts.cc.join(', ')}`] : []
   const bccHeaders = opts.bcc && opts.bcc.length > 0 ? [`Bcc: ${opts.bcc.join(', ')}`] : []
+  const replyHeaders = opts.inReplyTo
+    ? [`In-Reply-To: ${opts.inReplyTo}`, `References: ${opts.inReplyTo}`]
+    : []
 
   if (opts.attachments && opts.attachments.length > 0) {
     const boundary = `cbba_${Date.now()}`
@@ -371,8 +392,7 @@ export async function sendReply(
       ...ccHeaders,
       ...bccHeaders,
       `Subject: ${subject}`,
-      `In-Reply-To: ${opts.threadId}`,
-      `References: ${opts.threadId}`,
+      ...replyHeaders,
       `MIME-Version: 1.0`,
       `Content-Type: multipart/mixed; boundary="${boundary}"`,
       '',
@@ -400,8 +420,7 @@ export async function sendReply(
       ...ccHeaders,
       ...bccHeaders,
       `Subject: ${subject}`,
-      `In-Reply-To: ${opts.threadId}`,
-      `References: ${opts.threadId}`,
+      ...replyHeaders,
       `Content-Type: ${bodyContentType}; charset=utf-8`,
       'MIME-Version: 1.0',
       '',
@@ -410,10 +429,19 @@ export async function sendReply(
   }
 
   const encoded = Buffer.from(raw).toString('base64url')
-  await gmail.users.messages.send({
+  const requestBody: { raw: string; threadId?: string } = { raw: encoded }
+  // Gmail thread IDs are per-mailbox. Only attach when sending from the account that owns the thread.
+  if (opts.threadId) requestBody.threadId = opts.threadId
+
+  const res = await gmail.users.messages.send({
     userId: 'me',
-    requestBody: { raw: encoded, threadId: opts.threadId },
+    requestBody,
   })
+
+  return {
+    threadId: res.data.threadId ?? res.data.id ?? '',
+    messageId: res.data.id ?? '',
+  }
 }
 
 // Returns { threadId, messageId } of the newly created Gmail thread

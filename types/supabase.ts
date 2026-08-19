@@ -249,6 +249,8 @@ export type Database = {
           external_message_id: string | null
           cc_addresses: string[] | null
           from_address: string | null
+          from_name: string | null
+          rfc_message_id: string | null
         }
         Insert: {
           id?: string
@@ -262,6 +264,8 @@ export type Database = {
           external_message_id?: string | null
           cc_addresses?: string[] | null
           from_address?: string | null
+          from_name?: string | null
+          rfc_message_id?: string | null
         }
         Update: {
           id?: string
@@ -275,6 +279,8 @@ export type Database = {
           external_message_id?: string | null
           cc_addresses?: string[] | null
           from_address?: string | null
+          from_name?: string | null
+          rfc_message_id?: string | null
         }
         Relationships: []
       }

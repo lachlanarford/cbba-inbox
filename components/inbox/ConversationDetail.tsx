@@ -126,7 +126,7 @@ export default function ConversationDetail({
         setLastInboundCc(row?.cc_addresses ?? [])
       })
 
-    // Realtime: refresh when this conversation is updated
+    // Realtime: refresh joined contact/inbox when this conversation is updated
     const channel = supabase
       .channel(`conversation-detail-${conversationId}`)
       .on('postgres_changes', {
@@ -134,10 +134,15 @@ export default function ConversationDetail({
         schema: 'public',
         table: 'conversations',
         filter: `id=eq.${conversationId}`,
-      }, (payload) => {
-        setConversation((prev) =>
-          prev ? { ...prev, ...(payload.new as Partial<ConversationWithConfig>) } : prev
-        )
+      }, () => {
+        supabase
+          .from('conversations')
+          .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
+          .eq('id', conversationId)
+          .single()
+          .then(({ data }) => {
+            if (data) setConversation(data as unknown as ConversationWithConfig)
+          })
       })
       .subscribe()
 
@@ -258,12 +263,15 @@ export default function ConversationDetail({
                 <p className="text-xs text-gray-300 mt-0.5 truncate tracking-tight">
                   {contact?.full_name ?? contact?.email ?? 'Unknown contact'}
                 </p>
+                {contact?.email && contact.email !== contact.full_name && (
+                  <p className="text-[11px] text-gray-400 truncate tracking-tight">{contact.email}</p>
+                )}
                 {conversation.channel === 'gmail' && conversation.channel_config?.identifier && (
                   <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 truncate tracking-tight">
                     <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    {conversation.channel_config.identifier}
+                    Inbox {conversation.channel_config.identifier}
                   </p>
                 )}
               </div>
@@ -526,6 +534,17 @@ export default function ConversationDetail({
           lastInboundCc={lastInboundCc}
           channelConfigId={conversation.channel_config_id ?? null}
           fromEmail={conversation.channel_config?.identifier ?? null}
+          onSent={() => {
+            const supabase = createClient()
+            supabase
+              .from('conversations')
+              .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
+              .eq('id', conversationId)
+              .single()
+              .then(({ data }) => {
+                if (data) setConversation(data as unknown as ConversationWithConfig)
+              })
+          }}
         />
       </div>
 
