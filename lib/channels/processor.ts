@@ -159,11 +159,16 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
   let conversationId: string
 
   if (msg.externalThreadId) {
-    const { data: existing } = await supabase
+    let existingQuery = supabase
       .from('conversations')
       .select('id, status, contact_id')
       .eq('external_thread_id', msg.externalThreadId)
-      .maybeSingle()
+
+    if (msg.channelConfigId) {
+      existingQuery = existingQuery.eq('channel_config_id', msg.channelConfigId)
+    }
+
+    const { data: existing } = await existingQuery.maybeSingle()
 
     if (existing) {
       conversationId = existing.id

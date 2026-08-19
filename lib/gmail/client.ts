@@ -104,62 +104,67 @@ export async function fetchMessagesFromHistory(
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
 
-  const historyRes = await gmail.users.history.list({
-    userId: 'me',
-    startHistoryId: historyId,
-    historyTypes: ['messageAdded', 'labelAdded', 'labelRemoved'],
-  })
-
   const messages: ParsedEmail[] = []
   const sentMessages: ParsedEmail[] = []
   const closedThreadIds = new Set<string>()
+  let newHistoryId: string | null = null
+  let pageToken: string | undefined
 
-  for (const record of historyRes.data.history ?? []) {
-    for (const added of record.messagesAdded ?? []) {
-      if (!added.message?.id) continue
-      const labels = added.message.labelIds ?? []
-      const isInbox = labels.includes('INBOX')
-      const isSent = labels.includes('SENT')
+  do {
+    const historyRes = await gmail.users.history.list({
+      userId: 'me',
+      startHistoryId: historyId,
+      historyTypes: ['messageAdded', 'labelAdded', 'labelRemoved'],
+      pageToken,
+    })
 
-      if (!isInbox && !isSent) continue
+    if (historyRes.data.historyId) {
+      newHistoryId = historyRes.data.historyId
+    }
 
-      const full = await gmail.users.messages.get({
-        userId: 'me',
-        id: added.message.id,
-        format: 'full',
-      })
-      const parsed = await parseMessage(gmail, full.data)
-      if (!parsed) continue
+    for (const record of historyRes.data.history ?? []) {
+      for (const added of record.messagesAdded ?? []) {
+        if (!added.message?.id) continue
+        const labels = added.message.labelIds ?? []
+        const isInbox = labels.includes('INBOX')
+        const isSent = labels.includes('SENT')
 
-      if (isInbox && !isSent) {
-        messages.push(parsed)
-      } else if (isSent && !isInbox) {
-        // Outbound message sent from Gmail directly (not via app)
-        sentMessages.push(parsed)
+        if (!isInbox && !isSent) continue
+
+        const full = await gmail.users.messages.get({
+          userId: 'me',
+          id: added.message.id,
+          format: 'full',
+        })
+        const parsed = await parseMessage(gmail, full.data)
+        if (!parsed) continue
+
+        if (isInbox && !isSent) {
+          messages.push(parsed)
+        } else if (isSent && !isInbox) {
+          sentMessages.push(parsed)
+        }
+        if (isInbox && isSent) {
+          messages.push(parsed)
+        }
       }
-      // isInbox && isSent = sent to self / CC'd self — treat as inbound
-      if (isInbox && isSent) {
-        messages.push(parsed)
+
+      for (const removal of record.labelsRemoved ?? []) {
+        if (removal.message?.threadId && removal.labelIds?.includes('INBOX')) {
+          closedThreadIds.add(removal.message.threadId)
+        }
+      }
+
+      for (const addition of record.labelsAdded ?? []) {
+        if (addition.message?.threadId && addition.labelIds?.includes('TRASH')) {
+          closedThreadIds.add(addition.message.threadId)
+        }
       }
     }
 
-    // INBOX label removed = archived or moved to a folder
-    for (const removal of record.labelsRemoved ?? []) {
-      if (removal.message?.threadId && removal.labelIds?.includes('INBOX')) {
-        closedThreadIds.add(removal.message.threadId)
-      }
-    }
+    pageToken = historyRes.data.nextPageToken ?? undefined
+  } while (pageToken)
 
-    // TRASH label added = moved to trash / deleted
-    for (const addition of record.labelsAdded ?? []) {
-      if (addition.message?.threadId && addition.labelIds?.includes('TRASH')) {
-        closedThreadIds.add(addition.message.threadId)
-      }
-    }
-  }
-
-  // If a thread got a new message AND was archived in the same history window,
-  // don't close it -- the new message should reopen it via processIncomingMessage
   for (const msg of messages) {
     closedThreadIds.delete(msg.threadId)
   }
@@ -168,7 +173,7 @@ export async function fetchMessagesFromHistory(
     messages,
     sentMessages,
     closedThreadIds: Array.from(closedThreadIds),
-    newHistoryId: historyRes.data.historyId ?? null,
+    newHistoryId,
   }
 }
 

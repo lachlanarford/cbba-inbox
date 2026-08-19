@@ -70,5 +70,21 @@ export function useMessages(conversationId: string | null) {
     }
   }, [conversationId, fetchMessages])
 
+  // Refetch when tab becomes visible again (realtime can miss events while backgrounded)
+  useEffect(() => {
+    if (!conversationId) return
+    function refetchIfVisible() {
+      if (document.visibilityState === 'visible') {
+        fetchMessages()
+      }
+    }
+    document.addEventListener('visibilitychange', refetchIfVisible)
+    window.addEventListener('focus', refetchIfVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', refetchIfVisible)
+      window.removeEventListener('focus', refetchIfVisible)
+    }
+  }, [conversationId, fetchMessages])
+
   return { messages, loading, refetch: fetchMessages }
 }

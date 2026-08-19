@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUsers } from '@/lib/hooks/useUsers'
 import FilterBar from './FilterBar'
@@ -33,9 +34,17 @@ export default function InboxLayout() {
   const [listCollapsed, setListCollapsed] = useState(false)
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null)
   const users = useUsers()
+  const searchParams = useSearchParams()
+
+  // Open conversation from push notification deep link (?conversation=id)
+  useEffect(() => {
+    const id = searchParams.get('conversation')
+    if (id) setSelectedId(id)
+  }, [searchParams])
 
   const updateFilter = useCallback(
     <K extends keyof InboxFilters>(key: K, value: InboxFilters[K]) => {
@@ -62,13 +71,18 @@ export default function InboxLayout() {
   async function handleBulkAction(action: string, value?: string) {
     if (!checkedIds.size) return
     setBulkLoading(true)
+    setBulkError(null)
     try {
-      await fetch('/api/conversations/bulk', {
+      const res = await fetch('/api/conversations/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: Array.from(checkedIds), action, value }),
       })
-      // Clear selected conversation if it was affected
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        setBulkError(data.error ?? 'Bulk action failed')
+        return
+      }
       if (action === 'delete' && selectedId && checkedIds.has(selectedId)) {
         setSelectedId(null)
       }
@@ -137,7 +151,8 @@ export default function InboxLayout() {
     >
       {/* Panel header / Bulk action bar */}
       {hasChecked ? (
-        <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-white/5 flex-shrink-0 flex-wrap">
+        <div className="flex flex-col border-b border-white/5 flex-shrink-0">
+          <div className="flex items-center gap-1.5 px-3 py-2.5 flex-wrap">
           <button
             onClick={clearChecked}
             className="p-1 rounded text-gray-500 hover:text-white transition-colors flex-shrink-0"
@@ -244,6 +259,10 @@ export default function InboxLayout() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
+          </div>
+          {bulkError && (
+            <p className="px-3 pb-2 text-xs text-red-400">{bulkError}</p>
+          )}
         </div>
       ) : (
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
@@ -335,6 +354,7 @@ export default function InboxLayout() {
               onToggleSidebar={() => {}}
               onDeleted={() => setSelectedId(null)}
               onBack={() => setSelectedId(null)}
+              onSelectConversation={setSelectedId}
             />
           </div>
         ) : (
@@ -389,6 +409,7 @@ export default function InboxLayout() {
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((v) => !v)}
             onDeleted={() => setSelectedId(null)}
+            onSelectConversation={setSelectedId}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-600">

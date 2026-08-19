@@ -1,21 +1,20 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import {
-  fetchMessagesFromHistory,
-  getCurrentHistoryId,
-  markAsRead,
-} from '@/lib/gmail/client'
-import { processIncomingMessage } from '@/lib/channels/processor'
+import { getCurrentHistoryId } from '@/lib/gmail/client'
+import { syncGmailInbox } from '@/lib/gmail/sync-inbox'
 
 // Called by Vercel Cron (or external cron service) every minute.
 // Vercel passes Authorization: Bearer {CRON_SECRET} automatically.
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const auth = request.headers.get('authorization')
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  if (!cronSecret) {
+    console.error('[gmail/poll] CRON_SECRET is not configured')
+    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 })
+  }
+
+  const auth = request.headers.get('authorization')
+  if (auth !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const supabase = createServiceClient()
@@ -35,7 +34,6 @@ export async function GET(request: Request) {
     let historyId = metadata.history_id ?? null
 
     try {
-      // First run: record current historyId and skip — nothing to process yet
       if (!historyId) {
         historyId = await getCurrentHistoryId(config.id)
         await supabase
@@ -46,39 +44,18 @@ export async function GET(request: Request) {
         continue
       }
 
-      const { messages, newHistoryId } = await fetchMessagesFromHistory(config.id, historyId, email)
+      const sync = await syncGmailInbox({
+        configId: config.id,
+        email,
+        metadata,
+        storedHistoryId: historyId,
+        notify: true,
+      })
 
-      for (const msg of messages) {
-        await processIncomingMessage({
-          channel: 'gmail',
-          channelConfigId: config.id,
-          contactFullName: msg.fromName,
-          contactEmail: msg.from,
-          contactPhone: null,
-          contactSocialId: null,
-          subject: msg.subject,
-          content: msg.body,
-          department: metadata.default_department ?? null,
-          externalThreadId: msg.threadId,
-          externalMessageId: msg.messageId,
-          ccAddresses: msg.cc.length > 0 ? msg.cc : undefined,
-          rfcMessageId: msg.rfcMessageId,
-        })
-        await markAsRead(config.id, msg.messageId)
-      }
-
-      if (newHistoryId && newHistoryId !== historyId) {
-        await supabase
-          .from('channel_configs')
-          .update({ metadata: { ...metadata, history_id: newHistoryId } })
-          .eq('id', config.id)
-      }
-
-      results.push({ email, processed: messages.length, status: 'ok' })
+      results.push({ email, processed: sync.processed, status: 'ok' })
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err)
 
-      // historyId expired (Gmail purges history after ~30 days) -- reinitialize
       if (errMsg.includes('404') || errMsg.includes('Invalid historyId')) {
         const newId = await getCurrentHistoryId(config.id).catch(() => '')
         if (newId) {

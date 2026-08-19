@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendReply as sendGmailReply, formatGmailError, type OutboundAttachment } from '@/lib/gmail/client'
+import {
+  sendReply as sendGmailReply,
+  formatGmailError,
+  type OutboundAttachment,
+} from '@/lib/gmail/client'
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
+
+type ContactRow = {
+  email: string | null
+  full_name: string | null
+  social_id: string | null
+  phone: string | null
+}
 
 export async function POST(
   request: Request,
@@ -37,161 +48,167 @@ export async function POST(
   const { content, isNote, isAiSuggested, attachments, to, cc, bcc, channelConfigId: overrideConfigId } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
-  // Fetch conversation to determine channel and thread context
   const { data: conversation } = await supabase
     .from('conversations')
-    .select('*, contact:contacts(email, full_name, social_id)')
+    .select('*, contact:contacts(email, full_name, social_id, phone)')
     .eq('id', conversationId)
     .single()
 
   if (!conversation) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
 
-  // Only append signature for email (Gmail) replies — not social/chat channels
   const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
   const bodyWithSig = !isNote && conversation.channel === 'gmail' && signature?.trim()
     ? `${content.trim()}\n\n--\n${signature.trim()}`
     : content.trim()
 
+  const contact = conversation.contact as unknown as ContactRow | null
   let sentFromAddress: string | null = null
+  let externalMessageId: string | null = null
 
-  // For non-internal replies on Gmail conversations, send via Gmail API
-  if (conversation.channel === 'gmail' && !isNote && conversation.external_thread_id) {
-    const service = createServiceClient()
-    // Optional From override for this send only — does not reassign the conversation inbox
-    const sendConfigId = overrideConfigId || conversation.channel_config_id
-    if (!sendConfigId) {
-      return NextResponse.json({ error: 'Gmail channel not configured' }, { status: 500 })
-    }
-
-    const { data: channelConfig } = await service
-      .from('channel_configs')
-      .select('id, identifier, is_active')
-      .eq('id', sendConfigId)
-      .eq('channel_type', 'gmail')
-      .single()
-
-    if (!channelConfig) {
-      console.error('[reply] Gmail channel config not found:', sendConfigId)
-      return NextResponse.json({ error: 'Gmail channel not configured' }, { status: 500 })
-    }
-    if (!channelConfig.is_active) {
-      console.warn('[reply] Gmail channel is inactive, skipping send')
-      return NextResponse.json({ error: 'Gmail channel is not active' }, { status: 400 })
-    }
-
-    const contact = conversation.contact as unknown as { email: string | null; full_name: string | null } | null
-    const contactEmail = to?.trim() || contact?.email
-    if (!contactEmail) {
-      console.error('[reply] No contact email for Gmail conversation:', conversationId)
-      return NextResponse.json({ error: 'Contact has no email address' }, { status: 400 })
-    }
-
-    try {
-      const sendingFromOtherInbox = !!(
-        overrideConfigId &&
-        conversation.channel_config_id &&
-        overrideConfigId !== conversation.channel_config_id
-      )
-
-      let inReplyTo: string | null = null
-      const { data: lastInbound } = await service
-        .from('messages')
-        .select('rfc_message_id')
-        .eq('conversation_id', conversationId)
-        .eq('sender_type', 'contact')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      inReplyTo = (lastInbound as { rfc_message_id?: string | null } | null)?.rfc_message_id ?? null
-
-      // Gmail thread IDs belong to one mailbox. Sending from a different department
-      // account must not reuse info@'s threadId (that is the "Failed to send via Gmail" error).
-      const sent = await sendGmailReply(channelConfig.id, {
-        threadId: sendingFromOtherInbox ? null : conversation.external_thread_id,
-        inReplyTo,
-        to: contactEmail,
-        from: channelConfig.identifier,
-        subject: conversation.subject ?? '(no subject)',
-        body: bodyWithSig,
-        attachments: attachments ?? [],
-        cc: cc ?? [],
-        bcc: bcc ?? [],
-      })
-      sentFromAddress = channelConfig.identifier
-
-      if (sendingFromOtherInbox && sent.threadId) {
-        await service
-          .from('conversations')
-          .update({
-            channel_config_id: channelConfig.id,
-            external_thread_id: sent.threadId,
-          })
-          .eq('id', conversationId)
+  if (!isNote) {
+    if (conversation.channel === 'gmail') {
+      const service = createServiceClient()
+      const sendConfigId = overrideConfigId || conversation.channel_config_id
+      if (!sendConfigId) {
+        return NextResponse.json({ error: 'Gmail channel not configured' }, { status: 500 })
       }
-    } catch (err) {
-      console.error('[reply] Gmail send failed:', err)
-      return NextResponse.json(
-        { error: `Failed to send via Gmail: ${formatGmailError(err)}` },
-        { status: 500 }
-      )
-    }
-  }
 
-  // For non-internal replies on Facebook/Instagram, send via Meta Graph API
-  if ((conversation.channel === 'facebook' || conversation.channel === 'instagram') && !isNote && conversation.channel_config_id) {
-    const metaService = createServiceClient()
-    const { data: channelConfig } = await metaService
-      .from('channel_configs')
-      .select('credentials, is_active')
-      .eq('id', conversation.channel_config_id)
-      .single()
+      const { data: channelConfig } = await service
+        .from('channel_configs')
+        .select('id, identifier, is_active')
+        .eq('id', sendConfigId)
+        .eq('channel_type', 'gmail')
+        .single()
 
-    if (channelConfig?.is_active) {
+      if (!channelConfig) {
+        return NextResponse.json({ error: 'Gmail channel not configured' }, { status: 500 })
+      }
+      if (!channelConfig.is_active) {
+        return NextResponse.json({ error: 'Gmail channel is not active' }, { status: 400 })
+      }
+
+      const contactEmail = to?.trim() || contact?.email
+      if (!contactEmail) {
+        return NextResponse.json({ error: 'Contact has no email address' }, { status: 400 })
+      }
+
+      try {
+        const sendingFromOtherInbox = !!(
+          overrideConfigId &&
+          conversation.channel_config_id &&
+          overrideConfigId !== conversation.channel_config_id
+        )
+
+        const { data: lastInbound } = await service
+          .from('messages')
+          .select('rfc_message_id')
+          .eq('conversation_id', conversationId)
+          .eq('sender_type', 'contact')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        const inReplyTo = (lastInbound as { rfc_message_id?: string | null } | null)?.rfc_message_id ?? null
+
+        const canUseThread = !!conversation.external_thread_id && !sendingFromOtherInbox
+
+        const sent = await sendGmailReply(channelConfig.id, {
+          threadId: canUseThread ? conversation.external_thread_id : null,
+          inReplyTo,
+          to: contactEmail,
+          from: channelConfig.identifier,
+          subject: conversation.subject ?? '(no subject)',
+          body: bodyWithSig,
+          attachments: attachments ?? [],
+          cc: cc ?? [],
+          bcc: bcc ?? [],
+        })
+
+        sentFromAddress = channelConfig.identifier
+        externalMessageId = sent.messageId
+
+        const convPatch: { channel_config_id?: string; external_thread_id?: string } = {}
+        if (sendingFromOtherInbox || !conversation.external_thread_id) {
+          convPatch.channel_config_id = channelConfig.id
+          convPatch.external_thread_id = sent.threadId
+        }
+        if (Object.keys(convPatch).length > 0) {
+          await service.from('conversations').update(convPatch).eq('id', conversationId)
+        }
+      } catch (err) {
+        console.error('[reply] Gmail send failed:', err)
+        return NextResponse.json(
+          { error: `Failed to send via Gmail: ${formatGmailError(err)}` },
+          { status: 500 }
+        )
+      }
+    } else if (conversation.channel === 'facebook' || conversation.channel === 'instagram') {
+      if (!conversation.channel_config_id) {
+        return NextResponse.json({ error: 'Channel not configured' }, { status: 400 })
+      }
+
+      const metaService = createServiceClient()
+      const { data: channelConfig } = await metaService
+        .from('channel_configs')
+        .select('credentials, is_active')
+        .eq('id', conversation.channel_config_id)
+        .single()
+
+      if (!channelConfig?.is_active) {
+        return NextResponse.json({ error: 'Channel is not active' }, { status: 400 })
+      }
+
       const creds = channelConfig.credentials as Record<string, string>
       const accessToken = conversation.channel === 'facebook' ? creds.pageAccessToken : creds.access_token
-      const contact = conversation.contact as unknown as { email: string | null; full_name: string | null; social_id: string | null } | null
       const recipientId = contact?.social_id
 
-      if (accessToken && recipientId) {
-        try {
-          await sendMetaMessage({ recipientId, text: content.trim(), accessToken })
-        } catch (err) {
-          console.error('[reply] Meta send failed:', err)
-          return NextResponse.json({ error: 'Failed to send via Meta' }, { status: 500 })
-        }
+      if (!accessToken || !recipientId) {
+        return NextResponse.json({ error: 'Cannot send: missing channel credentials or contact social ID' }, { status: 400 })
       }
-    }
-  }
 
-  // For non-internal replies on WhatsApp, send via Twilio
-  if (conversation.channel === 'whatsapp' && !isNote && conversation.channel_config_id) {
-    const service = createServiceClient()
-    const { data: channelConfig } = await service
-      .from('channel_configs')
-      .select('credentials, is_active')
-      .eq('id', conversation.channel_config_id)
-      .single()
+      try {
+        await sendMetaMessage({ recipientId, text: content.trim(), accessToken })
+      } catch (err) {
+        console.error('[reply] Meta send failed:', err)
+        return NextResponse.json({ error: 'Failed to send via Meta' }, { status: 500 })
+      }
+    } else if (conversation.channel === 'whatsapp') {
+      if (!conversation.channel_config_id) {
+        return NextResponse.json({ error: 'WhatsApp channel not configured' }, { status: 400 })
+      }
 
-    if (channelConfig?.is_active) {
+      const service = createServiceClient()
+      const { data: channelConfig } = await service
+        .from('channel_configs')
+        .select('credentials, is_active')
+        .eq('id', conversation.channel_config_id)
+        .single()
+
+      if (!channelConfig?.is_active) {
+        return NextResponse.json({ error: 'WhatsApp channel is not active' }, { status: 400 })
+      }
+
       const creds = channelConfig.credentials as Record<string, string>
-      const contact = conversation.contact as unknown as { phone: string | null } | null
-      const to = contact?.phone
-      if (to && creds.accountSid && creds.authToken && creds.whatsappNumber) {
-        try {
-          await sendWhatsAppMessage(to, content.trim(), {
-            accountSid: creds.accountSid,
-            authToken: creds.authToken,
-            whatsappNumber: creds.whatsappNumber,
-          })
-        } catch (err) {
-          console.error('[reply] WhatsApp send failed:', err)
-          return NextResponse.json({ error: 'Failed to send via WhatsApp' }, { status: 500 })
-        }
+      const phone = contact?.phone
+      if (!phone) {
+        return NextResponse.json({ error: 'Contact has no phone number' }, { status: 400 })
+      }
+      if (!creds.accountSid || !creds.authToken || !creds.whatsappNumber) {
+        return NextResponse.json({ error: 'WhatsApp channel credentials incomplete' }, { status: 500 })
+      }
+
+      try {
+        await sendWhatsAppMessage(phone, content.trim(), {
+          accountSid: creds.accountSid,
+          authToken: creds.authToken,
+          whatsappNumber: creds.whatsappNumber,
+        })
+      } catch (err) {
+        console.error('[reply] WhatsApp send failed:', err)
+        return NextResponse.json({ error: 'Failed to send via WhatsApp' }, { status: 500 })
       }
     }
   }
 
-  // Write message to database — store bodyWithSig so in-app view matches what was sent
   const { data: message, error: msgError } = await supabase
     .from('messages')
     .insert({
@@ -202,6 +219,7 @@ export async function POST(
       is_internal_note: isNote,
       is_ai_suggested: isAiSuggested ?? false,
       ...(sentFromAddress ? { from_address: sentFromAddress } : {}),
+      ...(externalMessageId ? { external_message_id: externalMessageId } : {}),
     })
     .select('id')
     .single()
@@ -211,7 +229,6 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to save message' }, { status: 500 })
   }
 
-  // Advance status if this is a real reply on an open conversation; flag attachments if sent
   const convUpdate: Record<string, unknown> = {}
   if (!isNote && conversation.status === 'open') {
     convUpdate.status = 'in_progress'

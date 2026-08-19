@@ -77,8 +77,9 @@ export function useConversations(filters: InboxFilters) {
     if (f.channel) query = query.eq('channel', f.channel)
     if (f.channelConfigId) query = query.eq('channel_config_id', f.channelConfigId)
     if (f.assignedTo) query = query.eq('assigned_to', f.assignedTo)
-    if (f.dateFrom) query = query.gte('created_at', f.dateFrom)
-    if (f.dateTo) query = query.lte('created_at', f.dateTo + 'T23:59:59')
+    if (f.dateFrom) query = query.gte('last_message_at', f.dateFrom)
+    if (f.dateTo) query = query.lte('last_message_at', f.dateTo + 'T23:59:59')
+    if (f.search) query = query.ilike('subject', `%${f.search}%`)
     if (f.showSnoozed) {
       query = query.not('snoozed_until', 'is', null)
     } else {
@@ -89,7 +90,7 @@ export function useConversations(filters: InboxFilters) {
     return { data: (data ?? []) as unknown as ConversationListItem[], error: fetchError }
   }, [])
 
-  // Apply client-side filters that require join data (search text, email partial match)
+  // Client-side filters for contact fields (subject search is server-side)
   const applyClientFilters = useCallback((data: ConversationListItem[], f: InboxFilters) => {
     let results = data
     if (f.search) {
@@ -108,37 +109,66 @@ export function useConversations(filters: InboxFilters) {
     return results
   }, [])
 
+  const needsDeepFetch = useCallback((f: InboxFilters) => !!(f.search || f.email), [])
+
   // Full refetch — triggered on mount and whenever filters change
   const fetchConversations = useCallback(async () => {
     const f = filtersRef.current
-    const { data, error: fetchError } = await fetchPage(0, f)
-    if (fetchError) {
-      setError(fetchError.message)
-      setLoading(false)
-      return
-    }
-    totalFetchedRef.current = data.length
-    setConversations(applyClientFilters(data, f))
-    setHasMore(data.length === PAGE_SIZE)
+    let offset = 0
+    let accumulated: ConversationListItem[] = []
+    let rawPage: ConversationListItem[] = []
+
+    do {
+      const { data, error: fetchError } = await fetchPage(offset, f)
+      if (fetchError) {
+        setError(fetchError.message)
+        setLoading(false)
+        return
+      }
+      rawPage = data
+      accumulated = [...accumulated, ...applyClientFilters(data, f)]
+      offset += data.length
+    } while (
+      needsDeepFetch(f) &&
+      rawPage.length === PAGE_SIZE &&
+      accumulated.length < PAGE_SIZE
+    )
+
+    totalFetchedRef.current = offset
+    setConversations(accumulated)
+    setHasMore(rawPage.length === PAGE_SIZE)
     setLoading(false)
     setError(null)
-  }, [fetchPage, applyClientFilters])
+  }, [fetchPage, applyClientFilters, needsDeepFetch])
 
   // Append the next page without clearing existing results
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return
     setLoadingMore(true)
     const f = filtersRef.current
-    const { data } = await fetchPage(totalFetchedRef.current, f)
-    const newRows = applyClientFilters(data, f)
-    totalFetchedRef.current += data.length
+    let offset = totalFetchedRef.current
+    let rawPage: ConversationListItem[] = []
+    let newRows: ConversationListItem[] = []
+
+    do {
+      const { data } = await fetchPage(offset, f)
+      rawPage = data
+      newRows = [...newRows, ...applyClientFilters(data, f)]
+      offset += data.length
+    } while (
+      needsDeepFetch(f) &&
+      rawPage.length === PAGE_SIZE &&
+      newRows.length < PAGE_SIZE
+    )
+
+    totalFetchedRef.current = offset
     setConversations((prev) => {
       const ids = new Set(prev.map((c) => c.id))
       return [...prev, ...newRows.filter((r) => !ids.has(r.id))]
     })
-    setHasMore(data.length === PAGE_SIZE)
+    setHasMore(rawPage.length === PAGE_SIZE)
     setLoadingMore(false)
-  }, [fetchPage, applyClientFilters, loadingMore, hasMore])
+  }, [fetchPage, applyClientFilters, needsDeepFetch, loadingMore, hasMore])
 
   // Refetch when filters change
   useEffect(() => {
@@ -182,6 +212,21 @@ export function useConversations(filters: InboxFilters) {
 
     return () => { supabase.removeChannel(channel) }
   }, []) // intentionally empty — uses filtersRef to avoid re-subscribing on every filter change
+
+  // Refetch when tab becomes visible again (realtime can miss events while backgrounded)
+  useEffect(() => {
+    function refetchIfVisible() {
+      if (document.visibilityState === 'visible') {
+        fetchConversations()
+      }
+    }
+    document.addEventListener('visibilitychange', refetchIfVisible)
+    window.addEventListener('focus', refetchIfVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', refetchIfVisible)
+      window.removeEventListener('focus', refetchIfVisible)
+    }
+  }, [fetchConversations])
 
   return { conversations, loading, loadingMore, error, hasMore, loadMore, refetch: fetchConversations }
 }

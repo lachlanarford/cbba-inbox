@@ -32,6 +32,9 @@ interface ReplyBoxProps {
   onSent?: () => void
 }
 
+const MAX_FILE_BYTES = 20 * 1024 * 1024
+const MAX_TOTAL_BYTES = 25 * 1024 * 1024
+
 export default function ReplyBox({
   conversationId,
   channel,
@@ -261,6 +264,23 @@ export default function ReplyBox({
   async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
+
+    const existingTotal = attachments.reduce((sum, a) => sum + a.size, 0)
+    for (const file of files) {
+      if (file.size > MAX_FILE_BYTES) {
+        setError(`"${file.name}" is too large. Max file size is 20 MB.`)
+        e.target.value = ''
+        return
+      }
+    }
+    const newTotal = existingTotal + files.reduce((sum, f) => sum + f.size, 0)
+    if (newTotal > MAX_TOTAL_BYTES) {
+      setError('Attachments exceed the 25 MB Gmail limit.')
+      e.target.value = ''
+      return
+    }
+
+    setError(null)
     const loaded = await Promise.all(
       files.map(
         (file) =>
@@ -402,7 +422,7 @@ export default function ReplyBox({
                   className="flex-1 bg-transparent text-xs text-white focus:outline-none cursor-pointer truncate"
                 >
                   {gmailAccounts.map((a) => (
-                    <option key={a.id} value={a.id} className="bg-cbba-navy text-white">
+                    <option key={a.id} value={a.id} className="bg-cbba-navy text-white light:bg-white light:text-gray-900">
                       {a.identifier}
                     </option>
                   ))}

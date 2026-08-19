@@ -60,6 +60,7 @@ interface ConversationDetailProps {
   onToggleSidebar: () => void
   onDeleted?: () => void
   onBack?: () => void
+  onSelectConversation?: (id: string) => void
 }
 
 export default function ConversationDetail({
@@ -68,6 +69,7 @@ export default function ConversationDetail({
   onToggleSidebar,
   onDeleted,
   onBack,
+  onSelectConversation,
 }: ConversationDetailProps) {
   const currentUser = useAppUser()
   const users = useUsers()
@@ -80,17 +82,24 @@ export default function ConversationDetail({
   const [lastInboundCc, setLastInboundCc] = useState<string[]>([])
   const [feedbackEmailReady, setFeedbackEmailReady] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
     setLoading(true)
+    setFetchError(false)
     const supabase = createClient()
     supabase
       .from('conversations')
       .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
       .eq('id', conversationId)
       .single()
-      .then(({ data }) => {
-        setConversation(data as unknown as ConversationWithConfig | null)
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setConversation(null)
+          setFetchError(true)
+        } else {
+          setConversation(data as unknown as ConversationWithConfig)
+        }
         setLoading(false)
       })
 
@@ -226,10 +235,26 @@ export default function ConversationDetail({
     }
   }
 
-  if (loading || !conversation) {
+  if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center h-full">
         <div className="text-xs text-gray-500">Loading...</div>
+      </div>
+    )
+  }
+
+  if (fetchError || !conversation) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+        <p className="text-sm text-gray-400">Conversation not found or you don&apos;t have access.</p>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="text-xs text-cbba-purple hover:text-cbba-purple-light transition-colors"
+          >
+            Back to inbox
+          </button>
+        )}
       </div>
     )
   }
@@ -550,7 +575,11 @@ export default function ConversationDetail({
 
       {/* Sidebar */}
       {sidebarOpen && (
-        <ConversationSidebar conversation={conversation} onClose={onToggleSidebar} />
+        <ConversationSidebar
+          conversation={conversation}
+          onClose={onToggleSidebar}
+          onSelectConversation={onSelectConversation}
+        />
       )}
 
       {/* Feedback email modal */}

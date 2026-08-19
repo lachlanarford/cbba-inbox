@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getAuthenticatedClient } from '@/lib/gmail/client'
 import { google } from 'googleapis'
+import { closeConversation } from '@/lib/conversations/close'
 
 type BulkAction = 'archive' | 'delete' | 'status' | 'priority' | 'assign' | 'snooze' | 'unsnooze'
 
@@ -19,6 +20,12 @@ export async function POST(request: Request) {
 
   if (action === 'status') {
     if (!value) return NextResponse.json({ error: 'value required' }, { status: 400 })
+    if (value === 'closed') {
+      for (const id of ids) {
+        await closeConversation(service, id)
+      }
+      return NextResponse.json({ ok: true })
+    }
     await service.from('conversations').update({ status: value }).in('id', ids)
     return NextResponse.json({ ok: true })
   }
@@ -71,7 +78,9 @@ export async function POST(request: Request) {
         }
       }
     }
-    await service.from('conversations').update({ status: 'closed' }).in('id', ids)
+    for (const id of ids) {
+      await closeConversation(service, id)
+    }
     return NextResponse.json({ ok: true })
   }
 

@@ -302,7 +302,7 @@ function DateRangePill({
     if (dateFrom && dateTo) return `${dateFrom} - ${dateTo}`
     if (dateFrom) return `From ${dateFrom}`
     if (dateTo) return `To ${dateTo}`
-    return 'Date range'
+    return 'Last activity'
   }
 
   return (
@@ -341,6 +341,7 @@ function DateRangePill({
 
       {open && (
         <div className="absolute top-full mt-1 left-0 z-30 bg-cbba-navy-dark border border-white/10 rounded-xl shadow-2xl p-3 min-w-[200px]">
+          <p className="text-[10px] text-gray-500 mb-2">Filter by last activity</p>
           <div className="space-y-2.5">
             <div>
               <label className="block text-xs text-gray-500 mb-1">From</label>

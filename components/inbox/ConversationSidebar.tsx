@@ -11,9 +11,10 @@ import type { ConversationDetail, ConversationListItem } from '@/types/database'
 interface ConversationSidebarProps {
   conversation: ConversationDetail
   onClose: () => void
+  onSelectConversation?: (id: string) => void
 }
 
-export default function ConversationSidebar({ conversation, onClose }: ConversationSidebarProps) {
+export default function ConversationSidebar({ conversation, onClose, onSelectConversation }: ConversationSidebarProps) {
   const [otherConversations, setOtherConversations] = useState<ConversationListItem[]>([])
 
   useEffect(() => {
@@ -106,13 +107,18 @@ export default function ConversationSidebar({ conversation, onClose }: Conversat
             </h3>
             <div className="space-y-2">
               {otherConversations.map((c) => (
-                <div key={c.id} className="p-2 rounded-lg bg-white/5 space-y-1">
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => onSelectConversation?.(c.id)}
+                  className="w-full text-left p-2 rounded-lg bg-white/5 space-y-1 [@media(hover:hover)]:hover:bg-white/10 transition-colors"
+                >
                   <p className="text-xs text-gray-300 truncate">{c.subject ?? 'No subject'}</p>
                   <div className="flex items-center gap-1.5">
                     <StatusBadge status={c.status} />
                     <ChannelIcon channel={c.channel} className="w-3.5 h-3.5" />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </section>
