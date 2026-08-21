@@ -184,6 +184,43 @@ export async function getCurrentHistoryId(channelConfigId: string): Promise<stri
   return profile.data.historyId ?? ''
 }
 
+/** Fetch inbox messages newer than `afterDate` (used when historyId is stale or ingest was blocked). */
+export async function listRecentInboxMessages(
+  channelConfigId: string,
+  afterDate: Date
+): Promise<ParsedEmail[]> {
+  const auth = await getAuthenticatedClient(channelConfigId)
+  const gmail = google.gmail({ version: 'v1', auth })
+
+  const afterSec = Math.floor(afterDate.getTime() / 1000)
+  const parsed: ParsedEmail[] = []
+  let pageToken: string | undefined
+
+  do {
+    const listRes = await gmail.users.messages.list({
+      userId: 'me',
+      q: `-in:sent -in:drafts -in:chats -in:spam -in:trash after:${afterSec}`,
+      maxResults: 100,
+      pageToken,
+    })
+
+    for (const msg of listRes.data.messages ?? []) {
+      if (!msg.id) continue
+      const full = await gmail.users.messages.get({
+        userId: 'me',
+        id: msg.id,
+        format: 'full',
+      })
+      const email = await parseMessage(gmail, full.data)
+      if (email) parsed.push(email)
+    }
+
+    pageToken = listRes.data.nextPageToken ?? undefined
+  } while (pageToken)
+
+  return parsed
+}
+
 async function parseMessage(
   gmail: ReturnType<typeof google.gmail>,
   msg: import('googleapis').gmail_v1.Schema$Message

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentHistoryId } from '@/lib/gmail/client'
-import { syncGmailInbox } from '@/lib/gmail/sync-inbox'
+import { catchUpGmailInbox, inboxNeedsCatchUp, syncGmailInbox } from '@/lib/gmail/sync-inbox'
 
 // Called by Vercel Cron (or external cron service) every minute.
 // Vercel passes Authorization: Bearer {CRON_SECRET} automatically.
@@ -34,6 +34,22 @@ export async function GET(request: Request) {
     let historyId = metadata.history_id ?? null
 
     try {
+      const catchUp = await inboxNeedsCatchUp(config.id, metadata)
+      if (catchUp.needed) {
+        const imported = await catchUpGmailInbox({
+          configId: config.id,
+          email,
+          metadata,
+          afterDate: catchUp.afterDate,
+        })
+        results.push({
+          email,
+          processed: imported.processed,
+          status: `caught_up:${imported.scanned}`,
+        })
+        continue
+      }
+
       if (!historyId) {
         historyId = await getCurrentHistoryId(config.id)
         await supabase
@@ -57,14 +73,30 @@ export async function GET(request: Request) {
       const errMsg = err instanceof Error ? err.message : String(err)
 
       if (errMsg.includes('404') || errMsg.includes('Invalid historyId')) {
-        const newId = await getCurrentHistoryId(config.id).catch(() => '')
-        if (newId) {
-          await supabase
-            .from('channel_configs')
-            .update({ metadata: { ...metadata, history_id: newId } })
-            .eq('id', config.id)
+        try {
+          const afterDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+          const imported = await catchUpGmailInbox({
+            configId: config.id,
+            email,
+            metadata,
+            afterDate,
+          })
+          results.push({
+            email,
+            processed: imported.processed,
+            status: `reinitialized:${imported.scanned}`,
+          })
+        } catch (catchUpErr) {
+          const newId = await getCurrentHistoryId(config.id).catch(() => '')
+          if (newId) {
+            await supabase
+              .from('channel_configs')
+              .update({ metadata: { ...metadata, history_id: newId } })
+              .eq('id', config.id)
+          }
+          console.error(`[gmail/poll] catch-up failed for ${email}:`, catchUpErr)
+          results.push({ email, processed: 0, status: 'reinitialized' })
         }
-        results.push({ email, processed: 0, status: 'reinitialized' })
       } else {
         console.error(`[gmail/poll] error for ${email}:`, err)
         results.push({ email, processed: 0, status: errMsg })
