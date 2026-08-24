@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import RichTextEditor from '@/components/ui/RichTextEditor'
 import EmailInput from '@/components/ui/EmailInput'
+import { createClient } from '@/lib/supabase/client'
+import { buildForwardQuote } from '@/lib/email/forward-quote'
 
 interface CannedResponse {
   id: string
@@ -29,6 +31,8 @@ interface ReplyBoxProps {
   lastInboundCc?: string[]
   channelConfigId?: string | null
   fromEmail?: string | null
+  contactName?: string | null
+  subject?: string | null
   onSent?: () => void
 }
 
@@ -42,6 +46,8 @@ export default function ReplyBox({
   lastInboundCc = [],
   channelConfigId,
   fromEmail,
+  contactName,
+  subject,
   onSent,
 }: ReplyBoxProps) {
   const [collapsed, setCollapsed] = useState(true)
@@ -56,6 +62,7 @@ export default function ReplyBox({
   const [cannedSearch, setCannedSearch] = useState('')
   const [attachments, setAttachments] = useState<AttachmentFile[]>([])
   const [replyAll, setReplyAll] = useState(false)
+  const [isForward, setIsForward] = useState(false)
   const [showCc, setShowCc] = useState(false)
   const [showBcc, setShowBcc] = useState(false)
   const [toEmail, setToEmail] = useState(contactEmail ?? '')
@@ -81,7 +88,9 @@ export default function ReplyBox({
 
   function applyReplyAll() {
     setIsNote(false)
+    setIsForward(false)
     setReplyAll(true)
+    setToEmail(contactEmail ?? '')
     if (replyAllRecipients.length > 0) {
       setShowCc(true)
       setCc(replyAllRecipients.join(', '))
@@ -93,9 +102,51 @@ export default function ReplyBox({
 
   function applyReplyOnly() {
     setIsNote(false)
+    setIsForward(false)
     setReplyAll(false)
+    setToEmail(contactEmail ?? '')
     setShowCc(false)
     setCc('')
+  }
+
+  async function applyForward() {
+    setIsNote(false)
+    setReplyAll(false)
+    setIsForward(true)
+    setToEmail('')
+    setShowCc(false)
+    setCc('')
+    setCollapsed(false)
+
+    const supabase = createClient()
+    const { data: latest } = await supabase
+      .from('messages')
+      .select('content, from_address, from_name, created_at, sender_type')
+      .eq('conversation_id', conversationId)
+      .eq('is_internal_note', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!latest?.content) return
+
+    const from =
+      latest.from_name && latest.from_address
+        ? `${latest.from_name} <${latest.from_address}>`
+        : latest.from_address || latest.from_name || contactName || 'Unknown'
+    const quote = buildForwardQuote({
+      subject: subject || '(no subject)',
+      from,
+      date: latest.created_at,
+      to: contactEmail,
+      body: latest.content,
+    })
+    setContent((prev) => {
+      const text = getTextContent(prev)
+      if (text && prev.includes('Forwarded message')) return prev
+      if (text) return `${prev}${quote}`
+      return quote
+    })
   }
 
   const draftKey = `cbba-draft:${conversationId}`
@@ -103,6 +154,7 @@ export default function ReplyBox({
   useEffect(() => {
     setContent('')
     setIsNote(false)
+    setIsForward(false)
     setCollapsed(true)
     setAttachments([])
     setToEmail(contactEmail ?? '')
@@ -135,7 +187,7 @@ export default function ReplyBox({
 
   // Keep Reply All CCs in sync if the From account changes (drop our own address)
   useEffect(() => {
-    if (!replyAll || isNote) return
+    if (!replyAll || isNote || isForward) return
     if (replyAllRecipients.length === 0) {
       setCc('')
       setShowCc(false)
@@ -181,6 +233,10 @@ export default function ReplyBox({
     const trimmed = content.trim()
     const textOnly = getTextContent(trimmed)
     if (!textOnly || sending) return
+    if (isForward && !toEmail.trim()) {
+      setError('Enter a recipient to forward to')
+      return
+    }
 
     setSending(true)
     setError(null)
@@ -191,6 +247,7 @@ export default function ReplyBox({
       body: JSON.stringify({
         content: trimmed,
         isNote,
+        isForward: isForward && !isNote,
         isAiSuggested: aiSuggested && !isNote,
         attachments: isNote ? [] : attachments,
         to: (!isNote && isGmail && toEmail.trim()) ? toEmail.trim() : undefined,
@@ -217,6 +274,7 @@ export default function ReplyBox({
     setShowBcc(false)
     setSending(false)
     setCollapsed(true)
+    setIsForward(false)
     setToEmail(contactEmail ?? '')
     if (replyAllRecipients.length > 0) {
       setReplyAll(true)
@@ -227,7 +285,7 @@ export default function ReplyBox({
       setShowCc(false)
       setCc('')
     }
-  }, [content, conversationId, isNote, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail, fromConfigId, channelConfigId, lastInboundCc, selectedFromEmail, conversationFromEmail, onSent])
+  }, [content, conversationId, isNote, isForward, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail, fromConfigId, channelConfigId, lastInboundCc, selectedFromEmail, conversationFromEmail, onSent])
 
   function discardDraft() {
     localStorage.removeItem(draftKey)
@@ -235,6 +293,7 @@ export default function ReplyBox({
     setAiSuggested(false)
     setAttachments([])
     setError(null)
+    setIsForward(false)
     setCollapsed(true)
   }
 
@@ -385,7 +444,7 @@ export default function ReplyBox({
           <button
             onClick={applyReplyOnly}
             className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
-              !isNote && !replyAll
+              !isNote && !replyAll && !isForward
                 ? 'bg-cbba-navy-light text-white border-white/10'
                 : 'text-gray-500 border-transparent hover:text-gray-300'
             }`}
@@ -398,7 +457,7 @@ export default function ReplyBox({
             <button
               onClick={applyReplyAll}
               className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
-                !isNote && replyAll
+                !isNote && replyAll && !isForward
                   ? 'bg-cbba-navy-light text-white border-white/10'
                   : 'text-gray-500 border-transparent hover:text-gray-300'
               }`}
@@ -407,8 +466,21 @@ export default function ReplyBox({
             </button>
           )}
 
+          {isGmail && (
+            <button
+              onClick={() => { void applyForward() }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
+                !isNote && isForward
+                  ? 'bg-cbba-navy-light text-white border-white/10'
+                  : 'text-gray-500 border-transparent hover:text-gray-300'
+              }`}
+            >
+              Forward
+            </button>
+          )}
+
           <button
-            onClick={() => { setIsNote(true); setReplyAll(false) }}
+            onClick={() => { setIsNote(true); setReplyAll(false); setIsForward(false) }}
             className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
               isNote
                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
@@ -456,7 +528,7 @@ export default function ReplyBox({
                 </span>
               )}
             </div>
-            {fromOverridden && conversationFromEmail && selectedFromEmail && (
+            {fromOverridden && !isForward && conversationFromEmail && selectedFromEmail && (
               <p className="px-3 py-1.5 text-[10px] text-amber-400/90 border-b border-white/5 bg-amber-500/5">
                 This reply will send from {selectedFromEmail} and move the conversation to that inbox so you can keep the thread.
               </p>
@@ -467,7 +539,7 @@ export default function ReplyBox({
               <EmailInput
                 value={toEmail}
                 onChange={setToEmail}
-                placeholder="recipient@example.com"
+                placeholder={isForward ? 'Forward to...' : 'recipient@example.com'}
                 className="w-full bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none"
                 single
               />
@@ -677,7 +749,7 @@ export default function ReplyBox({
             )}
             <button
               onClick={handleSend}
-              disabled={isEmpty || sending}
+              disabled={isEmpty || sending || (isForward && !toEmail.trim())}
               title={`${typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? 'Cmd' : 'Ctrl'}+Enter`}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium [@media(hover:hover)]:hover:bg-cbba-purple-light active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 transition-[background-color,transform] duration-150 ease-out"
             >
@@ -691,7 +763,7 @@ export default function ReplyBox({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
             )}
-            {sending ? 'Sending...' : isNote ? 'Add Note' : 'Send'}
+            {sending ? 'Sending...' : isNote ? 'Add Note' : isForward ? 'Forward' : 'Send'}
             </button>
           </div>
         </div>

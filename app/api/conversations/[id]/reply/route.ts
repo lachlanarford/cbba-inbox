@@ -4,8 +4,10 @@ import { createServiceClient } from '@/lib/supabase/service'
 import {
   sendReply as sendGmailReply,
   formatGmailError,
+  fetchAttachmentData,
   type OutboundAttachment,
 } from '@/lib/gmail/client'
+import { parseAttachmentMarker } from '@/lib/email/forward-quote'
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
 
@@ -38,6 +40,7 @@ export async function POST(
     cc?: string[]
     bcc?: string[]
     channelConfigId?: string
+    isForward?: boolean
   }
   try {
     body = await request.json()
@@ -45,7 +48,7 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { content, isNote, isAiSuggested, attachments, to, cc, bcc, channelConfigId: overrideConfigId } = body
+  const { content, isNote, isAiSuggested, attachments, to, cc, bcc, channelConfigId: overrideConfigId, isForward } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
   const { data: conversation } = await supabase
@@ -55,6 +58,9 @@ export async function POST(
     .single()
 
   if (!conversation) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+  if (isForward && conversation.channel === 'gmail' && !to?.trim()) {
+    return NextResponse.json({ error: 'Enter a recipient to forward to' }, { status: 400 })
+  }
 
   const signature = (appUser.settings as Record<string, unknown>)?.signature as string | undefined
   const bodyWithSig = !isNote && conversation.channel === 'gmail' && signature?.trim()
@@ -89,7 +95,10 @@ export async function POST(
 
       const contactEmail = to?.trim() || contact?.email
       if (!contactEmail) {
-        return NextResponse.json({ error: 'Contact has no email address' }, { status: 400 })
+        return NextResponse.json(
+          { error: isForward ? 'Enter a recipient to forward to' : 'Contact has no email address' },
+          { status: 400 }
+        )
       }
 
       try {
@@ -101,15 +110,40 @@ export async function POST(
 
         const { data: lastInbound } = await service
           .from('messages')
-          .select('rfc_message_id')
+          .select('rfc_message_id, content')
           .eq('conversation_id', conversationId)
           .eq('sender_type', 'contact')
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
-        const inReplyTo = (lastInbound as { rfc_message_id?: string | null } | null)?.rfc_message_id ?? null
+        const inReplyTo = isForward
+          ? null
+          : ((lastInbound as { rfc_message_id?: string | null } | null)?.rfc_message_id ?? null)
 
-        const canUseThread = !!conversation.external_thread_id && !sendingFromOtherInbox
+        const canUseThread = !isForward && !!conversation.external_thread_id && !sendingFromOtherInbox
+
+        const outboundAttachments: OutboundAttachment[] = [...(attachments ?? [])]
+        if (isForward && lastInbound?.content) {
+          const marker = parseAttachmentMarker(lastInbound.content)
+          if (marker && conversation.channel_config_id) {
+            let total = outboundAttachments.reduce((sum, a) => sum + (a.data.length * 3) / 4, 0)
+            for (const item of marker.items) {
+              if (total + item.size > 25 * 1024 * 1024) break
+              try {
+                const data = await fetchAttachmentData(conversation.channel_config_id, marker.msgId, item.id)
+                if (!data) continue
+                outboundAttachments.push({
+                  name: item.name,
+                  mimeType: item.mimeType,
+                  data,
+                })
+                total += item.size
+              } catch (err) {
+                console.error('[reply] forward attachment skipped:', item.name, err)
+              }
+            }
+          }
+        }
 
         const sent = await sendGmailReply(channelConfig.id, {
           threadId: canUseThread ? conversation.external_thread_id : null,
@@ -118,21 +152,26 @@ export async function POST(
           from: channelConfig.identifier,
           subject: conversation.subject ?? '(no subject)',
           body: bodyWithSig,
-          attachments: attachments ?? [],
+          attachments: outboundAttachments,
           cc: cc ?? [],
           bcc: bcc ?? [],
+          isForward: !!isForward,
         })
 
         sentFromAddress = channelConfig.identifier
         externalMessageId = sent.messageId
 
-        const convPatch: { channel_config_id?: string; external_thread_id?: string } = {}
-        if (sendingFromOtherInbox || !conversation.external_thread_id) {
-          convPatch.channel_config_id = channelConfig.id
-          convPatch.external_thread_id = sent.threadId
-        }
-        if (Object.keys(convPatch).length > 0) {
-          await service.from('conversations').update(convPatch).eq('id', conversationId)
+        // Keep the original Gmail thread on this conversation. A forward is a new
+        // outbound message; replies to it will arrive as a separate conversation.
+        if (!isForward) {
+          const convPatch: { channel_config_id?: string; external_thread_id?: string } = {}
+          if (sendingFromOtherInbox || !conversation.external_thread_id) {
+            convPatch.channel_config_id = channelConfig.id
+            convPatch.external_thread_id = sent.threadId
+          }
+          if (Object.keys(convPatch).length > 0) {
+            await service.from('conversations').update(convPatch).eq('id', conversationId)
+          }
         }
       } catch (err) {
         console.error('[reply] Gmail send failed:', err)

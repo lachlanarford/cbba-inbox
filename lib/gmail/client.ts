@@ -397,6 +397,12 @@ export function formatGmailError(err: unknown): string {
   return rec.response?.data?.error?.message || rec.message || 'Unknown Gmail error'
 }
 
+function withSubjectPrefix(subject: string, prefix: 'Re:' | 'Fwd:'): string {
+  const value = subject.trim() || '(no subject)'
+  if (value.toLowerCase().startsWith(prefix.toLowerCase())) return value
+  return `${prefix} ${value}`
+}
+
 export async function sendReply(
   channelConfigId: string,
   opts: {
@@ -409,12 +415,13 @@ export async function sendReply(
     attachments?: OutboundAttachment[]
     cc?: string[]
     bcc?: string[]
+    isForward?: boolean
   }
 ): Promise<{ threadId: string; messageId: string }> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
 
-  const subject = opts.subject.startsWith('Re:') ? opts.subject : `Re: ${opts.subject}`
+  const subject = withSubjectPrefix(opts.subject, opts.isForward ? 'Fwd:' : 'Re:')
   const isHtml = opts.body.trimStart().startsWith('<')
   const bodyContentType = isHtml ? 'text/html' : 'text/plain'
 
@@ -422,7 +429,7 @@ export async function sendReply(
 
   const ccHeaders = opts.cc && opts.cc.length > 0 ? [`Cc: ${opts.cc.join(', ')}`] : []
   const bccHeaders = opts.bcc && opts.bcc.length > 0 ? [`Bcc: ${opts.bcc.join(', ')}`] : []
-  const replyHeaders = opts.inReplyTo
+  const replyHeaders = !opts.isForward && opts.inReplyTo
     ? [`In-Reply-To: ${opts.inReplyTo}`, `References: ${opts.inReplyTo}`]
     : []
 
@@ -473,7 +480,8 @@ export async function sendReply(
   const encoded = Buffer.from(raw).toString('base64url')
   const requestBody: { raw: string; threadId?: string } = { raw: encoded }
   // Gmail thread IDs are per-mailbox. Only attach when sending from the account that owns the thread.
-  if (opts.threadId) requestBody.threadId = opts.threadId
+  // Forwards are a new message to a new recipient, so they must not join the original thread.
+  if (opts.threadId && !opts.isForward) requestBody.threadId = opts.threadId
 
   const res = await gmail.users.messages.send({
     userId: 'me',
@@ -519,6 +527,23 @@ export async function sendNewEmail(
     threadId: res.data.threadId ?? res.data.id ?? '',
     messageId: res.data.id ?? '',
   }
+}
+
+export async function fetchAttachmentData(
+  channelConfigId: string,
+  messageId: string,
+  attachmentId: string
+): Promise<string | null> {
+  const auth = await getAuthenticatedClient(channelConfigId)
+  const gmail = google.gmail({ version: 'v1', auth })
+  const att = await gmail.users.messages.attachments.get({
+    userId: 'me',
+    messageId,
+    id: attachmentId,
+  })
+  const raw = att.data.data
+  if (!raw) return null
+  return raw.replace(/-/g, '+').replace(/_/g, '/')
 }
 
 export async function markAsRead(channelConfigId: string, messageId: string): Promise<void> {

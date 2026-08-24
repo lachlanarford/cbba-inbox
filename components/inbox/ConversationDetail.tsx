@@ -556,6 +556,8 @@ export default function ConversationDetail({
           conversationId={conversationId}
           channel={conversation.channel}
           contactEmail={(conversation.contact as unknown as { email?: string | null })?.email ?? null}
+          contactName={(conversation.contact as unknown as { full_name?: string | null })?.full_name ?? null}
+          subject={conversation.subject}
           lastInboundCc={lastInboundCc}
           channelConfigId={conversation.channel_config_id ?? null}
           fromEmail={conversation.channel_config?.identifier ?? null}
