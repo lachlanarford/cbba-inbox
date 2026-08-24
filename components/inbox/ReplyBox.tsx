@@ -692,7 +692,8 @@ export default function ReplyBox({
               </svg>
             )}
             {sending ? 'Sending...' : isNote ? 'Add Note' : 'Send'}
-          </button>
+            </button>
+          </div>
         </div>
       </div>
     </div>
