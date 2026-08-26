@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { MessageWithSender } from '@/types/database'
 import { formatDateTime } from '@/lib/utils/time'
 import HtmlEmailViewer from './HtmlEmailViewer'
@@ -63,6 +63,36 @@ function stripHtml(html: string): string {
     .replace(/&#39;/g, "'")
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+const URL_RE = /(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/gi
+
+function linkifyText(text: string): ReactNode[] {
+  const parts: ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  const re = new RegExp(URL_RE.source, URL_RE.flags)
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+    const href = match[0]
+    parts.push(
+      <a
+        key={`${match.index}-${href}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline underline-offset-2 hover:opacity-80 break-all"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {href}
+      </a>
+    )
+    lastIndex = match.index + href.length
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+  return parts.length > 0 ? parts : [text]
 }
 
 interface ContactInfo {
@@ -216,7 +246,7 @@ export default function MessageBubble({
                 </>
               ) : (
                 <div className="px-5 py-4">
-                  <p className="text-sm text-gray-200 whitespace-pre-wrap leading-[1.55] tracking-tight">{plainText}</p>
+                  <p className="text-sm text-gray-200 whitespace-pre-wrap leading-[1.55] tracking-tight">{linkifyText(plainText)}</p>
                   {attachments.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-white/[0.05]">
                       <AttachmentChips attachments={attachments} conversationId={message.conversation_id} />
@@ -249,7 +279,7 @@ export default function MessageBubble({
             ? 'bg-cbba-purple text-white rounded-tr-sm'
             : 'bg-cbba-navy-light border border-white/10 text-gray-200 rounded-tl-sm'
         }`}>
-          {cleanContent}
+          {linkifyText(cleanContent)}
         </div>
         {attachments.length > 0 && (
           <AttachmentChips attachments={attachments} conversationId={message.conversation_id} />

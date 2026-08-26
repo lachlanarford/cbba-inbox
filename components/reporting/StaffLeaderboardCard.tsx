@@ -36,7 +36,7 @@ export default function StaffLeaderboardCard({ filters }: { filters: ReportFilte
     <div className="bg-cbba-navy-light rounded-xl p-5 col-span-2">
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-white">Staff Leaderboard</h3>
-        <p className="text-xs text-gray-500 mt-0.5">Performance by team member</p>
+        <p className="text-xs text-gray-500 mt-0.5">Based on who sent replies, not the From inbox address</p>
       </div>
       {loading ? (
         <div className="h-40 flex items-center justify-center text-xs text-gray-600">Loading...</div>

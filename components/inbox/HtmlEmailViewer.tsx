@@ -37,8 +37,17 @@ export default function HtmlEmailViewer({ html }: Props) {
 
   function onLoad() {
     const iframe = iframeRef.current
-    if (!iframe?.contentDocument?.body) return
-    const height = iframe.contentDocument.documentElement.scrollHeight
+    const doc = iframe?.contentDocument
+    if (!iframe || !doc?.body) return
+
+    // Force links to open outside the sandboxed iframe
+    doc.querySelectorAll('a[href]').forEach((el) => {
+      const a = el as HTMLAnchorElement
+      a.setAttribute('target', '_blank')
+      a.setAttribute('rel', 'noopener noreferrer')
+    })
+
+    const height = doc.documentElement.scrollHeight
     iframe.style.height = `${Math.min(height, 800)}px`
   }
 
@@ -50,7 +59,7 @@ export default function HtmlEmailViewer({ html }: Props) {
     <iframe
       ref={iframeRef}
       srcDoc={wrapped}
-      sandbox="allow-same-origin"
+      sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       onLoad={onLoad}
       className="w-full border-0 block"
       style={{ minHeight: 80, height: 120 }}
