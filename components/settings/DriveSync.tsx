@@ -109,7 +109,7 @@ export default function DriveSync({ initialFolderId, initialChannelConfigId, gma
           <li>Create a folder in Google Drive and add your policy docs, Google Docs, or Sheets</li>
           <li>Paste the folder ID and save -- the AI will use these documents when answering questions</li>
         </ol>
-        <p className="text-xs text-gray-500 pt-1">Supported: Google Docs, Google Sheets, PDF files. Syncs automatically every hour.</p>
+        <p className="text-xs text-gray-500 pt-1">Supported: Google Docs, Google Sheets, PDF files. Syncs automatically once a day. Use a customer-facing folder only. Staff procedures such as payroll and timesheets should stay out of this folder.</p>
       </div>
 
       {/* Google account picker */}

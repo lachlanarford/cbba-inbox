@@ -5,6 +5,8 @@ import { isAdmin } from '@/lib/auth'
 import { getDriveClient, listFilesInFolder, extractTextFromFile } from '@/lib/drive/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+export const maxDuration = 300
+
 type SyncResult = { name: string; status: 'synced' | 'skipped' | 'error' }
 
 async function runDriveSync(
@@ -127,6 +129,14 @@ export async function GET(request: Request) {
 
   if ('error' in result) {
     console.error('[drive-sync cron] failed:', result.error)
+    await service.from('drive_sync_logs').insert({
+      trigger: 'cron',
+      synced_count: 0,
+      skipped_count: 0,
+      error_count: 1,
+      status: 'error',
+      error_message: result.error,
+    })
     return NextResponse.json({ error: result.error }, { status: result.status })
   }
 

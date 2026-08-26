@@ -86,7 +86,11 @@ More info: https://www.bnsw.com.au/faq-participant-membership-fees/`,
     category: 'Aussie Hoops',
     content: `Ford Aussie Hoops is a Basketball Australia introductory program for children aged 5-10. CBBA delivers it at two venues each school term.
 
-VENUES AND TIMETABLE (Term 2 2026):
+Program page: https://www.blacktownbasketball.com/cbba-aussie-hoops
+Enquiries: learntoplay@blacktownbasketball.com
+
+VENUES AND TIMETABLE (Term 3 2026):
+Term 3 starts from 24 July 2026.
 
 Kevin Betts Stadium, Mt Druitt (1 Ralph Place, Mount Druitt NSW 2770):
 - Beginners: Mondays from 5:30pm
@@ -98,6 +102,11 @@ Blacktown Leisure Centre, Stanhope (Sentry Drive, Stanhope Gardens NSW 2768):
 - Intermediate: Fridays from 6:30pm
 - Train & Play: Fridays from 5:30pm (Training 5:30-6:30pm | 3x3 Game 6:30-7:00pm)
 
+Term 3 2026 session dates:
+- Mt Druitt Mondays: 27 Jul, 3 Aug, 10 Aug, 17 Aug, 24 Aug, 31 Aug, 7 Sep, 14 Sep
+- Mt Druitt Fridays: 24 Jul, 31 Jul, 7 Aug, 14 Aug, 21 Aug, 28 Aug, 4 Sep, 11 Sep
+- Stanhope Fridays: 31 Jul, 7 Aug, 14 Aug, 21 Aug, 4 Sep, 18 Sep (six sessions; a discounted rate applies at registration)
+
 PROGRAM LEVELS:
 - Beginner: Ages 5-8. Foundational skills through fun games and drills. No experience needed.
 - Intermediate: Ages 7-9 who have completed Beginners. Rules and competition skills.
@@ -105,17 +114,19 @@ PROGRAM LEVELS:
 
 All new participants should start in Beginners. Coaches will assess and move up if appropriate.
 
-FEES (2026):
+FEES (2026 Term 3):
 Beginner and Intermediate:
-- New Participant: $175 per term (includes Starter Pack valued at $50)
-- Returning Participant: $125 per term
+- New Participant: $176.10 per term (includes Starter Pack valued at $50)
+- Returning Participant: $126.10 per term
 
 Train & Play:
-- New Participant: $312 per term (Training/Pack $207 + Game Fee $105)
-- Returning Participant: $262 per term (Training $157 + Game Fee $105)
+- New Participant: $286.10 per term (Training/Pack $176.10 + Game Fee $110)
+- Returning Participant: $236.10 per term (Training $126.10 + Game Fee $110)
 
 NSW Active Kids Vouchers accepted.
-Programs run 8 weeks per term, 1 hour per session (+30 mins for Train & Play). Register term by term.`,
+Programs run 8 weeks per term (Stanhope Term 3 has six sessions), 1 hour per session (+30 mins for Train & Play). Register term by term.
+
+Related program: Assist All Hoops is CBBA's inclusive program for participants with an intellectual impairment. See https://www.blacktownbasketball.com/cbba-assist-all`,
   },
   {
     title: 'Aussie Hoops - FAQs',
@@ -253,6 +264,71 @@ Zero Tolerance, Players/Spectators/Coaches-Officials Codes of Conduct, Tribunal 
 For all direct document links, visit: https://www.blacktownbasketball.com/policies-resources-forms`,
   },
   {
+    title: 'Assist All Hoops',
+    category: 'Aussie Hoops',
+    content: `Assist All Hoops is CBBA's inclusive basketball program for participants of all ages with an intellectual impairment. It is delivered in partnership with Basketball NSW.
+
+Program page: https://www.blacktownbasketball.com/cbba-assist-all
+BNSW overview: https://www.bnsw.com.au/assist-all-hoops/
+Enquiries: learntoplay@blacktownbasketball.com
+
+WHO IT IS FOR:
+Young people and participants of all ages and skill levels with an intellectual impairment. Sessions use fun games to build fundamental basketball movements, confidence, friendships, and a safe place to be active.
+
+VENUE AND TIME (Term 3 2026):
+Kevin Betts Stadium, Mt Druitt
+Monday nights, 5:30pm to 6:30pm
+Eight weekly one-hour sessions.
+
+Term 3 2026 dates: 27 Jul, 3 Aug, 10 Aug, 17 Aug, 24 Aug, 31 Aug, 7 Sep, 14 Sep.
+
+FEES:
+$110 per term.
+NSW Active Kids Vouchers accepted.
+
+Register via the program page: https://www.blacktownbasketball.com/cbba-assist-all`,
+  },
+  {
+    title: 'Become a Referee',
+    category: 'Referees',
+    content: `CBBA recruits new referees at the start of each domestic (Winter and Summer) competition season. About 15 new referees are taken on each season.
+
+Referee page (includes the expression of interest form): https://www.blacktownbasketball.com/referee
+
+MINIMUM AGE: 13 years old.
+
+HOW TO START:
+1. Meet the requirements: at least 13, willing to learn, take feedback, and work in a team.
+2. Submit the expression of interest form on https://www.blacktownbasketball.com/referee. CBBA contacts applicants before the next season.
+3. Successful applicants complete the C1 Referee Course: Etrainu self-paced online modules, then an in-person C1 workshop.
+4. After training, new referees join RefBook and start on junior domestic games with support from experienced referees and supervisors.
+
+Already qualified elsewhere: fill in the form on the referee page and CBBA will be in contact.
+
+WHEN GAMES RUN:
+- Local league: school terms, Monday to Friday, at Stanhope, Emerton, and Mt Druitt
+- Blacktown Storm junior home games: Sundays in season (March to July) at Mt Druitt
+- Also school tournaments, rep pre/post season, and ad-hoc tournaments
+
+Referees are paid hobbyist officials. The role builds confidence, leadership, and communication, with a pathway from domestic games through to representative, state, and national levels.`,
+  },
+  {
+    title: 'Prep4Reps',
+    category: 'Reps',
+    content: `Prep4Reps (Prep-4-Reps) is a CBBA holiday camp for junior players preparing for representative (Storm) trials. Players train with Storm coaches to tune up skills during the school holidays.
+
+It is suitable for junior players who already play representative basketball and for non-rep players who want extra coaching before trying out. Players from other clubs can attend.
+
+Typical format (confirm current dates before registering):
+- Two-day camp during school holidays
+- Venue is often Blacktown Leisure Centre, Stanhope
+- Morning: U12 and U14 boys and girls (about 10:00am to 11:30am)
+- Afternoon: U16 and U18 boys and girls (about 12:00pm to 2:30pm)
+- Previous camps have been $70 covering both days; participants are expected to attend both days
+
+Dates and registration change each holiday period. Check Events on https://www.blacktownbasketball.com or email info@blacktownbasketball.com for the next camp.`,
+  },
+  {
     title: 'Contact and General Information',
     category: 'General',
     content: `General Office: Monday to Friday, 9:00am to 5:00pm
@@ -283,10 +359,9 @@ export async function POST() {
   if (!appUser || !isAdmin(appUser)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const service = createServiceClient()
-  const results: { title: string; status: 'inserted' | 'skipped' | 'error'; error?: string }[] = []
+  const results: { title: string; status: 'inserted' | 'updated' | 'error'; error?: string }[] = []
 
   for (const entry of SEED_ENTRIES) {
-    // Check if an entry with this title already exists (idempotent)
     const { data: existing } = await service
       .from('knowledge_base')
       .select('id')
@@ -295,7 +370,22 @@ export async function POST() {
       .maybeSingle()
 
     if (existing) {
-      results.push({ title: entry.title, status: 'skipped' })
+      const { error: updateErr } = await service
+        .from('knowledge_base')
+        .update({
+          content: entry.content,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+
+      if (updateErr) {
+        results.push({ title: entry.title, status: 'error', error: updateErr.message })
+        continue
+      }
+
+      // @ts-expect-error category/created_by not yet in generated types
+      await service.from('knowledge_base').update({ created_by: user.id, category: entry.category }).eq('id', existing.id)
+      results.push({ title: entry.title, status: 'updated' })
       continue
     }
 
@@ -316,8 +406,8 @@ export async function POST() {
   }
 
   const inserted = results.filter((r) => r.status === 'inserted').length
-  const skipped = results.filter((r) => r.status === 'skipped').length
+  const updated = results.filter((r) => r.status === 'updated').length
   const errors = results.filter((r) => r.status === 'error').length
 
-  return NextResponse.json({ inserted, skipped, errors, results })
+  return NextResponse.json({ inserted, updated, errors, results })
 }

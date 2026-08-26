@@ -68,6 +68,9 @@ const SYNONYMS: Record<string, string[]> = {
   ltp: ['aussie', 'hoops', 'learn'],
   reps: ['representative', 'rep', 'waratah'],
   rep: ['representative', 'reps', 'waratah'],
+  prep: ['prep4reps', 'representative', 'trials', 'camp'],
+  prep4reps: ['representative', 'rep', 'trials', 'camp'],
+  officiating: ['referee', 'referees', 'ref'],
 }
 
 const DEPARTMENT_TERMS: Record<string, string[]> = {
@@ -109,8 +112,8 @@ function isCustomerFacing(entry: KnowledgeRow): boolean {
 }
 
 function customerBoost(entry: KnowledgeRow): number {
-  if (entry.source_type === 'manual') return 2.4
-  if (/^kb-\d+/i.test(entry.title)) return 2.4
+  if (entry.source_type === 'manual') return 2.6
+  if (/^kb-\d+/i.test(entry.title)) return 2.2
   return 1
 }
 

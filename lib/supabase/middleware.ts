@@ -25,6 +25,7 @@ function isPublicPath(pathname: string): boolean {
     pathname.startsWith('/api/gmail/auth/') ||
     pathname === '/api/gmail/poll' ||
     pathname === '/api/gmail/watch/renew' ||
+    pathname === '/api/knowledge/drive-sync' ||
     pathname.startsWith('/api/chat') ||
     pathname.startsWith('/widget') ||
     pathname.startsWith('/api/feedback/')

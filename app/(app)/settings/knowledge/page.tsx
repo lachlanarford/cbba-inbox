@@ -32,7 +32,7 @@ export default async function KnowledgePage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Knowledge Base</h1>
         <p className="text-gray-400 text-sm mt-1">
-          Documents synced from Google Drive are used by the AI when answering questions and in the chat widget.
+          Documents synced from Google Drive, plus curated website FAQs, are used by the AI when answering questions in the chat widget.
         </p>
       </div>
       <KnowledgeManager
