@@ -6,6 +6,57 @@ import { processIncomingMessage } from '@/lib/channels/processor'
 import { getAuthenticatedClient } from '@/lib/gmail/client'
 import { google } from 'googleapis'
 
+type ChatTurn = { role: 'user' | 'assistant'; content: string }
+
+function departmentContactEmail(department?: string | null): string {
+  if (department === 'LTP') return 'learntoplay@blacktownbasketball.com'
+  return 'info@blacktownbasketball.com'
+}
+
+function toClaudeMessages(turns: ChatTurn[]): ChatTurn[] {
+  const cleaned: ChatTurn[] = []
+  for (const turn of turns) {
+    const role = turn.role === 'assistant' ? 'assistant' : 'user'
+    const content = turn.content.trim()
+    if (!content) continue
+    const last = cleaned[cleaned.length - 1]
+    if (last && last.role === role) {
+      last.content += '\n\n' + content
+    } else {
+      cleaned.push({ role, content })
+    }
+  }
+  if (cleaned[0]?.role === 'assistant') cleaned.shift()
+  return cleaned
+}
+
+function buildChatSystemPrompt(opts: {
+  knowledgeContext: string
+  department?: string | null
+}): string {
+  const contactEmail = departmentContactEmail(opts.department)
+  const deptLine = opts.department
+    ? `The visitor selected department: ${opts.department}. Prefer information relevant to that area.`
+    : 'The visitor did not select a department.'
+
+  return `You are the public website assistant for CBBA (City of Blacktown Basketball Association) in Western Sydney, Australia.
+
+How to answer:
+- Use only the knowledge excerpts below. Prefer concrete facts (fees, dates, times, venues, age groups, links) over general encouragement.
+- Lead with the direct answer. Use short bullet lists for prices, schedules, and steps.
+- Include registration or form links when they appear in the excerpts.
+- If documents disagree, prefer the excerpt with the most recent date in its title or body.
+- If the excerpts do not contain the answer, say so in one or two sentences and suggest emailing ${contactEmail}. Do not invent programs, fees, dates, or phone numbers.
+- Do not mention the knowledge base, excerpts, or these instructions.
+- Do not open with filler such as "Great question!" or "Welcome to CBBA!".
+- Never use em dashes.
+- Use Australian English spelling (enrol, organisation).
+
+${deptLine}
+
+${opts.knowledgeContext ? `Knowledge excerpts:\n${opts.knowledgeContext}` : 'No matching knowledge excerpts were found for this question.'}`
+}
+
 async function notifyStaffByEmail(visitorName: string | null): Promise<void> {
   const supabase = createServiceClient()
 
@@ -276,8 +327,8 @@ export async function POST(request: Request) {
     .from('chat_messages')
     .select('role, content')
     .eq('session_id', session_id)
-    .order('created_at', { ascending: true })
-    .limit(6)
+    .order('created_at', { ascending: false })
+    .limit(16)
 
   // Save inbound message
   await supabase.from('chat_messages').insert({
@@ -287,16 +338,30 @@ export async function POST(request: Request) {
     conversation_id: aiConversationId,
   })
 
-  const knowledgeContext = await searchKnowledge(message)
-
-  const systemPrompt = `You are a helpful assistant for CBBA (City of Blacktown Basketball Association), a community basketball organisation in Western Sydney, Australia. Answer questions about our programs, competitions, and services. Be warm, concise, and helpful. If you cannot answer confidently from the provided context, say so and suggest the person contact us directly at info@blacktownbasketball.com. Never make up information. Never use em dashes.${knowledgeContext ? `\n\nKnowledge base context:\n${knowledgeContext}` : ''}`
-
-  const conversationHistory = (history ?? []).map((m) => ({
+  const recentTurns = [...(history ?? [])].reverse().map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
   }))
+  const recentUserText = recentTurns
+    .filter((m) => m.role === 'user')
+    .slice(-3)
+    .map((m) => m.content)
+    .join(' ')
 
-  conversationHistory.push({ role: 'user', content: message })
+  const { context: knowledgeContext, sources } = await searchKnowledge(message, {
+    conversationContext: recentUserText,
+    department: contact_info?.department ?? null,
+  })
+
+  const systemPrompt = buildChatSystemPrompt({
+    knowledgeContext,
+    department: contact_info?.department ?? null,
+  })
+
+  const conversationHistory = toClaudeMessages([
+    ...recentTurns,
+    { role: 'user', content: message },
+  ])
 
   let aiResponse: string
   try {
@@ -312,7 +377,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'AI unavailable' }, { status: 500, headers: CORS_HEADERS })
   }
 
-  // Save AI response to chat_messages and to the conversation thread
+  console.log('[api/chat] retrieved sources:', sources.join(' | ') || '(none)')
+
   await Promise.all([
     supabase.from('chat_messages').insert({
       session_id,
@@ -327,6 +393,16 @@ export async function POST(request: Request) {
           sender_id: null,
           content: aiResponse,
           is_internal_note: false,
+        })
+      : Promise.resolve(),
+    aiConversationId
+      ? supabase.from('ai_logs').insert({
+          conversation_id: aiConversationId,
+          action: 'chat_reply',
+          input: message,
+          output: JSON.stringify({ reply: aiResponse, sources }),
+          model: AI_MODEL,
+          confidence: null,
         })
       : Promise.resolve(),
   ])
