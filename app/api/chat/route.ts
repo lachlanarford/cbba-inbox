@@ -373,8 +373,12 @@ export async function POST(request: Request) {
     })
     aiResponse = response.content[0].type === 'text' ? response.content[0].text.trim() : 'Sorry, I could not generate a response.'
   } catch (err) {
-    console.error('[api/chat] AI error:', err)
-    return NextResponse.json({ error: 'AI unavailable' }, { status: 500, headers: CORS_HEADERS })
+    const status = err && typeof err === 'object' && 'status' in err ? (err as { status?: number }).status : undefined
+    const messageText = err instanceof Error ? err.message : String(err)
+    console.error('[api/chat] AI error:', { status, message: messageText })
+
+    const contactEmail = departmentContactEmail(contact_info?.department ?? null)
+    aiResponse = `Sorry, I cannot answer right now. Please email ${contactEmail} and our team will help.`
   }
 
   console.log('[api/chat] retrieved sources:', sources.join(' | ') || '(none)')
