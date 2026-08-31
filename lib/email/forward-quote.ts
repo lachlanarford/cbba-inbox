@@ -1,3 +1,5 @@
+import { looksLikeHtml } from '@/lib/email/html'
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -44,7 +46,7 @@ export function buildForwardQuote(opts: {
     hour: 'numeric',
     minute: '2-digit',
   })
-  const isHtml = body.trimStart().startsWith('<')
+  const isHtml = looksLikeHtml(body)
 
   if (isHtml) {
     return `<p></p><div style="border-left:2px solid #ccc;padding-left:12px;margin-top:16px;color:#555;font-size:13px">

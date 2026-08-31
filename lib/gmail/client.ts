@@ -1,5 +1,6 @@
 import { google } from 'googleapis'
 import { createServiceClient } from '@/lib/supabase/service'
+import { looksLikeHtml, wrapHtmlFragment } from '@/lib/email/html'
 
 const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
@@ -298,7 +299,13 @@ type GmailPart = import('googleapis').gmail_v1.Schema$MessagePart
 
 function extractBody(payload: GmailPart | undefined): string {
   if (!payload) return ''
-  return extractHtmlPart(payload) || extractPlainPart(payload) || ''
+  const html = extractHtmlPart(payload)
+  const plain = extractPlainPart(payload)
+  const raw = html || plain || ''
+  if (looksLikeHtml(raw) && !raw.trimStart().startsWith('<')) {
+    return wrapHtmlFragment(raw)
+  }
+  return raw
 }
 
 function extractHtmlPart(part: GmailPart): string {
@@ -422,7 +429,7 @@ export async function sendReply(
   const gmail = google.gmail({ version: 'v1', auth })
 
   const subject = withSubjectPrefix(opts.subject, opts.isForward ? 'Fwd:' : 'Re:')
-  const isHtml = opts.body.trimStart().startsWith('<')
+  const isHtml = looksLikeHtml(opts.body)
   const bodyContentType = isHtml ? 'text/html' : 'text/plain'
 
   let raw: string
@@ -502,7 +509,7 @@ export async function sendNewEmail(
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
 
-  const isHtml = opts.body.trimStart().startsWith('<')
+  const isHtml = looksLikeHtml(opts.body)
   const bodyContentType = isHtml ? 'text/html' : 'text/plain'
   const bccHeaders = opts.bcc && opts.bcc.length > 0 ? [`Bcc: ${opts.bcc.join(', ')}`] : []
 
