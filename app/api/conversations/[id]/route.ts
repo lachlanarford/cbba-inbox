@@ -43,7 +43,7 @@ export async function PATCH(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update(sanitised as any)
     .eq('id', conversationId)
-    .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
+    .select('*, contact:contacts(*), assigned_user:users!assigned_to(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -92,7 +92,7 @@ export default function ConversationDetail({
     const supabase = createClient()
     supabase
       .from('conversations')
-      .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
+      .select('*, contact:contacts(*), assigned_user:users!assigned_to(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
       .eq('id', conversationId)
       .single()
       .then(({ data, error }) => {
@@ -148,7 +148,7 @@ export default function ConversationDetail({
       }, () => {
         supabase
           .from('conversations')
-          .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
+          .select('*, contact:contacts(*), assigned_user:users!assigned_to(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
           .eq('id', conversationId)
           .single()
           .then(({ data }) => {
@@ -590,7 +590,7 @@ export default function ConversationDetail({
             const supabase = createClient()
             supabase
               .from('conversations')
-              .select('*, contact:contacts(*), assigned_user:users(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
+              .select('*, contact:contacts(*), assigned_user:users!assigned_to(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
               .eq('id', conversationId)
               .single()
               .then(({ data }) => {

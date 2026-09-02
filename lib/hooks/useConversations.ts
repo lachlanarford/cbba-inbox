@@ -11,7 +11,7 @@ async function fetchOne(id: string): Promise<ConversationListItem | null> {
   const supabase = createClient()
   const { data } = await supabase
     .from('conversations')
-    .select('*, contact:contacts(id, full_name, email, phone), assigned_user:users(id, full_name, avatar_url)')
+    .select('*, contact:contacts(id, full_name, email, phone), assigned_user:users!assigned_to(id, full_name, avatar_url)')
     .eq('id', id)
     .single()
   return (data ?? null) as unknown as ConversationListItem | null
@@ -96,7 +96,7 @@ export function useConversations(filters: InboxFilters) {
     const supabase = createClient()
     let query = supabase
       .from('conversations')
-      .select('*, contact:contacts(id, full_name, email, phone), assigned_user:users(id, full_name, avatar_url)')
+      .select('*, contact:contacts(id, full_name, email, phone), assigned_user:users!assigned_to(id, full_name, avatar_url)')
       .order('last_message_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)
 

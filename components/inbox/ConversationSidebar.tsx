@@ -49,7 +49,7 @@ export default function ConversationSidebar({ conversation, onClose, onSelectCon
     const supabase = createClient()
     supabase
       .from('conversations')
-      .select('*, contact:contacts(id, full_name, email, phone), assigned_user:users(id, full_name, avatar_url)')
+      .select('*, contact:contacts(id, full_name, email, phone), assigned_user:users!assigned_to(id, full_name, avatar_url)')
       .eq('contact_id', conversation.contact_id)
       .neq('id', conversation.id)
       .order('last_message_at', { ascending: false })
