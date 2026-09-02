@@ -6,6 +6,7 @@ import { useAppUser } from '@/contexts/AppUserContext'
 import type { AppUser } from '@/types/supabase'
 import RichTextEditor from '@/components/ui/RichTextEditor'
 import ThemeToggle from '@/components/layout/ThemeToggle'
+import NotificationSettings from '@/components/settings/NotificationSettings'
 
 export default function ProfileSettings() {
   const user = useAppUser()
@@ -149,6 +150,9 @@ export default function ProfileSettings() {
           />
         </div>
       </div>
+
+      {/* Notifications */}
+      <NotificationSettings />
 
       {/* Appearance */}
       <div>

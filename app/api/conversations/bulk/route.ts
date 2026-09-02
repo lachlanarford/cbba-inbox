@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getAuthenticatedClient } from '@/lib/gmail/client'
 import { google } from 'googleapis'
 import { closeConversation } from '@/lib/conversations/close'
+import { notifyAssignment } from '@/lib/push/send'
 
 type BulkAction = 'archive' | 'delete' | 'status' | 'priority' | 'assign' | 'snooze' | 'unsnooze'
 
@@ -37,7 +38,21 @@ export async function POST(request: Request) {
   }
 
   if (action === 'assign') {
-    await service.from('conversations').update({ assigned_to: value ?? null }).in('id', ids)
+    const assigneeId = value ?? null
+    const { data: conversations } = await service
+      .from('conversations')
+      .select('id, subject, assigned_to')
+      .in('id', ids)
+
+    await service.from('conversations').update({ assigned_to: assigneeId }).in('id', ids)
+
+    if (assigneeId) {
+      for (const conv of conversations ?? []) {
+        if (conv.assigned_to !== assigneeId) {
+          notifyAssignment(assigneeId, conv.subject, conv.id).catch(() => {})
+        }
+      }
+    }
     return NextResponse.json({ ok: true })
   }
 

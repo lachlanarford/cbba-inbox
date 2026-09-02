@@ -3,7 +3,7 @@ import { fetchMessagesFromHistory, getCurrentHistoryId, listRecentInboxMessages,
 import type { ParsedEmail } from '@/lib/gmail/client'
 import { processIncomingMessage, processStaffGmailReply } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
-import { sendPushToAll } from '@/lib/push/send'
+import { notifyNewMessage } from '@/lib/push/send'
 
 export type GmailSyncResult = {
   processed: number
@@ -53,12 +53,31 @@ async function ingestInboxEmail(opts: {
 
   if (opts.notify) {
     const senderName = opts.email.fromName ?? opts.email.from
-    sendPushToAll({
-      title: `New message from ${senderName}`,
-      body: opts.email.subject,
-      url: `/inbox?conversation=${result.conversationId}`,
-      conversationId: result.conversationId,
-    }).catch(() => {})
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('assigned_to')
+      .eq('id', result.conversationId)
+      .single()
+
+    let targetUserIds: string[] = []
+    if (conv?.assigned_to) {
+      targetUserIds = [conv.assigned_to]
+    } else {
+      const { data: staff } = await supabase
+        .from('users')
+        .select('id, settings')
+        .eq('is_active', true)
+      targetUserIds = (staff ?? [])
+        .filter((u) => (u.settings as Record<string, unknown>)?.push_enabled === true)
+        .map((u) => u.id)
+    }
+
+    notifyNewMessage(
+      targetUserIds,
+      senderName,
+      opts.email.subject,
+      result.conversationId
+    ).catch(() => {})
   }
 
   if (opts.email.body.includes('<!--CBBA_ATT:')) {

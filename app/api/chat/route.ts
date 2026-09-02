@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { notifyLiveChat } from '@/lib/push/send'
 import { createServiceClient } from '@/lib/supabase/service'
 import aiClient, { AI_MODEL, AI_MAX_TOKENS } from '@/lib/ai/client'
 import { searchKnowledge } from '@/lib/knowledge/search'
@@ -228,6 +229,7 @@ export async function POST(request: Request) {
             .from('users')
             .select('id')
             .eq('is_active', true)
+            .eq('live_chat_enabled', true)
           if (staffUsers?.length) {
             await supabase.from('notifications').insert(
               staffUsers.map((u) => ({
@@ -238,6 +240,11 @@ export async function POST(request: Request) {
                 conversation_id: conversationId,
               }))
             )
+            notifyLiveChat(
+              staffUsers.map((u) => u.id),
+              contact_info?.name ?? null,
+              conversationId
+            ).catch(() => {})
           }
         } catch (notifErr) {
           console.error('[api/chat] notification insert failed:', notifErr)

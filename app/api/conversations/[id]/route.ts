@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getAuthenticatedClient } from '@/lib/gmail/client'
 import { google } from 'googleapis'
+import { notifyAssignment } from '@/lib/push/send'
 
 export async function PATCH(
   request: Request,
@@ -30,6 +31,13 @@ export async function PATCH(
   }
 
   const service = createServiceClient()
+
+  const { data: existing } = await service
+    .from('conversations')
+    .select('assigned_to, subject')
+    .eq('id', conversationId)
+    .single()
+
   const { data, error } = await service
     .from('conversations')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,6 +47,13 @@ export async function PATCH(
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const newAssignee = sanitised.assigned_to as string | null | undefined
+  if (newAssignee && newAssignee !== existing?.assigned_to) {
+    const subject = (data.subject as string | null) ?? existing?.subject ?? null
+    notifyAssignment(newAssignee, subject, conversationId).catch(() => {})
+  }
+
   return NextResponse.json(data)
 }
 
