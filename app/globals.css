@@ -66,6 +66,36 @@ html, body {
 .light .text-teal-400    { color: #0f766e !important; }
 .light .text-cbba-purple-light { color: #604484 !important; }
 
+/* Solid purple surfaces keep light text in light mode */
+.light .bg-cbba-purple.text-white,
+.light .bg-cbba-purple .text-white,
+.light .bg-\[\#604484\].text-white,
+.light .bg-\[\#604484\] .text-white {
+  color: #ffffff !important;
+}
+
+/* Purple tint pills — dark purple text, not inverted body text */
+.light .bg-cbba-purple\/20.text-white,
+.light .bg-cbba-purple\/20.border-cbba-purple\/40 {
+  color: #604484 !important;
+}
+
+.light .bg-cbba-purple\/30.text-white {
+  color: #ffffff !important;
+}
+
+/* Dropdown menus on conversation header / filters */
+.light .bg-cbba-navy-dark.border-white\/10 .text-gray-300 {
+  color: #374151 !important;
+}
+.light .bg-cbba-navy-dark.border-white\/10 .text-cbba-purple {
+  color: #604484 !important;
+}
+.light .bg-cbba-navy-dark.border-white\/10 .hover\:bg-white\/5:hover,
+.light .bg-cbba-navy-dark.border-white\/10 .\[\@media\(hover\:hover\)\]\:hover\:bg-white\/5:hover {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+}
+
 /* ── Light mode border overrides ─────────────────────────────────── */
 .light .border-white\/5      { border-color: rgba(15, 23, 42, 0.1) !important; }
 .light .border-white\/8      { border-color: rgba(15, 23, 42, 0.12) !important; }

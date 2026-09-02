@@ -419,6 +419,16 @@ export default function ConversationDetail({
               {chevron}
             </div>
 
+            {users.length > 0 && (
+              <>
+                <span className="text-gray-700">|</span>
+                <ConversationCollaborators
+                  conversationId={conversationId}
+                  assignedUserId={assigned_user?.id ?? null}
+                />
+              </>
+            )}
+
             {/* Feedback */}
             {conversation.status === 'closed' && feedbackRequest && (
               <div className="flex items-center gap-2">
@@ -548,13 +558,6 @@ export default function ConversationDetail({
               )}
             </div>
           </div>
-        </div>
-
-        <div className="px-5 pb-2">
-          <ConversationCollaborators
-            conversationId={conversationId}
-            assignedUserId={assigned_user?.id ?? null}
-          />
         </div>
 
         {/* Update error toast */}
