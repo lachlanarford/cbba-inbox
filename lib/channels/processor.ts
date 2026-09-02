@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import type { Channel } from '@/types/database'
+import { autoAddStaffCollaborators } from '@/lib/conversations/collaborators'
 
 export interface IncomingMessage {
   channel: Channel
@@ -273,6 +274,33 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
     .select('id')
     .single()
   if (!message) throw new Error(`Failed to create message: ${msgError?.message}`)
+
+  if (msg.ccAddresses && msg.ccAddresses.length > 0) {
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('subject, channel_config_id')
+      .eq('id', conversationId)
+      .single()
+
+    const excludeEmails: string[] = []
+    if (msg.contactEmail) excludeEmails.push(msg.contactEmail)
+    if (conv?.channel_config_id) {
+      const { data: cfg } = await supabase
+        .from('channel_configs')
+        .select('identifier')
+        .eq('id', conv.channel_config_id)
+        .single()
+      if (cfg?.identifier) excludeEmails.push(cfg.identifier)
+    }
+
+    await autoAddStaffCollaborators({
+      conversationId,
+      emails: msg.ccAddresses,
+      addedBy: msg.assignedTo ?? null,
+      subject: conv?.subject ?? msg.subject,
+      excludeEmails,
+    })
+  }
 
   return { contactId, conversationId, messageId: message.id }
 }

@@ -122,12 +122,12 @@ export default function ConversationDetail({
         setFeedbackRequest(data as FeedbackRequest | null)
       })
 
-    // Fetch other recipients from the last inbound message (for Reply All)
+    // Fetch CC recipients from the latest message that had CCs (for Reply All)
     supabase
       .from('messages')
       .select('cc_addresses')
       .eq('conversation_id', conversationId)
-      .eq('sender_type', 'contact')
+      .not('cc_addresses', 'is', null)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()

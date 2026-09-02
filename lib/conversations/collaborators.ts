@@ -30,7 +30,7 @@ export async function listCollaborators(
 export async function addCollaborator(opts: {
   conversationId: string
   userId: string
-  addedBy: string
+  addedBy: string | null
   subject: string | null
 }): Promise<{ ok: boolean; error?: string }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,5 +104,53 @@ export async function notifyMentionedUsers(opts: {
   const { notifyMention } = await import('@/lib/push/send')
   for (const userId of uniqueIds) {
     notifyMention(userId, opts.authorName, opts.subject, opts.conversationId).catch(() => {})
+  }
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+/** Auto-add staff users CC'd or BCC'd on a conversation so they see it in My Inbox. */
+export async function autoAddStaffCollaborators(opts: {
+  conversationId: string
+  emails: string[]
+  addedBy: string | null
+  subject: string | null
+  excludeEmails?: string[]
+}): Promise<void> {
+  const normalized = opts.emails
+    .map(normalizeEmail)
+    .filter(Boolean)
+    .filter((e) => !(opts.excludeEmails ?? []).map(normalizeEmail).includes(e))
+
+  if (normalized.length === 0) return
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceClient() as any
+
+  const { data: staffUsers } = await supabase
+    .from('users')
+    .select('id, email')
+    .eq('is_active', true)
+
+  const emailToUserId = new Map<string, string>()
+  for (const u of staffUsers ?? []) {
+    if (u.email) emailToUserId.set(normalizeEmail(u.email), u.id)
+  }
+
+  const userIds = Array.from(new Set(
+    normalized
+      .map((e) => emailToUserId.get(e))
+      .filter((id): id is string => !!id && id !== opts.addedBy)
+  ))
+
+  for (const userId of userIds) {
+    await addCollaborator({
+      conversationId: opts.conversationId,
+      userId,
+      addedBy: opts.addedBy,
+      subject: opts.subject,
+    })
   }
 }

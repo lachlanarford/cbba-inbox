@@ -131,6 +131,7 @@ export default function MessageBubble({
   const showSent = isOutbound && !isNote && message.sender_type === 'staff' && OUTBOUND_CHANNELS.has(channel)
   const isEmailChannel = channel === 'gmail'
   const sender = resolveSender(message, currentUserId, contact, inboxFromAddress)
+  const ccList = message.cc_addresses?.filter(Boolean) ?? []
 
   const previewText = contentIsHtml
     ? stripHtml(cleanContent).replace(/\s+/g, ' ').slice(0, 90)
@@ -189,6 +190,11 @@ export default function MessageBubble({
               {!expanded && previewText && (
                 <p className="text-[11px] text-gray-400 truncate mt-0.5 leading-snug tracking-tight">
                   {previewText}
+                </p>
+              )}
+              {ccList.length > 0 && (
+                <p className="text-[10px] text-gray-500 truncate mt-0.5 tracking-tight">
+                  CC: {ccList.join(', ')}
                 </p>
               )}
             </div>

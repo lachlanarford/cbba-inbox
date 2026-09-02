@@ -106,6 +106,7 @@ export interface Message {
   from_name?: string | null
   rfc_message_id?: string | null
   external_message_id?: string | null
+  cc_addresses?: string[] | null
   created_at: string
 }
 

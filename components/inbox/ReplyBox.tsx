@@ -156,11 +156,22 @@ export default function ReplyBox({
     return true
   })
 
+  function resetReplyCompose(clearForwardQuote = false) {
+    setIsForward(false)
+    setToEmail(contactEmail ?? '')
+    setShowCc(false)
+    setCc('')
+    setBcc('')
+    setShowBcc(false)
+    if (clearForwardQuote) {
+      setContent((prev) => (prev.includes('Forwarded message') ? '' : prev))
+    }
+  }
+
   function applyReplyAll() {
     setIsNote(false)
-    setIsForward(false)
     setReplyAll(true)
-    setToEmail(contactEmail ?? '')
+    resetReplyCompose()
     if (replyAllRecipients.length > 0) {
       setShowCc(true)
       setCc(replyAllRecipients.join(', '))
@@ -172,11 +183,8 @@ export default function ReplyBox({
 
   function applyReplyOnly() {
     setIsNote(false)
-    setIsForward(false)
     setReplyAll(false)
-    setToEmail(contactEmail ?? '')
-    setShowCc(false)
-    setCc('')
+    resetReplyCompose(true)
   }
 
   async function applyForward() {
@@ -320,7 +328,7 @@ export default function ReplyBox({
         isForward: isForward && !isNote,
         isAiSuggested: aiSuggested && !isNote,
         attachments: isNote ? [] : attachments,
-        to: (!isNote && isGmail && toEmail.trim()) ? toEmail.trim() : undefined,
+        to: (isForward && !isNote && isGmail && toEmail.trim()) ? toEmail.trim() : undefined,
         cc: (!isNote && isGmail && cc.trim()) ? cc.split(',').map((e) => e.trim()).filter(Boolean) : [],
         bcc: (!isNote && isGmail && bcc.trim()) ? bcc.split(',').map((e) => e.trim()).filter(Boolean) : [],
         channelConfigId: (!isNote && isGmail && fromConfigId) ? fromConfigId : undefined,
@@ -552,7 +560,7 @@ export default function ReplyBox({
           )}
 
           <button
-            onClick={() => { setIsNote(true); setReplyAll(false); setIsForward(false) }}
+            onClick={() => { setIsNote(true); setReplyAll(false); resetReplyCompose(true) }}
             className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
               isNote
                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'

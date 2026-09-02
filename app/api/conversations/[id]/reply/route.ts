@@ -10,7 +10,7 @@ import {
 import { parseAttachmentMarker } from '@/lib/email/forward-quote'
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
-import { notifyMentionedUsers } from '@/lib/conversations/collaborators'
+import { notifyMentionedUsers, autoAddStaffCollaborators } from '@/lib/conversations/collaborators'
 
 type ContactRow = {
   email: string | null
@@ -95,8 +95,10 @@ export async function POST(
         return NextResponse.json({ error: 'Gmail channel is not active' }, { status: 400 })
       }
 
-      const contactEmail = to?.trim() || contact?.email
-      if (!contactEmail) {
+      const recipientEmail = isForward
+        ? to?.trim()
+        : contact?.email?.trim() ?? null
+      if (!recipientEmail) {
         return NextResponse.json(
           { error: isForward ? 'Enter a recipient to forward to' : 'Contact has no email address' },
           { status: 400 }
@@ -150,7 +152,7 @@ export async function POST(
         const sent = await sendGmailReply(channelConfig.id, {
           threadId: canUseThread ? conversation.external_thread_id : null,
           inReplyTo,
-          to: contactEmail,
+          to: recipientEmail,
           from: channelConfig.identifier,
           subject: conversation.subject ?? '(no subject)',
           body: bodyWithSig,
@@ -162,6 +164,22 @@ export async function POST(
 
         sentFromAddress = channelConfig.identifier
         externalMessageId = sent.messageId
+
+        if (!isNote) {
+          const excludeEmails = [
+            contact?.email,
+            channelConfig.identifier,
+            recipientEmail,
+          ].filter((e): e is string => !!e)
+
+          await autoAddStaffCollaborators({
+            conversationId,
+            emails: [...(cc ?? []), ...(bcc ?? [])],
+            addedBy: user.id,
+            subject: conversation.subject,
+            excludeEmails,
+          })
+        }
 
         // Keep the original Gmail thread on this conversation. A forward is a new
         // outbound message; replies to it will arrive as a separate conversation.
@@ -250,6 +268,8 @@ export async function POST(
     }
   }
 
+  const outboundCc = !isNote && conversation.channel === 'gmail' && cc && cc.length > 0 ? cc : null
+
   const { data: message, error: msgError } = await supabase
     .from('messages')
     .insert({
@@ -261,6 +281,7 @@ export async function POST(
       is_ai_suggested: isAiSuggested ?? false,
       ...(sentFromAddress ? { from_address: sentFromAddress } : {}),
       ...(externalMessageId ? { external_message_id: externalMessageId } : {}),
+      ...(outboundCc ? { cc_addresses: outboundCc } : {}),
     })
     .select('id')
     .single()
