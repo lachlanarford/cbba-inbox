@@ -5,7 +5,7 @@ import {
   DEFAULT_PUSH_PREFERENCES,
   getPushPreferences,
   type PushPreferences,
-} from '@/lib/push/send'
+} from '@/lib/push/preferences'
 
 export async function GET() {
   const supabase = await createClient()

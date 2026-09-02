@@ -14,7 +14,7 @@ import {
   getPushPreferences,
   type PushCategory,
   type PushPreferences,
-} from '@/lib/push/send'
+} from '@/lib/push/preferences'
 
 const PREFERENCE_OPTIONS: Array<{ key: PushCategory; label: string; description: string }> = [
   { key: 'assignments', label: 'Assignments', description: 'When a conversation is assigned to you' },
