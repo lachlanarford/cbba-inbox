@@ -17,10 +17,8 @@ interface ConversationWithConfig extends ConversationDetailType {
 }
 
 const STATUS_CLASSES: Record<string, string> = {
-  open:        'bg-blue-500/15 text-blue-400 border-blue-500/20',
-  in_progress: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
-  waiting:     'bg-orange-500/15 text-orange-400 border-orange-500/20',
-  closed:      'bg-gray-500/15 text-gray-400 border-gray-500/20',
+  open:   'bg-blue-500/15 text-blue-400 border-blue-500/20',
+  closed: 'bg-gray-500/15 text-gray-400 border-gray-500/20',
 }
 const DEPT_CLASSES: Record<string, string> = {
   Reps:  'bg-blue-500/15 text-blue-400 border-blue-500/20',
@@ -44,7 +42,7 @@ const chevron = (
 
 type ConversationUpdate = Database['public']['Tables']['conversations']['Update']
 
-const STATUSES = ['open', 'in_progress', 'waiting', 'closed']
+const STATUSES = ['open', 'closed']
 const DEPARTMENTS = [
   { value: 'Reps',  label: 'Reps' },
   { value: 'Comps', label: 'Comps' },
@@ -82,6 +80,8 @@ export default function ConversationDetail({
   const [lastInboundCc, setLastInboundCc] = useState<string[]>([])
   const [feedbackEmailReady, setFeedbackEmailReady] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [showArchivePrompt, setShowArchivePrompt] = useState(false)
+  const [archiving, setArchiving] = useState(false)
   const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
@@ -194,6 +194,7 @@ export default function ConversationDetail({
   }
 
   async function closeConversation() {
+    const isGmailChannel = conversation?.channel === 'gmail'
     setClosing(true)
     try {
       const res = await fetch(`/api/conversations/${conversationId}/close`, { method: 'POST' })
@@ -217,9 +218,22 @@ export default function ConversationDetail({
           .eq('conversation_id', conversationId)
           .maybeSingle()
         setFeedbackRequest(data as FeedbackRequest | null)
+        if (isGmailChannel) {
+          setShowArchivePrompt(true)
+        }
       }
     } finally {
       setClosing(false)
+    }
+  }
+
+  async function archiveInGmail() {
+    setArchiving(true)
+    try {
+      await fetch(`/api/conversations/${conversationId}/archive`, { method: 'POST' })
+      setShowArchivePrompt(false)
+    } finally {
+      setArchiving(false)
     }
   }
 
@@ -342,7 +356,7 @@ export default function ConversationDetail({
                 className={`appearance-none cursor-pointer rounded-full pl-2.5 pr-6 py-0.5 text-xs font-medium border focus:outline-none disabled:cursor-not-allowed ${STATUS_CLASSES[conversation.status] ?? 'bg-gray-500/15 text-gray-400 border-gray-500/20'}`}
               >
                 {STATUSES.map((s) => (
-                  <option key={s} value={s}>{s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                 ))}
               </select>
               {chevron}
@@ -500,21 +514,23 @@ export default function ConversationDetail({
                       closeConversation()
                       setShowMoreMenu(false)
                     }}
-                    disabled={closing}
+                    disabled={closing || conversation.status === 'closed'}
                     className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors disabled:opacity-50"
                   >
                     {closing ? 'Closing...' : 'Mark as closed'}
                   </button>
-                  <button
-                    onClick={async () => {
-                      setShowMoreMenu(false)
-                      await fetch(`/api/conversations/${conversationId}/archive`, { method: 'POST' })
-                      onDeleted?.()
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
-                  >
-                    Archive{conversation.channel === 'gmail' ? ' (and Gmail)' : ''}
-                  </button>
+                  {conversation.status === 'closed' && conversation.channel === 'gmail' && (
+                    <button
+                      onClick={async () => {
+                        setShowMoreMenu(false)
+                        await archiveInGmail()
+                      }}
+                      disabled={archiving}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors disabled:opacity-50"
+                    >
+                      {archiving ? 'Archiving...' : 'Archive in Gmail'}
+                    </button>
+                  )}
                   <button
                     onClick={async () => {
                       if (!confirm('Delete this conversation? This cannot be undone.')) return
@@ -603,6 +619,36 @@ export default function ConversationDetail({
           />
         ) : null
       })()}
+
+      {/* Post-close Gmail archive prompt */}
+      {showArchivePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-cbba-navy-light border border-white/10 rounded-xl shadow-2xl max-w-sm w-full p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Conversation closed</h3>
+              <p className="text-xs text-gray-400 mt-1">
+                Would you like to archive this email in Gmail and remove it from the inbox?
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { void archiveInGmail() }}
+                disabled={archiving}
+                className="w-full px-4 py-2 rounded-lg bg-cbba-purple text-white text-xs font-medium hover:bg-cbba-purple-light transition-colors disabled:opacity-50"
+              >
+                {archiving ? 'Archiving...' : 'Archive in Gmail'}
+              </button>
+              <button
+                onClick={() => setShowArchivePrompt(false)}
+                disabled={archiving}
+                className="w-full px-4 py-2 rounded-lg border border-white/10 text-gray-300 text-xs hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                Keep in Gmail inbox
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

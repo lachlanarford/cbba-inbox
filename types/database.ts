@@ -2,7 +2,7 @@
 // The Database type used by the Supabase client lives in types/supabase.ts.
 
 export type Channel = 'gmail' | 'whatsapp' | 'facebook' | 'instagram' | 'form' | 'chat'
-export type ConversationStatus = 'open' | 'in_progress' | 'waiting' | 'closed'
+export type ConversationStatus = 'open' | 'closed'
 export type Department = 'Reps' | 'Comps' | 'LTP' | 'Other' | 'Referees'
 export type Priority = 'low' | 'medium' | 'high' | 'urgent'
 export type SenderType = 'staff' | 'contact' | 'ai'
@@ -161,6 +161,7 @@ export interface InboxFilters {
   dateFrom: string
   dateTo: string
   showSnoozed: boolean
+  myInbox: boolean
 }
 
 export const DEFAULT_FILTERS: InboxFilters = {
@@ -175,4 +176,5 @@ export const DEFAULT_FILTERS: InboxFilters = {
   dateFrom: '',
   dateTo: '',
   showSnoozed: false,
+  myInbox: false,
 }

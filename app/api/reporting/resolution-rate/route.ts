@@ -20,30 +20,24 @@ export async function GET(request: Request) {
 
   const { data: conversations } = await query
 
-  const counts: Record<string, number> = {
-    open: 0,
-    in_progress: 0,
-    waiting: 0,
-    closed: 0,
-  }
+  let open = 0
+  let closed = 0
 
   for (const conv of conversations ?? []) {
-    const s = conv.status ?? 'open'
-    counts[s] = (counts[s] ?? 0) + 1
+    if (conv.status === 'closed') closed++
+    else open++
   }
 
-  const total = Object.values(counts).reduce((a, b) => a + b, 0)
-  const closedRate = total > 0 ? Math.round((counts.closed / total) * 100) : 0
+  const total = open + closed
+  const closedRate = total > 0 ? Math.round((closed / total) * 100) : 0
 
   return NextResponse.json({
-    counts,
+    counts: { open, closed },
     total,
     closed_rate: closedRate,
     breakdown: [
-      { name: 'Open', value: counts.open, color: '#60a5fa' },
-      { name: 'In Progress', value: counts.in_progress, color: '#FBB33F' },
-      { name: 'Waiting', value: counts.waiting, color: '#a78bfa' },
-      { name: 'Closed', value: counts.closed, color: '#4ade80' },
+      { name: 'Open', value: open, color: '#60a5fa' },
+      { name: 'Closed', value: closed, color: '#4ade80' },
     ],
   })
 }

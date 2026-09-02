@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUsers } from '@/lib/hooks/useUsers'
+import { useAppUser } from '@/contexts/AppUserContext'
 import FilterBar from './FilterBar'
 import ConversationList from './ConversationList'
 import ConversationDetail from './ConversationDetail'
@@ -14,7 +15,7 @@ const MIN_PANEL_WIDTH = 240
 const MAX_PANEL_WIDTH = 560
 const DEFAULT_PANEL_WIDTH = 320
 
-const STATUSES  = ['open', 'in_progress', 'waiting', 'closed']
+const STATUSES  = ['open', 'closed']
 const PRIORITIES = ['low', 'medium', 'high', 'urgent']
 
 export default function InboxLayout() {
@@ -38,6 +39,7 @@ export default function InboxLayout() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null)
   const users = useUsers()
+  const currentUser = useAppUser()
   const searchParams = useSearchParams()
 
   // Open conversation from push notification deep link (?conversation=id)
@@ -54,6 +56,22 @@ export default function InboxLayout() {
   )
 
   const clearFilters = useCallback(() => setFilters(DEFAULT_FILTERS), [])
+
+  const setInboxView = useCallback((view: 'mine' | 'all') => {
+    if (view === 'mine') {
+      setFilters((prev) => ({
+        ...prev,
+        myInbox: true,
+        assignedTo: currentUser.id,
+      }))
+    } else {
+      setFilters((prev) => ({
+        ...prev,
+        myInbox: false,
+        assignedTo: prev.myInbox ? '' : prev.assignedTo,
+      }))
+    }
+  }, [currentUser.id])
 
   function toggleCheck(id: string) {
     setCheckedIds((prev) => {
@@ -132,6 +150,7 @@ export default function InboxLayout() {
 
   const activeFilterCount = [
     filters.status !== 'open',
+    filters.myInbox,
     filters.search !== '',
     filters.email !== '',
     filters.department !== '',
@@ -172,7 +191,7 @@ export default function InboxLayout() {
             className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-gray-400 focus:outline-none cursor-pointer disabled:opacity-40"
           >
             <option value="" disabled>Status</option>
-            {STATUSES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+            {STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
 
           {/* Priority */}
@@ -268,7 +287,7 @@ export default function InboxLayout() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-sm font-semibold text-white truncate">
-              {filters.showSnoozed ? 'Snoozed' : 'Conversations'}
+              {filters.showSnoozed ? 'Snoozed' : filters.myInbox ? 'My Inbox' : 'Conversations'}
             </span>
             <button
               onClick={() => {
@@ -331,7 +350,13 @@ export default function InboxLayout() {
         </div>
       )}
 
-      <FilterBar filters={filters} onFilterChange={updateFilter} onClearAll={clearFilters} filtersOpen={filtersOpen} />
+      <FilterBar
+        filters={filters}
+        onFilterChange={updateFilter}
+        onClearAll={clearFilters}
+        filtersOpen={filtersOpen}
+        onInboxViewChange={setInboxView}
+      />
 
       <ConversationList
         filters={filters}

@@ -269,8 +269,7 @@ export async function POST(
   }
 
   const convUpdate: Record<string, unknown> = {}
-  if (!isNote && conversation.status === 'open') {
-    convUpdate.status = 'in_progress'
+  if (!isNote) {
     convUpdate.is_read = true
   }
   if (!isNote && attachments && attachments.length > 0) {

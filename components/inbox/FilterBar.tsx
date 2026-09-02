@@ -5,11 +5,9 @@ import { useUsers } from '@/lib/hooks/useUsers'
 import type { InboxFilters } from '@/types/database'
 
 const STATUS_TABS = [
-  { value: 'open',        label: 'Open' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'waiting',     label: 'Waiting' },
-  { value: 'closed',      label: 'Closed' },
-  { value: 'all',         label: 'All' },
+  { value: 'open',   label: 'Open' },
+  { value: 'closed', label: 'Closed' },
+  { value: 'all',    label: 'All' },
 ]
 
 const DEPARTMENTS = [
@@ -39,9 +37,16 @@ interface FilterBarProps {
   onFilterChange: <K extends keyof InboxFilters>(key: K, value: InboxFilters[K]) => void
   onClearAll: () => void
   filtersOpen: boolean
+  onInboxViewChange: (view: 'mine' | 'all') => void
 }
 
-export default function FilterBar({ filters, onFilterChange, onClearAll, filtersOpen }: FilterBarProps) {
+export default function FilterBar({
+  filters,
+  onFilterChange,
+  onClearAll,
+  filtersOpen,
+  onInboxViewChange,
+}: FilterBarProps) {
   const users = useUsers()
   const [gmailAccounts, setGmailAccounts] = useState<Array<{ id: string; identifier: string }>>([])
 
@@ -67,6 +72,30 @@ export default function FilterBar({ filters, onFilterChange, onClearAll, filters
 
   return (
     <div className="flex-shrink-0 border-b border-white/5">
+      {/* Inbox view: My Inbox vs All */}
+      <div className="flex items-center gap-1 px-2 pt-2 pb-1">
+        <button
+          onClick={() => onInboxViewChange('mine')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-[0.97] transition-[background-color,color,transform] duration-150 ease-out whitespace-nowrap ${
+            filters.myInbox
+              ? 'bg-cbba-gold/20 text-cbba-gold border border-cbba-gold/30'
+              : 'text-gray-400 [@media(hover:hover)]:hover:text-white [@media(hover:hover)]:hover:bg-white/5'
+          }`}
+        >
+          My Inbox
+        </button>
+        <button
+          onClick={() => onInboxViewChange('all')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-[0.97] transition-[background-color,color,transform] duration-150 ease-out whitespace-nowrap ${
+            !filters.myInbox
+              ? 'bg-white/10 text-white'
+              : 'text-gray-400 [@media(hover:hover)]:hover:text-white [@media(hover:hover)]:hover:bg-white/5'
+          }`}
+        >
+          All Conversations
+        </button>
+      </div>
+
       {/* Status tabs */}
       <div className="flex items-center gap-0.5 px-2 pt-2 pb-1.5">
         {STATUS_TABS.map((tab) => (
@@ -121,12 +150,14 @@ export default function FilterBar({ filters, onFilterChange, onClearAll, filters
               onChange={(v) => onFilterChange('channel', v)}
               options={CHANNELS}
             />
-            <FilterPill
-              label="Assigned to"
-              value={filters.assignedTo}
-              onChange={(v) => onFilterChange('assignedTo', v)}
-              options={users.map((u) => ({ value: u.id, label: u.full_name ?? u.email }))}
-            />
+            {!filters.myInbox && (
+              <FilterPill
+                label="Assigned to"
+                value={filters.assignedTo}
+                onChange={(v) => onFilterChange('assignedTo', v)}
+                options={users.map((u) => ({ value: u.id, label: u.full_name ?? u.email }))}
+              />
+            )}
             {gmailAccounts.length > 1 && (
               <FilterPill
                 label="Email account"
