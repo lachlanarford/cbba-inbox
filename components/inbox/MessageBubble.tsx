@@ -85,6 +85,15 @@ interface MessageBubbleProps {
   inboxFromAddress?: string | null
 }
 
+function renderNoteContent(content: string) {
+  const parts = content.split(/(@[^\n]+)/g)
+  return parts.map((part, i) => (
+    part.startsWith('@')
+      ? <span key={i} className="text-amber-300 font-medium">{part}</span>
+      : <span key={i}>{part}</span>
+  ))
+}
+
 function resolveSender(
   message: MessageWithSender,
   currentUserId: string,
@@ -150,7 +159,7 @@ export default function MessageBubble({
             )}
             <span className="text-xs text-gray-500 ml-auto tabular-nums">{formatDateTime(message.created_at)}</span>
           </div>
-          <p className="text-sm text-amber-100/80 whitespace-pre-wrap leading-[1.55]">{message.content}</p>
+          <p className="text-sm text-amber-100/80 whitespace-pre-wrap leading-[1.55]">{renderNoteContent(message.content)}</p>
         </div>
       </div>
     )

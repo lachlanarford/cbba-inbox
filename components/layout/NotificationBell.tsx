@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 
 interface Notification {
   id: string
-  type: 'assignment' | 'live_chat' | 'app_update' | 'collaborator' | 'mention'
+  type: 'assignment' | 'live_chat' | 'app_update' | 'collaborator' | 'mention' | 'message' | 'note'
   title: string
   body: string | null
   read: boolean
@@ -75,6 +75,8 @@ export default function NotificationBell({ userId }: { userId: string }) {
     if (type === 'live_chat') return '💬'
     if (type === 'collaborator') return '🤝'
     if (type === 'mention') return '@'
+    if (type === 'message') return '📨'
+    if (type === 'note') return '📝'
     return '📢'
   }
 

@@ -3,6 +3,7 @@ import { fetchMessagesFromHistory, getCurrentHistoryId, listRecentInboxMessages,
 import type { ParsedEmail } from '@/lib/gmail/client'
 import { processIncomingMessage, processStaffGmailReply } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
+import { getConversationWatcherIds, notifyConversationWatchers } from '@/lib/conversations/collaborators'
 import { notifyNewMessage } from '@/lib/push/send'
 
 export type GmailSyncResult = {
@@ -53,16 +54,9 @@ async function ingestInboxEmail(opts: {
 
   if (opts.notify) {
     const senderName = opts.email.fromName ?? opts.email.from
-    const { data: conv } = await supabase
-      .from('conversations')
-      .select('assigned_to')
-      .eq('id', result.conversationId)
-      .single()
+    let targetUserIds = await getConversationWatcherIds(result.conversationId)
 
-    let targetUserIds: string[] = []
-    if (conv?.assigned_to) {
-      targetUserIds = [conv.assigned_to]
-    } else {
+    if (targetUserIds.length === 0) {
       const { data: staff } = await supabase
         .from('users')
         .select('id, settings')
@@ -70,14 +64,22 @@ async function ingestInboxEmail(opts: {
       targetUserIds = (staff ?? [])
         .filter((u) => (u.settings as Record<string, unknown>)?.push_enabled === true)
         .map((u) => u.id)
+      notifyNewMessage(
+        targetUserIds,
+        senderName,
+        opts.email.subject,
+        result.conversationId
+      ).catch(() => {})
+    } else {
+      await notifyConversationWatchers({
+        conversationId: result.conversationId,
+        type: 'message',
+        title: `New message from ${senderName}`,
+        body: opts.email.subject ?? 'No subject',
+        senderName,
+        subject: opts.email.subject,
+      })
     }
-
-    notifyNewMessage(
-      targetUserIds,
-      senderName,
-      opts.email.subject,
-      result.conversationId
-    ).catch(() => {})
   }
 
   if (opts.email.body.includes('<!--CBBA_ATT:')) {

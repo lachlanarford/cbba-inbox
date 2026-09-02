@@ -154,3 +154,90 @@ export async function autoAddStaffCollaborators(opts: {
     })
   }
 }
+
+export async function getConversationWatcherIds(
+  conversationId: string,
+  excludeUserIds: string[] = []
+): Promise<string[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceClient() as any
+
+  const { data: conv } = await supabase
+    .from('conversations')
+    .select('assigned_to')
+    .eq('id', conversationId)
+    .single()
+
+  const { data: collabs } = await supabase
+    .from('conversation_collaborators')
+    .select('user_id')
+    .eq('conversation_id', conversationId)
+
+  const exclude = new Set(excludeUserIds)
+  const ids = new Set<string>()
+  if (conv?.assigned_to && !exclude.has(conv.assigned_to)) {
+    ids.add(conv.assigned_to)
+  }
+  for (const row of collabs ?? []) {
+    if (!exclude.has(row.user_id)) ids.add(row.user_id)
+  }
+  return Array.from(ids)
+}
+
+/** Notify assignee and collaborators about new activity on a conversation. */
+export async function notifyConversationWatchers(opts: {
+  conversationId: string
+  excludeUserIds?: string[]
+  type: 'message' | 'note'
+  title: string
+  body: string
+  senderName?: string
+  subject?: string | null
+  pushTitle?: string
+  pushAuthorName?: string
+}): Promise<void> {
+  const userIds = await getConversationWatcherIds(
+    opts.conversationId,
+    opts.excludeUserIds ?? []
+  )
+  if (userIds.length === 0) return
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceClient() as any
+  await supabase.from('notifications').insert(
+    userIds.map((userId) => ({
+      user_id: userId,
+      type: opts.type,
+      title: opts.title,
+      body: opts.body,
+      conversation_id: opts.conversationId,
+    }))
+  )
+
+  if (opts.type === 'message') {
+    const { notifyNewMessage, sendPushToUsers } = await import('@/lib/push/send')
+    if (opts.pushTitle) {
+      sendPushToUsers(userIds, {
+        title: opts.pushTitle,
+        body: opts.subject ?? opts.body,
+        url: `/inbox?conversation=${opts.conversationId}`,
+        conversationId: opts.conversationId,
+      }).catch(() => {})
+    } else if (opts.senderName) {
+      notifyNewMessage(
+        userIds,
+        opts.senderName,
+        opts.subject ?? null,
+        opts.conversationId
+      ).catch(() => {})
+    }
+  } else if (opts.type === 'note' && opts.pushAuthorName) {
+    const { notifyInternalNote } = await import('@/lib/push/send')
+    notifyInternalNote(
+      userIds,
+      opts.pushAuthorName,
+      opts.subject ?? null,
+      opts.conversationId
+    ).catch(() => {})
+  }
+}

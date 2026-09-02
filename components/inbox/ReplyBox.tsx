@@ -187,6 +187,14 @@ export default function ReplyBox({
     resetReplyCompose(true)
   }
 
+  function openInternalNote() {
+    setIsNote(true)
+    setReplyAll(false)
+    resetReplyCompose(true)
+    setCollapsed(false)
+    setTimeout(() => textareaRef.current?.focus(), 0)
+  }
+
   async function applyForward() {
     setIsNote(false)
     setReplyAll(false)
@@ -560,7 +568,7 @@ export default function ReplyBox({
           )}
 
           <button
-            onClick={() => { setIsNote(true); setReplyAll(false); resetReplyCompose(true) }}
+            onClick={openInternalNote}
             className={`px-3 py-1.5 text-xs font-medium rounded-t-md border-t border-l border-r transition-colors ${
               isNote
                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
@@ -673,14 +681,17 @@ export default function ReplyBox({
         <div className="overflow-y-auto flex-1 min-h-[100px] relative">
           {isNote ? (
             <>
+              <p className="px-3 pt-2 text-[10px] text-amber-500/70">
+                Visible only to staff. Type @ to notify someone.
+              </p>
               <textarea
                 ref={textareaRef}
                 value={content}
                 onChange={(e) => handleNoteChange(e.target.value)}
                 onKeyDown={handleNoteKeyDown}
-                placeholder="Add an internal note... Type @ to mention a teammate"
-                rows={5}
-                className="w-full h-full px-3 pt-3 bg-transparent text-sm text-white placeholder-gray-600 resize-none focus:outline-none"
+                placeholder="Add an internal note..."
+                rows={8}
+                className="w-full h-full px-3 pt-1 pb-3 bg-transparent text-sm text-white placeholder-gray-600 resize-none focus:outline-none"
               />
               {mentionOpen && mentionCandidates.length > 0 && (
                 <div className="absolute left-3 right-3 bottom-2 bg-cbba-navy border border-white/10 rounded-lg shadow-xl z-10 py-1 max-h-36 overflow-y-auto">

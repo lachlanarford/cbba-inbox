@@ -163,3 +163,17 @@ export async function notifyMention(
     conversationId,
   })
 }
+
+export async function notifyInternalNote(
+  userIds: string[],
+  authorName: string,
+  subject: string | null,
+  conversationId: string
+): Promise<void> {
+  await sendPushToUsers(userIds, {
+    title: `${authorName} added an internal note`,
+    body: subject ?? 'No subject',
+    url: `/inbox?conversation=${conversationId}`,
+    conversationId,
+  })
+}

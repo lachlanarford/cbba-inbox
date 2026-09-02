@@ -10,7 +10,7 @@ import {
 import { parseAttachmentMarker } from '@/lib/email/forward-quote'
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
-import { notifyMentionedUsers, autoAddStaffCollaborators } from '@/lib/conversations/collaborators'
+import { notifyMentionedUsers, autoAddStaffCollaborators, notifyConversationWatchers } from '@/lib/conversations/collaborators'
 
 type ContactRow = {
   email: string | null
@@ -301,6 +301,30 @@ export async function POST(
       conversationId,
       subject: conversation.subject,
       excerpt: content.trim(),
+    })
+  }
+
+  const authorName = appUser.full_name?.trim() || appUser.email
+  if (isNote) {
+    const exclude = [user.id, ...(mentionedUserIds ?? [])]
+    await notifyConversationWatchers({
+      conversationId,
+      excludeUserIds: exclude,
+      type: 'note',
+      title: `${authorName} added an internal note`,
+      body: content.trim().slice(0, 120),
+      subject: conversation.subject,
+      pushAuthorName: authorName,
+    })
+  } else {
+    await notifyConversationWatchers({
+      conversationId,
+      excludeUserIds: [user.id],
+      type: 'message',
+      title: `Reply sent by ${authorName}`,
+      body: conversation.subject ?? 'No subject',
+      subject: conversation.subject,
+      pushTitle: `${authorName} replied`,
     })
   }
 
