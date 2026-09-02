@@ -12,6 +12,7 @@ import ConversationCollaborators from './ConversationCollaborators'
 import FeedbackEmailModal from './FeedbackEmailModal'
 import type { ConversationDetail as ConversationDetailType, FeedbackRequest } from '@/types/database'
 import type { Database } from '@/types/supabase'
+import { snoozeUntil, formatSnoozeUntil, type SnoozePreset } from '@/lib/utils/snooze'
 
 interface ConversationWithConfig extends ConversationDetailType {
   channel_config: { id: string; identifier: string } | null
@@ -343,6 +344,11 @@ export default function ConversationDetail({
           </div>
 
           {/* Attributes row */}
+          {conversation.snoozed_until && new Date(conversation.snoozed_until) > new Date() && (
+            <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400/90">
+              Snoozed {formatSnoozeUntil(conversation.snoozed_until)}
+            </div>
+          )}
           <div className="flex items-center gap-2 mt-2.5 flex-wrap">
             {/* Status */}
             <div className="relative inline-flex items-center">
@@ -467,24 +473,19 @@ export default function ConversationDetail({
                   <div className="my-1 border-t border-white/5" />
                   {/* Snooze options */}
                   {[
-                    { label: 'Snooze 1 hour', preset: '1h' },
-                    { label: 'Snooze until later today', preset: 'later' },
-                    { label: 'Snooze until tomorrow', preset: 'tomorrow' },
-                    { label: 'Snooze until next week', preset: 'week' },
+                    { label: 'Snooze 1 hour', preset: '1h' as SnoozePreset },
+                    { label: 'Snooze until later today', preset: 'later' as SnoozePreset },
+                    { label: 'Snooze until tomorrow', preset: 'tomorrow' as SnoozePreset },
+                    { label: 'Snooze until next week', preset: 'week' as SnoozePreset },
                   ].map(({ label, preset }) => (
                     <button
                       key={preset}
                       onClick={async () => {
                         setShowMoreMenu(false)
-                        const d = new Date()
-                        if (preset === '1h') d.setHours(d.getHours() + 1)
-                        else if (preset === 'later') { d.setHours(17, 0, 0, 0); if (d <= new Date()) d.setDate(d.getDate() + 1) }
-                        else if (preset === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0) }
-                        else if (preset === 'week') { d.setDate(d.getDate() + 7); d.setHours(9, 0, 0, 0) }
                         await fetch(`/api/conversations/${conversationId}`, {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ snoozed_until: d.toISOString() }),
+                          body: JSON.stringify({ snoozed_until: snoozeUntil(preset).toISOString() }),
                         })
                         onDeleted?.()
                       }}

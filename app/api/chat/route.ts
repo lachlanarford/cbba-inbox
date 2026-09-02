@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { notifyLiveChat } from '@/lib/push/send'
 import { createServiceClient } from '@/lib/supabase/service'
+import { notifyInboundMessage } from '@/lib/conversations/inbound-notify'
 import aiClient, { AI_MODEL, AI_MAX_TOKENS } from '@/lib/ai/client'
 import { searchKnowledge } from '@/lib/knowledge/search'
 import { processIncomingMessage } from '@/lib/channels/processor'
@@ -273,6 +274,18 @@ export async function POST(request: Request) {
           .eq('id', existingId)
           .neq('status', 'closed'),
       ])
+
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('subject, contact:contacts(full_name)')
+        .eq('id', existingId)
+        .single()
+      const contactRow = conv?.contact as unknown as { full_name: string | null } | null
+      await notifyInboundMessage({
+        conversationId: existingId,
+        senderName: contact_info?.name ?? contactRow?.full_name ?? 'Visitor',
+        subject: conv?.subject ?? 'Live Chat',
+      }).catch(() => {})
     }
 
     await supabase.from('chat_messages').insert({

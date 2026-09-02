@@ -7,6 +7,7 @@ import { useUsers } from '@/lib/hooks/useUsers'
 import { useAppUser } from '@/contexts/AppUserContext'
 import FilterBar from './FilterBar'
 import ConversationList from './ConversationList'
+import { snoozeUntil, type SnoozePreset } from '@/lib/utils/snooze'
 import ConversationDetail from './ConversationDetail'
 import NewConversationModal from './NewConversationModal'
 import { DEFAULT_FILTERS, type InboxFilters } from '@/types/database'
@@ -139,13 +140,8 @@ export default function InboxLayout() {
 
   const hasChecked = checkedIds.size > 0
 
-  function snoozeUntil(preset: string): string {
-    const d = new Date()
-    if (preset === '1h') { d.setHours(d.getHours() + 1) }
-    else if (preset === 'later') { d.setHours(17, 0, 0, 0); if (d <= new Date()) d.setDate(d.getDate() + 1) }
-    else if (preset === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0) }
-    else if (preset === 'week') { d.setDate(d.getDate() + 7); d.setHours(9, 0, 0, 0) }
-    return d.toISOString()
+  function getSnoozeIso(preset: string): string {
+    return snoozeUntil(preset as SnoozePreset).toISOString()
   }
 
   const activeFilterCount = [
@@ -222,7 +218,7 @@ export default function InboxLayout() {
             disabled={bulkLoading}
             onChange={(e) => {
               if (!e.target.value) return
-              const until = snoozeUntil(e.target.value)
+              const until = getSnoozeIso(e.target.value)
               handleBulkAction('snooze', until)
               e.target.value = ''
             }}

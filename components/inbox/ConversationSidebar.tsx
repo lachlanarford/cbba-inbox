@@ -3,10 +3,20 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { formatDate, formatDateTime } from '@/lib/utils/time'
+import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/time'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ChannelIcon from '@/components/ui/ChannelIcon'
+import { formatSnoozeUntil } from '@/lib/utils/snooze'
 import type { ConversationDetail, ConversationListItem } from '@/types/database'
+
+interface ActivityItem {
+  id: string
+  content: string
+  created_at: string
+  is_internal_note: boolean
+  sender_type: string
+  sender: { full_name: string | null } | null
+}
 
 interface ConversationSidebarProps {
   conversation: ConversationDetail
@@ -14,8 +24,26 @@ interface ConversationSidebarProps {
   onSelectConversation?: (id: string) => void
 }
 
+function activityLabel(item: ActivityItem): string {
+  if (item.is_internal_note) {
+    const name = item.sender?.full_name ?? 'Staff'
+    return `${name} added a note`
+  }
+  if (item.sender_type === 'contact') return 'Customer replied'
+  if (item.sender_type === 'ai') return 'AI replied'
+  const name = item.sender?.full_name ?? 'Staff'
+  return `${name} replied`
+}
+
+function activityPreview(content: string, isNote: boolean): string {
+  const text = content.replace(/\s+/g, ' ').trim()
+  const max = isNote ? 80 : 60
+  return text.length > max ? `${text.slice(0, max)}...` : text
+}
+
 export default function ConversationSidebar({ conversation, onClose, onSelectConversation }: ConversationSidebarProps) {
   const [otherConversations, setOtherConversations] = useState<ConversationListItem[]>([])
+  const [activity, setActivity] = useState<ActivityItem[]>([])
 
   useEffect(() => {
     const supabase = createClient()
@@ -29,7 +57,19 @@ export default function ConversationSidebar({ conversation, onClose, onSelectCon
       .then(({ data }) => setOtherConversations((data ?? []) as unknown as ConversationListItem[]))
   }, [conversation.contact_id, conversation.id])
 
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('messages')
+      .select('id, content, created_at, is_internal_note, sender_type, sender:users(full_name)')
+      .eq('conversation_id', conversation.id)
+      .order('created_at', { ascending: false })
+      .limit(8)
+      .then(({ data }) => setActivity((data ?? []) as unknown as ActivityItem[]))
+  }, [conversation.id])
+
   const { contact } = conversation
+  const isSnoozed = conversation.snoozed_until != null && new Date(conversation.snoozed_until) > new Date()
 
   return (
     <aside className="w-64 flex-shrink-0 flex flex-col border-l border-white/5 bg-cbba-navy-dark overflow-y-auto">
@@ -77,6 +117,61 @@ export default function ConversationSidebar({ conversation, onClose, onSelectCon
             </Link>
           </div>
         </section>
+
+        {/* Status */}
+        {(isSnoozed || conversation.assigned_user) && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Status</h3>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <StatusBadge status={conversation.status} />
+              </div>
+              {isSnoozed && conversation.snoozed_until && (
+                <p className="text-xs text-amber-400/90">
+                  Snoozed {formatSnoozeUntil(conversation.snoozed_until)}
+                </p>
+              )}
+              {conversation.assigned_user && (
+                <p className="text-xs text-gray-400">
+                  Assigned to {conversation.assigned_user.full_name ?? 'Staff'}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Recent activity */}
+        {activity.length > 0 && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Recent activity</h3>
+            <div className="space-y-2">
+              {activity.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-2 rounded-lg border ${
+                    item.is_internal_note
+                      ? 'bg-amber-500/5 border-amber-500/15'
+                      : 'bg-white/5 border-white/5'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <p className={`text-[11px] font-medium ${
+                      item.is_internal_note ? 'text-amber-400' : 'text-gray-300'
+                    }`}>
+                      {activityLabel(item)}
+                    </p>
+                    <span className="text-[10px] text-gray-500 flex-shrink-0 tabular-nums">
+                      {formatTimeAgo(item.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 leading-snug">
+                    {activityPreview(item.content, item.is_internal_note)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Timestamps */}
         <section>
