@@ -10,6 +10,7 @@ import {
 import { parseAttachmentMarker } from '@/lib/email/forward-quote'
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
+import { notifyMentionedUsers } from '@/lib/conversations/collaborators'
 
 type ContactRow = {
   email: string | null
@@ -41,6 +42,7 @@ export async function POST(
     bcc?: string[]
     channelConfigId?: string
     isForward?: boolean
+    mentionedUserIds?: string[]
   }
   try {
     body = await request.json()
@@ -48,7 +50,7 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { content, isNote, isAiSuggested, attachments, to, cc, bcc, channelConfigId: overrideConfigId, isForward } = body
+  const { content, isNote, isAiSuggested, attachments, to, cc, bcc, channelConfigId: overrideConfigId, isForward, mentionedUserIds } = body
   if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
   const { data: conversation } = await supabase
@@ -266,6 +268,19 @@ export async function POST(
   if (!message) {
     console.error('[reply] message insert failed:', msgError)
     return NextResponse.json({ error: 'Failed to save message' }, { status: 500 })
+  }
+
+  if (isNote && mentionedUserIds?.length) {
+    const authorName = appUser.full_name?.trim() || appUser.email
+    const service = createServiceClient()
+    await notifyMentionedUsers({
+      userIds: mentionedUserIds,
+      authorId: user.id,
+      authorName,
+      conversationId,
+      subject: conversation.subject,
+      excerpt: content.trim(),
+    })
   }
 
   const convUpdate: Record<string, unknown> = {}

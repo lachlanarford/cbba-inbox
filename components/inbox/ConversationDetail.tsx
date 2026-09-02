@@ -8,6 +8,7 @@ import ChannelIcon from '@/components/ui/ChannelIcon'
 import MessageThread from './MessageThread'
 import ReplyBox from './ReplyBox'
 import ConversationSidebar from './ConversationSidebar'
+import ConversationCollaborators from './ConversationCollaborators'
 import FeedbackEmailModal from './FeedbackEmailModal'
 import type { ConversationDetail as ConversationDetailType, FeedbackRequest } from '@/types/database'
 import type { Database } from '@/types/supabase'
@@ -546,6 +547,13 @@ export default function ConversationDetail({
               )}
             </div>
           </div>
+        </div>
+
+        <div className="px-5 pb-2">
+          <ConversationCollaborators
+            conversationId={conversationId}
+            assignedUserId={assigned_user?.id ?? null}
+          />
         </div>
 
         {/* Update error toast */}

@@ -136,3 +136,30 @@ export async function notifyNewMessage(
     conversationId,
   })
 }
+
+export async function notifyCollaboratorAdded(
+  userId: string,
+  subject: string | null,
+  conversationId: string
+): Promise<void> {
+  await sendPushToUsers([userId], {
+    title: 'Added as collaborator',
+    body: subject ?? 'No subject',
+    url: `/inbox?conversation=${conversationId}`,
+    conversationId,
+  })
+}
+
+export async function notifyMention(
+  userId: string,
+  authorName: string,
+  subject: string | null,
+  conversationId: string
+): Promise<void> {
+  await sendPushToUsers([userId], {
+    title: `${authorName} mentioned you`,
+    body: subject ?? 'Internal note',
+    url: `/inbox?conversation=${conversationId}`,
+    conversationId,
+  })
+}

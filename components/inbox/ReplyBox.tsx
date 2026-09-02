@@ -5,6 +5,8 @@ import RichTextEditor from '@/components/ui/RichTextEditor'
 import EmailInput from '@/components/ui/EmailInput'
 import { createClient } from '@/lib/supabase/client'
 import { buildForwardQuote } from '@/lib/email/forward-quote'
+import { useUsers } from '@/lib/hooks/useUsers'
+import { useAppUser } from '@/contexts/AppUserContext'
 
 interface CannedResponse {
   id: string
@@ -70,12 +72,80 @@ export default function ReplyBox({
   const [bcc, setBcc] = useState('')
   const [gmailAccounts, setGmailAccounts] = useState<GmailAccount[]>([])
   const [fromConfigId, setFromConfigId] = useState(channelConfigId ?? '')
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([])
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [mentionIndex, setMentionIndex] = useState(0)
+  const users = useUsers()
+  const currentUser = useAppUser()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isGmail = channel === 'gmail'
   const conversationFromEmail = fromEmail ?? gmailAccounts.find((a) => a.id === channelConfigId)?.identifier ?? null
   const selectedFromEmail = gmailAccounts.find((a) => a.id === fromConfigId)?.identifier ?? conversationFromEmail
   const fromOverridden = !!(fromConfigId && channelConfigId && fromConfigId !== channelConfigId)
+
+  const mentionCandidates = users.filter((u) => {
+    if (u.id === currentUser.id) return false
+    const name = (u.full_name ?? u.email).toLowerCase()
+    return name.includes(mentionQuery.toLowerCase())
+  }).slice(0, 6)
+
+  function insertMention(user: { id: string; full_name: string | null; email: string }) {
+    const el = textareaRef.current
+    if (!el) return
+    const name = user.full_name?.trim() || user.email
+    const before = content.slice(0, el.selectionStart)
+    const after = content.slice(el.selectionStart)
+    const atIndex = before.lastIndexOf('@')
+    if (atIndex === -1) return
+    const next = `${before.slice(0, atIndex)}@${name} ${after}`
+    setContent(next)
+    setMentionedUserIds((prev) => prev.includes(user.id) ? prev : [...prev, user.id])
+    setMentionOpen(false)
+    setMentionQuery('')
+    setMentionIndex(0)
+  }
+
+  function handleNoteChange(value: string) {
+    setContent(value)
+    if (aiSuggested) setAiSuggested(false)
+
+    const el = textareaRef.current
+    if (!el) return
+    const pos = el.selectionStart
+    const before = value.slice(0, pos)
+    const atMatch = before.match(/@([\w\s.]*)$/)
+    if (atMatch) {
+      setMentionOpen(true)
+      setMentionQuery(atMatch[1].trim())
+      setMentionIndex(0)
+    } else {
+      setMentionOpen(false)
+      setMentionQuery('')
+    }
+  }
+
+  function handleNoteKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault()
+      handleSend()
+      return
+    }
+    if (!mentionOpen || mentionCandidates.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setMentionIndex((i) => (i + 1) % mentionCandidates.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setMentionIndex((i) => (i - 1 + mentionCandidates.length) % mentionCandidates.length)
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      insertMention(mentionCandidates[mentionIndex])
+    } else if (e.key === 'Escape') {
+      setMentionOpen(false)
+    }
+  }
 
   // Other people on the thread for Reply All — exclude our sending address and the To contact
   const replyAllRecipients = lastInboundCc.filter((addr) => {
@@ -254,6 +324,7 @@ export default function ReplyBox({
         cc: (!isNote && isGmail && cc.trim()) ? cc.split(',').map((e) => e.trim()).filter(Boolean) : [],
         bcc: (!isNote && isGmail && bcc.trim()) ? bcc.split(',').map((e) => e.trim()).filter(Boolean) : [],
         channelConfigId: (!isNote && isGmail && fromConfigId) ? fromConfigId : undefined,
+        mentionedUserIds: isNote ? mentionedUserIds : undefined,
       }),
     })
 
@@ -275,6 +346,7 @@ export default function ReplyBox({
     setSending(false)
     setCollapsed(true)
     setIsForward(false)
+    setMentionedUserIds([])
     setToEmail(contactEmail ?? '')
     if (replyAllRecipients.length > 0) {
       setReplyAll(true)
@@ -285,7 +357,7 @@ export default function ReplyBox({
       setShowCc(false)
       setCc('')
     }
-  }, [content, conversationId, isNote, isForward, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail, fromConfigId, channelConfigId, lastInboundCc, selectedFromEmail, conversationFromEmail, onSent])
+  }, [content, conversationId, isNote, isForward, sending, aiSuggested, attachments, isGmail, toEmail, cc, bcc, contactEmail, fromConfigId, channelConfigId, lastInboundCc, selectedFromEmail, conversationFromEmail, onSent, mentionedUserIds])
 
   function discardDraft() {
     localStorage.removeItem(draftKey)
@@ -590,17 +662,35 @@ export default function ReplyBox({
         )}
 
         {/* Editor — scrolls when content is long, fills available space */}
-        <div className="overflow-y-auto flex-1 min-h-[100px]">
+        <div className="overflow-y-auto flex-1 min-h-[100px] relative">
           {isNote ? (
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => { setContent(e.target.value); if (aiSuggested) setAiSuggested(false) }}
-              onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); handleSend() } }}
-              placeholder="Add an internal note visible only to your team..."
-              rows={5}
-              className="w-full h-full px-3 pt-3 bg-transparent text-sm text-white placeholder-gray-600 resize-none focus:outline-none"
-            />
+            <>
+              <textarea
+                ref={textareaRef}
+                value={content}
+                onChange={(e) => handleNoteChange(e.target.value)}
+                onKeyDown={handleNoteKeyDown}
+                placeholder="Add an internal note... Type @ to mention a teammate"
+                rows={5}
+                className="w-full h-full px-3 pt-3 bg-transparent text-sm text-white placeholder-gray-600 resize-none focus:outline-none"
+              />
+              {mentionOpen && mentionCandidates.length > 0 && (
+                <div className="absolute left-3 right-3 bottom-2 bg-cbba-navy border border-white/10 rounded-lg shadow-xl z-10 py-1 max-h-36 overflow-y-auto">
+                  {mentionCandidates.map((u, i) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); insertMention(u) }}
+                      className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                        i === mentionIndex ? 'bg-cbba-purple/30 text-white' : 'text-gray-300 hover:bg-white/5'
+                      }`}
+                    >
+                      {u.full_name ?? u.email}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
             <RichTextEditor
               value={content}

@@ -18,13 +18,21 @@ async function fetchOne(id: string): Promise<ConversationListItem | null> {
 }
 
 // Used by realtime handlers to decide whether an updated row belongs in the current view
-function passesFilters(c: ConversationListItem, f: InboxFilters): boolean {
+function passesFilters(
+  c: ConversationListItem,
+  f: InboxFilters,
+  collaboratorIds: Set<string>
+): boolean {
   if (f.status !== 'all' && f.status !== '' && c.status !== f.status) return false
   if (f.department && c.department !== f.department) return false
   if (f.priority && c.priority !== f.priority) return false
   if (f.channel && c.channel !== f.channel) return false
   if (f.channelConfigId && c.channel_config_id !== f.channelConfigId) return false
-  if (f.assignedTo && c.assigned_to !== f.assignedTo) return false
+  if (f.myInbox && f.assignedTo) {
+    if (c.assigned_to !== f.assignedTo && !collaboratorIds.has(c.id)) return false
+  } else if (f.assignedTo && c.assigned_to !== f.assignedTo) {
+    return false
+  }
   if (f.search) {
     const term = f.search.toLowerCase()
     if (
@@ -62,6 +70,26 @@ export function useConversations(filters: InboxFilters) {
   // Track total rows fetched from DB so load-more knows its offset
   const totalFetchedRef = useRef(0)
 
+  // Collaborator conversation IDs for My Inbox realtime filtering
+  const collaboratorIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!filters.myInbox || !filters.assignedTo) {
+      collaboratorIdsRef.current = new Set()
+      return
+    }
+    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const untyped = supabase as any
+    untyped
+      .from('conversation_collaborators')
+      .select('conversation_id')
+      .eq('user_id', filters.assignedTo)
+      .then(({ data }: { data: Array<{ conversation_id: string }> | null }) => {
+        collaboratorIdsRef.current = new Set((data ?? []).map((r) => r.conversation_id))
+      })
+  }, [filters.myInbox, filters.assignedTo])
+
   // Build and run the server-side portion of the query for a given page offset
   const fetchPage = useCallback(async (offset: number, f: InboxFilters) => {
     const supabase = createClient()
@@ -76,7 +104,24 @@ export function useConversations(filters: InboxFilters) {
     if (f.priority) query = query.eq('priority', f.priority)
     if (f.channel) query = query.eq('channel', f.channel)
     if (f.channelConfigId) query = query.eq('channel_config_id', f.channelConfigId)
-    if (f.assignedTo) query = query.eq('assigned_to', f.assignedTo)
+
+    if (f.myInbox && f.assignedTo) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const untyped = supabase as any
+      const { data: collabRows } = await untyped
+        .from('conversation_collaborators')
+        .select('conversation_id')
+        .eq('user_id', f.assignedTo) as { data: Array<{ conversation_id: string }> | null }
+      const collabIds = (collabRows ?? []).map((r) => r.conversation_id)
+      collaboratorIdsRef.current = new Set(collabIds)
+      if (collabIds.length > 0) {
+        query = query.or(`assigned_to.eq.${f.assignedTo},id.in.(${collabIds.join(',')})`)
+      } else {
+        query = query.eq('assigned_to', f.assignedTo)
+      }
+    } else if (f.assignedTo) {
+      query = query.eq('assigned_to', f.assignedTo)
+    }
     if (f.dateFrom) query = query.gte('last_message_at', f.dateFrom)
     if (f.dateTo) query = query.lte('last_message_at', f.dateTo + 'T23:59:59')
     if (f.search) query = query.ilike('subject', `%${f.search}%`)
@@ -179,7 +224,7 @@ export function useConversations(filters: InboxFilters) {
     fetchConversations,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     filters.status, filters.department, filters.priority, filters.channel,
-    filters.channelConfigId, filters.assignedTo, filters.search, filters.email,
+    filters.channelConfigId, filters.assignedTo, filters.myInbox, filters.search, filters.email,
     filters.dateFrom, filters.dateTo, filters.showSnoozed,
   ])
 
@@ -190,14 +235,14 @@ export function useConversations(filters: InboxFilters) {
       .channel('inbox-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, async (payload) => {
         const conv = await fetchOne((payload.new as { id: string }).id)
-        if (!conv || !passesFilters(conv, filtersRef.current)) return
+        if (!conv || !passesFilters(conv, filtersRef.current, collaboratorIdsRef.current)) return
         setConversations((prev) => [conv, ...prev.filter((c) => c.id !== conv.id)])
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, async (payload) => {
         const conv = await fetchOne((payload.new as { id: string }).id)
         if (!conv) return
         setConversations((prev) => {
-          if (passesFilters(conv, filtersRef.current)) {
+          if (passesFilters(conv, filtersRef.current, collaboratorIdsRef.current)) {
             const inList = prev.some((c) => c.id === conv.id)
             return sortByRecent(inList ? prev.map((c) => (c.id === conv.id ? conv : c)) : [conv, ...prev])
           }
