@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { processIncomingMessage } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
+import { notifyInboundMessage } from '@/lib/conversations/inbound-notify'
 
 export async function POST(request: Request) {
   const secret = request.headers.get('x-form-secret')
@@ -50,6 +51,11 @@ export async function POST(request: Request) {
     })
 
     triggerCategorise(result.conversationId, message, subject)
+    await notifyInboundMessage({
+      conversationId: result.conversationId,
+      senderName: full_name,
+      subject,
+    })
     return NextResponse.json({ success: true, conversation_id: result.conversationId })
   } catch (err) {
     console.error('[webhook/form]', err)

@@ -38,7 +38,8 @@ function passesFilters(
     if (
       !c.subject?.toLowerCase().includes(term) &&
       !c.contact?.full_name?.toLowerCase().includes(term) &&
-      !c.contact?.email?.toLowerCase().includes(term)
+      !c.contact?.email?.toLowerCase().includes(term) &&
+      !c.contact?.phone?.toLowerCase().includes(term)
     ) return false
   }
   if (f.email) {
@@ -124,7 +125,21 @@ export function useConversations(filters: InboxFilters) {
     }
     if (f.dateFrom) query = query.gte('last_message_at', f.dateFrom)
     if (f.dateTo) query = query.lte('last_message_at', f.dateTo + 'T23:59:59')
-    if (f.search) query = query.ilike('subject', `%${f.search}%`)
+
+    if (f.search) {
+      const term = f.search.trim()
+      const { data: matchingContacts } = await supabase
+        .from('contacts')
+        .select('id')
+        .or(`full_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`)
+      const contactIds = (matchingContacts ?? []).map((c) => c.id)
+      if (contactIds.length > 0) {
+        query = query.or(`subject.ilike.%${term}%,contact_id.in.(${contactIds.join(',')})`)
+      } else {
+        query = query.ilike('subject', `%${term}%`)
+      }
+    }
+
     if (f.showSnoozed) {
       query = query.not('snoozed_until', 'is', null)
     } else {
@@ -144,7 +159,8 @@ export function useConversations(filters: InboxFilters) {
         (c) =>
           c.subject?.toLowerCase().includes(term) ||
           c.contact?.full_name?.toLowerCase().includes(term) ||
-          c.contact?.email?.toLowerCase().includes(term)
+          c.contact?.email?.toLowerCase().includes(term) ||
+          c.contact?.phone?.toLowerCase().includes(term)
       )
     }
     if (f.email) {
@@ -154,7 +170,7 @@ export function useConversations(filters: InboxFilters) {
     return results
   }, [])
 
-  const needsDeepFetch = useCallback((f: InboxFilters) => !!(f.search || f.email), [])
+  const needsDeepFetch = useCallback((f: InboxFilters) => !!f.email, [])
 
   // Full refetch — triggered on mount and whenever filters change
   const fetchConversations = useCallback(async () => {

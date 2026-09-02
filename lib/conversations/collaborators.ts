@@ -193,7 +193,6 @@ export async function notifyConversationWatchers(opts: {
   body: string
   senderName?: string
   subject?: string | null
-  pushTitle?: string
   pushAuthorName?: string
 }): Promise<void> {
   const userIds = await getConversationWatcherIds(
@@ -215,14 +214,14 @@ export async function notifyConversationWatchers(opts: {
   )
 
   if (opts.type === 'message') {
-    const { notifyNewMessage, sendPushToUsers } = await import('@/lib/push/send')
-    if (opts.pushTitle) {
-      sendPushToUsers(userIds, {
-        title: opts.pushTitle,
-        body: opts.subject ?? opts.body,
-        url: `/inbox?conversation=${opts.conversationId}`,
-        conversationId: opts.conversationId,
-      }).catch(() => {})
+    const { notifyNewMessage, notifyStaffReply } = await import('@/lib/push/send')
+    if (opts.pushAuthorName) {
+      notifyStaffReply(
+        userIds,
+        opts.pushAuthorName,
+        opts.subject ?? null,
+        opts.conversationId
+      ).catch(() => {})
     } else if (opts.senderName) {
       notifyNewMessage(
         userIds,

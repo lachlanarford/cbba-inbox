@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { processIncomingMessage } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
 import { getMetaUserName } from '@/lib/channels/meta'
+import { notifyInboundMessage } from '@/lib/conversations/inbound-notify'
 
 // Webhook verification challenge (Meta requires GET handler)
 export async function GET(request: Request) {
@@ -107,6 +108,12 @@ export async function POST(request: Request) {
           externalMessageId: mid,
         })
         triggerCategorise(result.conversationId, content)
+        const displayName = senderName ?? sender
+        await notifyInboundMessage({
+          conversationId: result.conversationId,
+          senderName: displayName,
+          subject: `Facebook message from ${displayName}`,
+        })
       } catch (err) {
         console.error('[webhook/facebook]', err)
       }

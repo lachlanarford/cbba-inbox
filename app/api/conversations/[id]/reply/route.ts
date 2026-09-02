@@ -324,7 +324,7 @@ export async function POST(
       title: `Reply sent by ${authorName}`,
       body: conversation.subject ?? 'No subject',
       subject: conversation.subject,
-      pushTitle: `${authorName} replied`,
+      pushAuthorName: authorName,
     })
   }
 

@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { validateTwilioSignature } from '@/lib/whatsapp/client'
 import { processIncomingMessage } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
+import { notifyInboundMessage } from '@/lib/conversations/inbound-notify'
 
 export async function POST(request: Request) {
   const supabase = createServiceClient()
@@ -48,6 +49,11 @@ export async function POST(request: Request) {
       externalThreadId: from,
     })
     triggerCategorise(result.conversationId, messageBody)
+    await notifyInboundMessage({
+      conversationId: result.conversationId,
+      senderName: profileName ?? from,
+      subject: `WhatsApp from ${profileName ?? from}`,
+    })
   } catch (err) {
     console.error('[webhook/whatsapp]', err)
   }

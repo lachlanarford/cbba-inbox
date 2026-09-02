@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { processIncomingMessage } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
 import { getMetaUserName } from '@/lib/channels/meta'
+import { notifyInboundMessage } from '@/lib/conversations/inbound-notify'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -111,6 +112,12 @@ export async function POST(request: Request) {
           externalMessageId: mid,
         })
         triggerCategorise(result.conversationId, content)
+        const displayName = senderName ?? sender
+        await notifyInboundMessage({
+          conversationId: result.conversationId,
+          senderName: displayName,
+          subject: senderName ? `Instagram message from ${senderName}` : `Instagram message from ${sender}`,
+        })
       } catch (err) {
         console.error('[webhook/instagram] messaging event error:', err)
       }
@@ -148,6 +155,12 @@ export async function POST(request: Request) {
           externalMessageId: mid,
         })
         triggerCategorise(result.conversationId, content)
+        const displayName = senderName ?? senderId
+        await notifyInboundMessage({
+          conversationId: result.conversationId,
+          senderName: displayName,
+          subject: senderName ? `Instagram story mention from ${senderName}` : 'Instagram story mention',
+        })
       } catch (err) {
         console.error('[webhook/instagram] story mention error:', err)
       }

@@ -119,7 +119,7 @@ export default function FilterBar({
           <div className="px-3 pb-1.5 space-y-1.5">
             <SearchInput
               icon="search"
-              placeholder="Search by name or subject..."
+              placeholder="Search name, email, phone, or subject..."
               value={filters.search}
               onChange={(v) => onFilterChange('search', v)}
             />
