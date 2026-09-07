@@ -11,8 +11,10 @@ import { parseAttachmentMarker } from '@/lib/email/forward-quote'
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
 import { notifyMentionedUsers, autoAddStaffCollaborators, notifyConversationWatchers } from '@/lib/conversations/collaborators'
+import { isFormRelaySender, parseFormSubmissionContact } from '@/lib/email/form-submission'
 
 type ContactRow = {
+  id?: string
   email: string | null
   full_name: string | null
   social_id: string | null
@@ -55,7 +57,7 @@ export async function POST(
 
   const { data: conversation } = await supabase
     .from('conversations')
-    .select('*, contact:contacts(email, full_name, social_id, phone)')
+    .select('*, contact:contacts(id, email, full_name, social_id, phone)')
     .eq('id', conversationId)
     .single()
 
@@ -95,12 +97,52 @@ export async function POST(
         return NextResponse.json({ error: 'Gmail channel is not active' }, { status: 400 })
       }
 
-      const recipientEmail = isForward
+      const { data: lastInbound } = await service
+        .from('messages')
+        .select('rfc_message_id, content, from_address')
+        .eq('conversation_id', conversationId)
+        .eq('sender_type', 'contact')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      // Existing Squarespace threads stored the form relay as the contact email.
+      // Recover the real submitter from the form body so replies reach them.
+      let recipientEmail = isForward
         ? to?.trim()
         : contact?.email?.trim() ?? null
+
+      if (!isForward && isFormRelaySender(recipientEmail)) {
+        const formContact = parseFormSubmissionContact(lastInbound?.content ?? '', {
+          fromEmail: lastInbound?.from_address ?? recipientEmail,
+          subject: conversation.subject,
+        })
+        if (formContact?.email) {
+          recipientEmail = formContact.email
+          if (contact?.id) {
+            await service
+              .from('contacts')
+              .update({
+                email: formContact.email,
+                ...(formContact.fullName && !contact.full_name
+                  ? { full_name: formContact.fullName }
+                  : {}),
+              })
+              .eq('id', contact.id)
+          }
+        }
+      }
+
       if (!recipientEmail) {
         return NextResponse.json(
           { error: isForward ? 'Enter a recipient to forward to' : 'Contact has no email address' },
+          { status: 400 }
+        )
+      }
+
+      if (!isForward && isFormRelaySender(recipientEmail)) {
+        return NextResponse.json(
+          { error: 'This form email has no submitter address to reply to. Check the form body for an Email field.' },
           { status: 400 }
         )
       }
@@ -112,14 +154,6 @@ export async function POST(
           overrideConfigId !== conversation.channel_config_id
         )
 
-        const { data: lastInbound } = await service
-          .from('messages')
-          .select('rfc_message_id, content')
-          .eq('conversation_id', conversationId)
-          .eq('sender_type', 'contact')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
         const inReplyTo = isForward
           ? null
           : ((lastInbound as { rfc_message_id?: string | null } | null)?.rfc_message_id ?? null)

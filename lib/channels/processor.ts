@@ -17,6 +17,9 @@ export interface IncomingMessage {
   externalMessageId?: string | null
   ccAddresses?: string[]
   rfcMessageId?: string | null
+  /** Envelope From — when different from the contact (e.g. Squarespace form relay) */
+  envelopeFrom?: string | null
+  envelopeFromName?: string | null
 }
 
 export interface ProcessResult {
@@ -267,8 +270,12 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
       is_internal_note: false,
       ...(msg.externalMessageId ? { external_message_id: msg.externalMessageId } : {}),
       ...(msg.ccAddresses && msg.ccAddresses.length > 0 ? { cc_addresses: msg.ccAddresses } : {}),
-      ...(msg.contactEmail ? { from_address: msg.contactEmail.trim().toLowerCase() } : {}),
-      ...(msg.contactFullName ? { from_name: msg.contactFullName } : {}),
+      ...((msg.envelopeFrom ?? msg.contactEmail)
+        ? { from_address: (msg.envelopeFrom ?? msg.contactEmail)!.trim().toLowerCase() }
+        : {}),
+      ...((msg.envelopeFromName ?? msg.contactFullName)
+        ? { from_name: (msg.envelopeFromName ?? msg.contactFullName) }
+        : {}),
       ...(msg.rfcMessageId ? { rfc_message_id: msg.rfcMessageId } : {}),
     })
     .select('id')

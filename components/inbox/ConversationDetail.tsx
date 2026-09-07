@@ -13,6 +13,7 @@ import FeedbackEmailModal from './FeedbackEmailModal'
 import type { ConversationDetail as ConversationDetailType, FeedbackRequest } from '@/types/database'
 import type { Database } from '@/types/supabase'
 import { snoozeUntil, formatSnoozeUntil, type SnoozePreset } from '@/lib/utils/snooze'
+import { isFormRelaySender, parseFormSubmissionContact } from '@/lib/email/form-submission'
 
 interface ConversationWithConfig extends ConversationDetailType {
   channel_config: { id: string; identifier: string } | null
@@ -95,13 +96,55 @@ export default function ConversationDetail({
       .select('*, contact:contacts(*), assigned_user:users!assigned_to(id, full_name, avatar_url), channel_config:channel_configs(id, identifier)')
       .eq('id', conversationId)
       .single()
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (error || !data) {
           setConversation(null)
           setFetchError(true)
-        } else {
-          setConversation(data as unknown as ConversationWithConfig)
+          setLoading(false)
+          return
         }
+
+        let conv = data as unknown as ConversationWithConfig
+        const contact = conv.contact as { id?: string; email?: string | null; full_name?: string | null } | null
+
+        // Heal Squarespace form contacts that were stored as the noreply relay
+        if (contact?.id && isFormRelaySender(contact.email)) {
+          const { data: inbound } = await supabase
+            .from('messages')
+            .select('content, from_address')
+            .eq('conversation_id', conversationId)
+            .eq('sender_type', 'contact')
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle()
+
+          const formContact = parseFormSubmissionContact(inbound?.content ?? '', {
+            fromEmail: inbound?.from_address ?? contact.email,
+            subject: conv.subject,
+          })
+          if (formContact?.email) {
+            await supabase
+              .from('contacts')
+              .update({
+                email: formContact.email,
+                ...(formContact.fullName && !contact.full_name
+                  ? { full_name: formContact.fullName }
+                  : {}),
+              })
+              .eq('id', contact.id)
+
+            conv = {
+              ...conv,
+              contact: {
+                ...contact,
+                email: formContact.email,
+                full_name: formContact.fullName ?? contact.full_name ?? null,
+              },
+            } as ConversationWithConfig
+          }
+        }
+
+        setConversation(conv)
         setLoading(false)
       })
 

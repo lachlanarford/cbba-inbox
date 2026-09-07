@@ -4,6 +4,7 @@ import type { ParsedEmail } from '@/lib/gmail/client'
 import { processIncomingMessage, processStaffGmailReply } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
 import { notifyInboundMessage } from '@/lib/conversations/inbound-notify'
+import { parseFormSubmissionContact } from '@/lib/email/form-submission'
 
 export type GmailSyncResult = {
   processed: number
@@ -33,11 +34,20 @@ async function ingestInboxEmail(opts: {
     if (existing) return false
   }
 
+  // Squarespace (and similar) form notifications arrive from a noreply relay.
+  // Prefer the submitter Name/Email embedded in the body for contact + replies.
+  const formContact = parseFormSubmissionContact(opts.email.body, {
+    fromEmail: opts.email.from,
+    subject: opts.email.subject,
+  })
+  const contactEmail = formContact?.email ?? opts.email.from
+  const contactFullName = formContact?.fullName ?? opts.email.fromName
+
   const result = await processIncomingMessage({
     channel: 'gmail',
     channelConfigId: opts.configId,
-    contactFullName: opts.email.fromName,
-    contactEmail: opts.email.from,
+    contactFullName,
+    contactEmail,
     contactPhone: null,
     contactSocialId: null,
     subject: opts.email.subject,
@@ -48,11 +58,17 @@ async function ingestInboxEmail(opts: {
     externalMessageId: opts.email.messageId,
     ccAddresses: opts.email.cc.length > 0 ? opts.email.cc : undefined,
     rfcMessageId: opts.email.rfcMessageId,
+    ...(formContact
+      ? {
+          envelopeFrom: opts.email.from,
+          envelopeFromName: opts.email.fromName,
+        }
+      : {}),
   })
   triggerCategorise(result.conversationId, opts.email.body, opts.email.subject)
 
   if (opts.notify) {
-    const senderName = opts.email.fromName ?? opts.email.from
+    const senderName = contactFullName ?? contactEmail
     await notifyInboundMessage({
       conversationId: result.conversationId,
       senderName,
