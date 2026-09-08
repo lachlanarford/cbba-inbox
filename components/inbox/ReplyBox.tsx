@@ -319,8 +319,8 @@ export default function ReplyBox({
     const trimmed = content.trim()
     const textOnly = getTextContent(trimmed)
     if (!textOnly || sending) return
-    if (isForward && !toEmail.trim()) {
-      setError('Enter a recipient to forward to')
+    if (!isNote && isGmail && !toEmail.trim()) {
+      setError(isForward ? 'Enter a recipient to forward to' : 'Enter a recipient')
       return
     }
 
@@ -336,7 +336,7 @@ export default function ReplyBox({
         isForward: isForward && !isNote,
         isAiSuggested: aiSuggested && !isNote,
         attachments: isNote ? [] : attachments,
-        to: (isForward && !isNote && isGmail && toEmail.trim()) ? toEmail.trim() : undefined,
+        to: (!isNote && isGmail && toEmail.trim()) ? toEmail.trim() : undefined,
         cc: (!isNote && isGmail && cc.trim()) ? cc.split(',').map((e) => e.trim()).filter(Boolean) : [],
         bcc: (!isNote && isGmail && bcc.trim()) ? bcc.split(',').map((e) => e.trim()).filter(Boolean) : [],
         channelConfigId: (!isNote && isGmail && fromConfigId) ? fromConfigId : undefined,
@@ -627,9 +627,8 @@ export default function ReplyBox({
               <EmailInput
                 value={toEmail}
                 onChange={setToEmail}
-                placeholder={isForward ? 'Forward to...' : 'recipient@example.com'}
+                placeholder={isForward ? 'Forward to...' : 'name@example.com, another@example.com'}
                 className="w-full bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none"
-                single
               />
               <div className="flex items-center gap-1 flex-shrink-0">
                 {!showCc && (
@@ -858,7 +857,7 @@ export default function ReplyBox({
             )}
             <button
               onClick={handleSend}
-              disabled={isEmpty || sending || (isForward && !toEmail.trim())}
+              disabled={isEmpty || sending || (!isNote && isGmail && !toEmail.trim())}
               title={`${typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? 'Cmd' : 'Ctrl'}+Enter`}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cbba-purple text-white text-xs font-medium [@media(hover:hover)]:hover:bg-cbba-purple-light active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 transition-[background-color,transform] duration-150 ease-out"
             >

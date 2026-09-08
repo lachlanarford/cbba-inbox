@@ -8,6 +8,12 @@ import {
   type OutboundAttachment,
 } from '@/lib/gmail/client'
 import { parseAttachmentMarker } from '@/lib/email/forward-quote'
+import {
+  appendReplyHistory,
+  buildReplyHistoryHtml,
+  extractEmails,
+  type HistoryMessage,
+} from '@/lib/email/reply-history'
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
 import { notifyMentionedUsers, autoAddStaffCollaborators, notifyConversationWatchers, ensureReplierIsCollaborator } from '@/lib/conversations/collaborators'
@@ -73,7 +79,10 @@ export async function POST(
 
   const contact = conversation.contact as unknown as ContactRow | null
   let sentFromAddress: string | null = null
+  let sentFromName: string | null = appUser.full_name?.trim() || null
   let externalMessageId: string | null = null
+  let rfcMessageId: string | null = null
+  let storedCc: string[] | null = null
 
   if (!isNote) {
     if (conversation.channel === 'gmail') {
@@ -97,20 +106,23 @@ export async function POST(
         return NextResponse.json({ error: 'Gmail channel is not active' }, { status: 400 })
       }
 
-      const { data: lastInbound } = await service
+      const { data: threadMessages } = await service
         .from('messages')
-        .select('rfc_message_id, content, from_address')
+        .select('content, from_address, from_name, created_at, sender_type, sender_id, cc_addresses, rfc_message_id')
         .eq('conversation_id', conversationId)
-        .eq('sender_type', 'contact')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+        .eq('is_internal_note', false)
+        .order('created_at', { ascending: true })
+
+      const historyRows = threadMessages ?? []
+      const lastInbound = [...historyRows].reverse().find((m) => m.sender_type === 'contact') ?? null
 
       // Existing Squarespace threads stored the form relay as the contact email.
       // Recover the real submitter from the form body so replies reach them.
+      const toEmails = extractEmails(to)
       let recipientEmail = isForward
-        ? to?.trim()
-        : contact?.email?.trim() ?? null
+        ? (toEmails[0] ?? to?.trim() ?? null)
+        : (toEmails[0] ?? contact?.email?.trim() ?? null)
+      let toHeader = (to?.trim().replace(/,\s*$/, '') || recipientEmail || '')
 
       if (!isForward && isFormRelaySender(recipientEmail)) {
         const formContact = parseFormSubmissionContact(lastInbound?.content ?? '', {
@@ -119,6 +131,7 @@ export async function POST(
         })
         if (formContact?.email) {
           recipientEmail = formContact.email
+          toHeader = formContact.email
           if (contact?.id) {
             await service
               .from('contacts')
@@ -133,7 +146,7 @@ export async function POST(
         }
       }
 
-      if (!recipientEmail) {
+      if (!recipientEmail || !toHeader) {
         return NextResponse.json(
           { error: isForward ? 'Enter a recipient to forward to' : 'Contact has no email address' },
           { status: 400 }
@@ -154,9 +167,10 @@ export async function POST(
           overrideConfigId !== conversation.channel_config_id
         )
 
-        const inReplyTo = isForward
-          ? null
-          : ((lastInbound as { rfc_message_id?: string | null } | null)?.rfc_message_id ?? null)
+        const rfcIds = historyRows
+          .map((m) => m.rfc_message_id)
+          .filter((id): id is string => !!id?.trim())
+        const inReplyTo = isForward ? null : (rfcIds[rfcIds.length - 1] ?? null)
 
         const canUseThread = !isForward && !!conversation.external_thread_id && !sendingFromOtherInbox
 
@@ -183,13 +197,50 @@ export async function POST(
           }
         }
 
+        let outboundBody = bodyWithSig
+        if (!isForward && historyRows.length > 0) {
+          const staffIds = Array.from(new Set(
+            historyRows
+              .map((m) => m.sender_id)
+              .filter((id): id is string => !!id)
+          ))
+          const staffMap = new Map<string, { full_name: string | null; email: string | null }>()
+          if (staffIds.length > 0) {
+            const { data: staffUsers } = await service
+              .from('users')
+              .select('id, full_name, email')
+              .in('id', staffIds)
+            for (const u of staffUsers ?? []) {
+              staffMap.set(u.id, { full_name: u.full_name, email: u.email })
+            }
+          }
+
+          const history: HistoryMessage[] = historyRows.map((m) => {
+            const staff = m.sender_id ? staffMap.get(m.sender_id) : undefined
+            return {
+              content: m.content,
+              fromName:
+                m.from_name
+                || (m.sender_type === 'staff' ? staff?.full_name ?? null : contact?.full_name ?? null),
+              fromAddress:
+                m.from_address
+                || (m.sender_type === 'staff' ? staff?.email ?? channelConfig.identifier : contact?.email ?? null),
+              createdAt: m.created_at,
+              to: m.sender_type === 'contact' ? channelConfig.identifier : (contact?.email ?? null),
+              cc: m.cc_addresses,
+            }
+          })
+          outboundBody = appendReplyHistory(bodyWithSig, buildReplyHistoryHtml(history))
+        }
+
         const sent = await sendGmailReply(channelConfig.id, {
           threadId: canUseThread ? conversation.external_thread_id : null,
           inReplyTo,
-          to: recipientEmail,
+          references: isForward ? null : rfcIds,
+          to: toHeader,
           from: channelConfig.identifier,
           subject: conversation.subject ?? '(no subject)',
-          body: bodyWithSig,
+          body: outboundBody,
           attachments: outboundAttachments,
           cc: cc ?? [],
           bcc: bcc ?? [],
@@ -198,17 +249,32 @@ export async function POST(
 
         sentFromAddress = channelConfig.identifier
         externalMessageId = sent.messageId
+        rfcMessageId = sent.rfcMessageId
+
+        const existingCc = (cc ?? []).map((e) => e.trim()).filter(Boolean)
+        const existingCcLower = new Set(existingCc.map((e) => e.toLowerCase()))
+        const extraTo = extractEmails(toHeader).filter((e) => {
+          const lower = e.toLowerCase()
+          return (
+            lower !== (contact?.email?.trim().toLowerCase() ?? '') &&
+            lower !== channelConfig.identifier.toLowerCase() &&
+            !existingCcLower.has(lower)
+          )
+        })
+        const mergedCc = [...existingCc, ...extraTo]
+        storedCc = mergedCc.length > 0 ? mergedCc : null
 
         if (!isNote) {
           const excludeEmails = [
             contact?.email,
             channelConfig.identifier,
+            ...extractEmails(toHeader),
             recipientEmail,
           ].filter((e): e is string => !!e)
 
           await autoAddStaffCollaborators({
             conversationId,
-            emails: [...(cc ?? []), ...(bcc ?? [])],
+            emails: [...extractEmails(toHeader), ...(cc ?? []), ...(bcc ?? [])],
             addedBy: user.id,
             subject: conversation.subject,
             excludeEmails,
@@ -302,7 +368,9 @@ export async function POST(
     }
   }
 
-  const outboundCc = !isNote && conversation.channel === 'gmail' && cc && cc.length > 0 ? cc : null
+  const outboundCc = storedCc ?? (
+    !isNote && conversation.channel === 'gmail' && cc && cc.length > 0 ? cc : null
+  )
 
   const { data: message, error: msgError } = await supabase
     .from('messages')
@@ -314,7 +382,9 @@ export async function POST(
       is_internal_note: isNote,
       is_ai_suggested: isAiSuggested ?? false,
       ...(sentFromAddress ? { from_address: sentFromAddress } : {}),
+      ...(sentFromName ? { from_name: sentFromName } : {}),
       ...(externalMessageId ? { external_message_id: externalMessageId } : {}),
+      ...(rfcMessageId ? { rfc_message_id: rfcMessageId } : {}),
       ...(outboundCc ? { cc_addresses: outboundCc } : {}),
     })
     .select('id')

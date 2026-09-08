@@ -410,11 +410,18 @@ function withSubjectPrefix(subject: string, prefix: 'Re:' | 'Fwd:'): string {
   return `${prefix} ${value}`
 }
 
+function bracketMessageId(id: string): string {
+  const trimmed = id.trim()
+  if (!trimmed) return trimmed
+  return trimmed.startsWith('<') ? trimmed : `<${trimmed}>`
+}
+
 export async function sendReply(
   channelConfigId: string,
   opts: {
     threadId?: string | null
     inReplyTo?: string | null
+    references?: string[] | null
     to: string
     from: string
     subject: string
@@ -424,7 +431,7 @@ export async function sendReply(
     bcc?: string[]
     isForward?: boolean
   }
-): Promise<{ threadId: string; messageId: string }> {
+): Promise<{ threadId: string; messageId: string; rfcMessageId: string | null }> {
   const auth = await getAuthenticatedClient(channelConfigId)
   const gmail = google.gmail({ version: 'v1', auth })
 
@@ -436,9 +443,18 @@ export async function sendReply(
 
   const ccHeaders = opts.cc && opts.cc.length > 0 ? [`Cc: ${opts.cc.join(', ')}`] : []
   const bccHeaders = opts.bcc && opts.bcc.length > 0 ? [`Bcc: ${opts.bcc.join(', ')}`] : []
-  const replyHeaders = !opts.isForward && opts.inReplyTo
-    ? [`In-Reply-To: ${opts.inReplyTo}`, `References: ${opts.inReplyTo}`]
-    : []
+  let replyHeaders: string[] = []
+  if (!opts.isForward && opts.inReplyTo) {
+    const inReplyTo = bracketMessageId(opts.inReplyTo)
+    const referenceIds = (opts.references && opts.references.length > 0
+      ? opts.references
+      : [opts.inReplyTo]
+    ).map(bracketMessageId)
+    replyHeaders = [
+      `In-Reply-To: ${inReplyTo}`,
+      `References: ${referenceIds.join(' ')}`,
+    ]
+  }
 
   if (opts.attachments && opts.attachments.length > 0) {
     const boundary = `cbba_${Date.now()}`
@@ -495,9 +511,28 @@ export async function sendReply(
     requestBody,
   })
 
+  const messageId = res.data.id ?? ''
+  let rfcMessageId: string | null = null
+  if (messageId) {
+    try {
+      const meta = await gmail.users.messages.get({
+        userId: 'me',
+        id: messageId,
+        format: 'metadata',
+        metadataHeaders: ['Message-ID'],
+      })
+      rfcMessageId = meta.data.payload?.headers
+        ?.find((h) => h.name?.toLowerCase() === 'message-id')
+        ?.value?.trim() ?? null
+    } catch (err) {
+      console.error('[gmail] failed to read sent Message-ID:', err)
+    }
+  }
+
   return {
-    threadId: res.data.threadId ?? res.data.id ?? '',
-    messageId: res.data.id ?? '',
+    threadId: res.data.threadId ?? messageId,
+    messageId,
+    rfcMessageId,
   }
 }
 
