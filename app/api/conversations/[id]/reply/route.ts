@@ -17,7 +17,7 @@ import {
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
 import { notifyMentionedUsers, autoAddStaffCollaborators, notifyConversationWatchers, ensureReplierIsCollaborator } from '@/lib/conversations/collaborators'
-import { isFormRelaySender, parseFormSubmissionContact } from '@/lib/email/form-submission'
+import { isFormRelaySender, parseFormSubmissionContact, extractEmailAddress, isDirtyContactEmail } from '@/lib/email/form-submission'
 
 type ContactRow = {
   id?: string
@@ -116,28 +116,29 @@ export async function POST(
       const historyRows = threadMessages ?? []
       const lastInbound = [...historyRows].reverse().find((m) => m.sender_type === 'contact') ?? null
 
-      // Existing Squarespace threads stored the form relay as the contact email.
-      // Recover the real submitter from the form body so replies reach them.
+      // Existing Squarespace threads stored the form relay as the contact email,
+      // or polluted the email field with form metadata like "accepts marketing: false".
       const toEmails = extractEmails(to)
       let recipientEmail = isForward
         ? (toEmails[0] ?? to?.trim() ?? null)
         : (toEmails[0] ?? contact?.email?.trim() ?? null)
       let toHeader = (to?.trim().replace(/,\s*$/, '') || recipientEmail || '')
 
-      if (!isForward && isFormRelaySender(recipientEmail)) {
+      if (!isForward && (isFormRelaySender(recipientEmail) || isDirtyContactEmail(recipientEmail))) {
         const formContact = parseFormSubmissionContact(lastInbound?.content ?? '', {
           fromEmail: lastInbound?.from_address ?? recipientEmail,
           subject: conversation.subject,
         })
-        if (formContact?.email) {
-          recipientEmail = formContact.email
-          toHeader = formContact.email
-          if (contact?.id) {
+        const cleaned = formContact?.email ?? extractEmailAddress(recipientEmail)
+        if (cleaned) {
+          recipientEmail = cleaned
+          toHeader = cleaned
+          if (contact?.id && cleaned !== contact.email?.trim().toLowerCase()) {
             await service
               .from('contacts')
               .update({
-                email: formContact.email,
-                ...(formContact.fullName && !contact.full_name
+                email: cleaned,
+                ...(formContact?.fullName && !contact.full_name
                   ? { full_name: formContact.fullName }
                   : {}),
               })

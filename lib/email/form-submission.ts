@@ -37,17 +37,22 @@ export function parseFormSubmissionContact(
 
   const plain = stripHtmlForFields(body)
 
-  const email =
+  const emailRaw =
     matchField(plain, ['email', 'e-mail', 'email address']) ??
     matchEmailFallback(plain)
+  const email = extractEmailAddress(emailRaw)
   if (!email) return null
   if (isFormRelaySender(email)) return null
 
   const fullName = matchField(plain, ['name', 'full name', 'your name'])
+  // Drop trailing marketing / checkbox noise sometimes appended to Name lines
+  const cleanedName = fullName
+    ?.replace(/,?\s*accepts marketing.*$/i, '')
+    .trim() || null
 
   return {
     email: email.toLowerCase(),
-    fullName: fullName?.trim() || null,
+    fullName: cleanedName,
   }
 }
 
@@ -63,6 +68,22 @@ function stripHtmlForFields(html: string): string {
     .replace(/&gt;/gi, '>')
     .replace(/\r\n/g, '\n')
     .replace(/[ \t]+/g, ' ')
+}
+
+/** Pull a single email address out of a field that may include extra form metadata. */
+export function extractEmailAddress(value: string | null | undefined): string | null {
+  if (!value) return null
+  const match = value.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)
+  return match?.[0]?.trim().toLowerCase() ?? null
+}
+
+/** True when the stored value is not a bare email (e.g. includes marketing checkbox text). */
+export function isDirtyContactEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  const trimmed = email.trim()
+  const extracted = extractEmailAddress(trimmed)
+  if (!extracted) return true
+  return trimmed.toLowerCase() !== extracted
 }
 
 function matchField(text: string, labels: string[]): string | null {

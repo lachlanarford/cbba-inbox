@@ -13,7 +13,7 @@ import FeedbackEmailModal from './FeedbackEmailModal'
 import type { ConversationDetail as ConversationDetailType, FeedbackRequest } from '@/types/database'
 import type { Database } from '@/types/supabase'
 import { snoozeUntil, formatSnoozeUntil, type SnoozePreset } from '@/lib/utils/snooze'
-import { isFormRelaySender, parseFormSubmissionContact } from '@/lib/email/form-submission'
+import { isFormRelaySender, parseFormSubmissionContact, extractEmailAddress, isDirtyContactEmail } from '@/lib/email/form-submission'
 
 interface ConversationWithConfig extends ConversationDetailType {
   channel_config: { id: string; identifier: string } | null
@@ -108,8 +108,8 @@ export default function ConversationDetail({
         let conv = data as unknown as ConversationWithConfig
         const contact = conv.contact as { id?: string; email?: string | null; full_name?: string | null } | null
 
-        // Heal Squarespace form contacts that were stored as the noreply relay
-        if (contact?.id && isFormRelaySender(contact.email)) {
+        // Heal Squarespace form contacts: noreply relay or email polluted with form metadata
+        if (contact?.id && (isFormRelaySender(contact.email) || isDirtyContactEmail(contact.email))) {
           const { data: inbound } = await supabase
             .from('messages')
             .select('content, from_address')
@@ -123,12 +123,16 @@ export default function ConversationDetail({
             fromEmail: inbound?.from_address ?? contact.email,
             subject: conv.subject,
           })
-          if (formContact?.email) {
+          const cleanedEmail =
+            formContact?.email ??
+            extractEmailAddress(contact.email)
+
+          if (cleanedEmail && cleanedEmail !== contact.email?.trim().toLowerCase()) {
             await supabase
               .from('contacts')
               .update({
-                email: formContact.email,
-                ...(formContact.fullName && !contact.full_name
+                email: cleanedEmail,
+                ...(formContact?.fullName && !contact.full_name
                   ? { full_name: formContact.fullName }
                   : {}),
               })
@@ -138,8 +142,8 @@ export default function ConversationDetail({
               ...conv,
               contact: {
                 ...contact,
-                email: formContact.email,
-                full_name: formContact.fullName ?? contact.full_name ?? null,
+                email: cleanedEmail,
+                full_name: formContact?.fullName ?? contact.full_name ?? null,
               },
             } as ConversationWithConfig
           }
