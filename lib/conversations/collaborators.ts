@@ -32,6 +32,8 @@ export async function addCollaborator(opts: {
   userId: string
   addedBy: string | null
   subject: string | null
+  /** Skip in-app/push notification (e.g. self-add on reply) */
+  silent?: boolean
 }): Promise<{ ok: boolean; error?: string }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createServiceClient() as any
@@ -53,17 +55,55 @@ export async function addCollaborator(opts: {
 
   if (error) return { ok: false, error: error.message }
 
-  await supabase.from('notifications').insert({
-    user_id: opts.userId,
-    type: 'collaborator',
-    title: 'Added as collaborator',
-    body: opts.subject ?? 'No subject',
-    conversation_id: opts.conversationId,
-  })
+  if (!opts.silent && opts.userId !== opts.addedBy) {
+    await supabase.from('notifications').insert({
+      user_id: opts.userId,
+      type: 'collaborator',
+      title: 'Added as collaborator',
+      body: opts.subject ?? 'No subject',
+      conversation_id: opts.conversationId,
+    })
 
-  notifyCollaboratorAdded(opts.userId, opts.subject, opts.conversationId).catch(() => {})
+    notifyCollaboratorAdded(opts.userId, opts.subject, opts.conversationId).catch(() => {})
+  }
 
   return { ok: true }
+}
+
+/** If the staff member is not the assignee (or inbox default owner), add them as a collaborator. */
+export async function ensureReplierIsCollaborator(opts: {
+  conversationId: string
+  userId: string
+  assignedTo: string | null
+  channelConfigId: string | null
+  subject: string | null
+}): Promise<void> {
+  let ownerId = opts.assignedTo
+
+  if (!ownerId && opts.channelConfigId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createServiceClient() as any
+    const { data: config } = await supabase
+      .from('channel_configs')
+      .select('metadata')
+      .eq('id', opts.channelConfigId)
+      .maybeSingle()
+    const metadata = (config?.metadata ?? {}) as Record<string, string>
+    ownerId = metadata.default_assigned_to || null
+  }
+
+  // Unassigned with no inbox owner — nothing to collaborate against
+  if (!ownerId) return
+  // They own the conversation already
+  if (ownerId === opts.userId) return
+
+  await addCollaborator({
+    conversationId: opts.conversationId,
+    userId: opts.userId,
+    addedBy: opts.userId,
+    subject: opts.subject,
+    silent: true,
+  })
 }
 
 export async function removeCollaborator(

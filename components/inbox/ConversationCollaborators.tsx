@@ -18,6 +18,7 @@ interface Collaborator {
 interface ConversationCollaboratorsProps {
   conversationId: string
   assignedUserId: string | null
+  refreshKey?: number
 }
 
 const chevron = (
@@ -35,6 +36,7 @@ const pillChipClass =
 export default function ConversationCollaborators({
   conversationId,
   assignedUserId,
+  refreshKey = 0,
 }: ConversationCollaboratorsProps) {
   const currentUser = useAppUser()
   const allUsers = useUsers()
@@ -54,7 +56,7 @@ export default function ConversationCollaborators({
 
   useEffect(() => {
     void load()
-  }, [conversationId])
+  }, [conversationId, refreshKey])
 
   useEffect(() => {
     if (!menuOpen) return

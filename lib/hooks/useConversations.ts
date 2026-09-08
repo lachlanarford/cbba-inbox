@@ -269,6 +269,25 @@ export function useConversations(filters: InboxFilters) {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'conversations' }, (payload) => {
         setConversations((prev) => prev.filter((c) => c.id !== (payload.old as { id: string }).id))
       })
+      // Keep My Inbox in sync when this user is added/removed as a collaborator
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_collaborators' }, async (payload) => {
+        const row = payload.new as { conversation_id: string; user_id: string }
+        const f = filtersRef.current
+        if (!f.myInbox || row.user_id !== f.assignedTo) return
+        collaboratorIdsRef.current.add(row.conversation_id)
+        const conv = await fetchOne(row.conversation_id)
+        if (!conv || !passesFilters(conv, f, collaboratorIdsRef.current)) return
+        setConversations((prev) => sortByRecent([conv, ...prev.filter((c) => c.id !== conv.id)]))
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'conversation_collaborators' }, (payload) => {
+        const row = payload.old as { conversation_id: string; user_id: string }
+        const f = filtersRef.current
+        if (!f.myInbox || row.user_id !== f.assignedTo) return
+        collaboratorIdsRef.current.delete(row.conversation_id)
+        setConversations((prev) =>
+          prev.filter((c) => c.id !== row.conversation_id || c.assigned_to === f.assignedTo)
+        )
+      })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }

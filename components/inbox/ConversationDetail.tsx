@@ -83,6 +83,7 @@ export default function ConversationDetail({
   const [lastInboundCc, setLastInboundCc] = useState<string[]>([])
   const [feedbackEmailReady, setFeedbackEmailReady] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0)
   const [showArchivePrompt, setShowArchivePrompt] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [fetchError, setFetchError] = useState(false)
@@ -468,6 +469,7 @@ export default function ConversationDetail({
                 <ConversationCollaborators
                   conversationId={conversationId}
                   assignedUserId={assigned_user?.id ?? null}
+                  refreshKey={collaboratorsRefreshKey}
                 />
               </>
             )}
@@ -633,6 +635,7 @@ export default function ConversationDetail({
           channelConfigId={conversation.channel_config_id ?? null}
           fromEmail={conversation.channel_config?.identifier ?? null}
           onSent={() => {
+            setCollaboratorsRefreshKey((k) => k + 1)
             const supabase = createClient()
             supabase
               .from('conversations')

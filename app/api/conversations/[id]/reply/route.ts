@@ -10,7 +10,7 @@ import {
 import { parseAttachmentMarker } from '@/lib/email/forward-quote'
 import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
-import { notifyMentionedUsers, autoAddStaffCollaborators, notifyConversationWatchers } from '@/lib/conversations/collaborators'
+import { notifyMentionedUsers, autoAddStaffCollaborators, notifyConversationWatchers, ensureReplierIsCollaborator } from '@/lib/conversations/collaborators'
 import { isFormRelaySender, parseFormSubmissionContact } from '@/lib/email/form-submission'
 
 type ContactRow = {
@@ -324,6 +324,16 @@ export async function POST(
     console.error('[reply] message insert failed:', msgError)
     return NextResponse.json({ error: 'Failed to save message' }, { status: 500 })
   }
+
+  // Anyone who replies/notes on a conversation they do not own becomes a collaborator
+  // so it appears in their My Inbox alongside the assignee.
+  await ensureReplierIsCollaborator({
+    conversationId,
+    userId: user.id,
+    assignedTo: conversation.assigned_to,
+    channelConfigId: conversation.channel_config_id,
+    subject: conversation.subject,
+  })
 
   if (isNote && mentionedUserIds?.length) {
     const authorName = appUser.full_name?.trim() || appUser.email
