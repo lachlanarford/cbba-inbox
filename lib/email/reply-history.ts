@@ -57,10 +57,12 @@ export function extractEmails(raw: string | null | undefined): string[] {
  * Drop nested quoted history and huge inline images so reconstructed threads
  * do not duplicate Gmail quotes or explode MIME size.
  */
-export function stripQuotedHistory(content: string): string {
+export function stripQuotedHistory(content: string, opts?: { keepImages?: boolean }): string {
   let body = stripAttachmentMarker(content)
-  body = body.replace(/<img\b[^>]*src=["']data:[^"']*["'][^>]*>/gi, '[image]')
-  body = body.replace(/\s*src=(["'])data:[^"']*\1/gi, '')
+  if (!opts?.keepImages) {
+    body = body.replace(/<img\b[^>]*src=["']data:[^"']*["'][^>]*>/gi, '[image]')
+    body = body.replace(/\s*src=(["'])data:[^"']*\1/gi, '')
+  }
 
   if (looksLikeHtml(body)) {
     body = body.replace(/<div[^>]*class="[^"]*gmail_quote[^"]*"[\s\S]*$/i, '')

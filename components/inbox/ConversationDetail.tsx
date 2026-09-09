@@ -398,6 +398,18 @@ export default function ConversationDetail({
                   Reopen
                 </button>
               )}
+              <a
+                href={`/print/${conversationId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Print conversation"
+                aria-label="Print conversation"
+                className="p-1.5 rounded-lg text-gray-400 [@media(hover:hover)]:hover:bg-white/5 [@media(hover:hover)]:hover:text-white active:scale-[0.97] transition-[background-color,color,transform] duration-150 ease-out"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+              </a>
               {/* Toggle sidebar */}
               <button
                 onClick={onToggleSidebar}
@@ -551,6 +563,15 @@ export default function ConversationDetail({
                   >
                     Mark as unread{conversation.channel === 'gmail' ? ' (and Gmail)' : ''}
                   </button>
+                  <a
+                    href={`/print/${conversationId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMoreMenu(false)}
+                    className="block w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    Print conversation
+                  </a>
                   <div className="my-1 border-t border-white/5" />
                   {/* Snooze options */}
                   {[

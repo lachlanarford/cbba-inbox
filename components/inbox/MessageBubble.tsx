@@ -171,9 +171,10 @@ export default function MessageBubble({
     return (
       <div className="px-4 py-1">
         <div className="rounded-xl overflow-hidden border border-white/[0.07] bg-cbba-navy-light shadow-sm shadow-black/5">
+          <div className="flex items-stretch">
           <button
             type="button"
-            className="w-full flex items-center gap-3 px-4 py-3 bg-cbba-navy-light [@media(hover:hover)]:hover:bg-white/[0.04] active:scale-[0.995] transition-[background-color,transform] duration-150 ease-out text-left"
+            className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 bg-cbba-navy-light [@media(hover:hover)]:hover:bg-white/[0.04] active:scale-[0.995] transition-[background-color,transform] duration-150 ease-out text-left"
             onClick={() => setExpanded((v) => !v)}
           >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 select-none tracking-tight ${
@@ -222,6 +223,19 @@ export default function MessageBubble({
               </svg>
             </div>
           </button>
+          <a
+            href={`/print/${message.conversation_id}?message=${message.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Print this email"
+            aria-label="Print this email"
+            className="flex items-center px-2.5 text-gray-500 [@media(hover:hover)]:hover:text-white [@media(hover:hover)]:hover:bg-white/[0.04] active:scale-[0.97] transition-[color,background-color,transform] duration-150 ease-out"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+          </a>
+          </div>
 
           {expanded && (
             <div className="border-t border-white/[0.05]">
