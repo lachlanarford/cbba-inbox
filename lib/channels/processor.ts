@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import type { Channel } from '@/types/database'
 import { autoAddStaffCollaborators } from '@/lib/conversations/collaborators'
+import { isBounceSubject } from '@/lib/email/bounce'
 
 export interface IncomingMessage {
   channel: Channel
@@ -180,6 +181,7 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
         is_read: boolean
         status?: string
         contact_id?: string
+        subject?: string
       } = {
         is_read: false,
         ...(existing.status === 'closed' ? { status: 'open' } : {}),
@@ -206,6 +208,20 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
         }
         convUpdate.contact_id = contactId
       }
+
+      // If this thread started as a bounce/DSN and a real person replied into it,
+      // replace the bounce subject so staff replies do not go out as Re: Delivery Status...
+      if (msg.subject && !isBounceSubject(msg.subject)) {
+        const { data: current } = await supabase
+          .from('conversations')
+          .select('subject')
+          .eq('id', conversationId)
+          .single()
+        if (isBounceSubject(current?.subject)) {
+          convUpdate.subject = msg.subject
+        }
+      }
+
       await supabase
         .from('conversations')
         .update(convUpdate)

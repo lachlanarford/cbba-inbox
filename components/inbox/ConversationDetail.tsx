@@ -14,6 +14,7 @@ import type { ConversationDetail as ConversationDetailType, FeedbackRequest } fr
 import type { Database } from '@/types/supabase'
 import { snoozeUntil, formatSnoozeUntil, type SnoozePreset } from '@/lib/utils/snooze'
 import { isFormRelaySender, parseFormSubmissionContact, extractEmailAddress, isDirtyContactEmail } from '@/lib/email/form-submission'
+import { isBounceSubject, resolveReplySubject } from '@/lib/email/bounce'
 
 interface ConversationWithConfig extends ConversationDetailType {
   channel_config: { id: string; identifier: string } | null
@@ -146,6 +147,27 @@ export default function ConversationDetail({
                 full_name: formContact?.fullName ?? contact.full_name ?? null,
               },
             } as ConversationWithConfig
+          }
+        }
+
+        // Heal bounce/DSN subjects when a real contact later joined the same Gmail thread
+        if (isBounceSubject(conv.subject)) {
+          const contactName = (conv.contact as { full_name?: string | null } | null)?.full_name
+          const contactEmail = (conv.contact as { email?: string | null } | null)?.email
+          const isRealContact =
+            contactEmail &&
+            !/@googlemail\.com$/i.test(contactEmail) &&
+            !/^mailer-daemon/i.test(contactEmail)
+
+          if (isRealContact) {
+            const healedSubject = resolveReplySubject(conv.subject, contactName)
+            if (healedSubject !== conv.subject) {
+              await supabase
+                .from('conversations')
+                .update({ subject: healedSubject })
+                .eq('id', conversationId)
+              conv = { ...conv, subject: healedSubject }
+            }
           }
         }
 

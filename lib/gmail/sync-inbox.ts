@@ -5,6 +5,7 @@ import { processIncomingMessage, processStaffGmailReply } from '@/lib/channels/p
 import { triggerCategorise } from '@/lib/ai/categorise'
 import { notifyInboundMessage } from '@/lib/conversations/inbound-notify'
 import { parseFormSubmissionContact } from '@/lib/email/form-submission'
+import { isBounceOrDsnEmail } from '@/lib/email/bounce'
 
 export type GmailSyncResult = {
   processed: number
@@ -32,6 +33,16 @@ async function ingestInboxEmail(opts: {
       .eq('external_message_id', opts.email.messageId)
       .maybeSingle()
     if (existing) return false
+  }
+
+  // Bounce / DSN messages create noise and steal Gmail thread IDs from real replies.
+  if (isBounceOrDsnEmail({
+    fromEmail: opts.email.from,
+    fromName: opts.email.fromName,
+    subject: opts.email.subject,
+  })) {
+    await markAsRead(opts.configId, opts.email.messageId)
+    return false
   }
 
   // Squarespace (and similar) form notifications arrive from a noreply relay.

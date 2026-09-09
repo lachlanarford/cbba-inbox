@@ -18,6 +18,7 @@ import { sendMetaMessage } from '@/lib/channels/meta'
 import { sendMessage as sendWhatsAppMessage } from '@/lib/whatsapp/client'
 import { notifyMentionedUsers, autoAddStaffCollaborators, notifyConversationWatchers, ensureReplierIsCollaborator } from '@/lib/conversations/collaborators'
 import { isFormRelaySender, parseFormSubmissionContact, extractEmailAddress, isDirtyContactEmail } from '@/lib/email/form-submission'
+import { isBounceSubject, resolveReplySubject } from '@/lib/email/bounce'
 
 type ContactRow = {
   id?: string
@@ -234,13 +235,24 @@ export async function POST(
           outboundBody = appendReplyHistory(bodyWithSig, buildReplyHistoryHtml(history))
         }
 
+        const replySubject = resolveReplySubject(
+          conversation.subject,
+          contact?.full_name
+        )
+        if (isBounceSubject(conversation.subject) && replySubject !== conversation.subject) {
+          await service
+            .from('conversations')
+            .update({ subject: replySubject })
+            .eq('id', conversationId)
+        }
+
         const sent = await sendGmailReply(channelConfig.id, {
           threadId: canUseThread ? conversation.external_thread_id : null,
           inReplyTo,
           references: isForward ? null : rfcIds,
           to: toHeader,
           from: channelConfig.identifier,
-          subject: conversation.subject ?? '(no subject)',
+          subject: replySubject,
           body: outboundBody,
           attachments: outboundAttachments,
           cc: cc ?? [],
