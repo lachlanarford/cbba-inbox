@@ -185,6 +185,68 @@ export async function getCurrentHistoryId(channelConfigId: string): Promise<stri
   return profile.data.historyId ?? ''
 }
 
+const MAILBOX_QUERY = '-in:sent -in:drafts -in:chats -in:spam -in:trash'
+
+function mailboxQuery(after?: Date): string {
+  if (!after) return MAILBOX_QUERY
+  return `${MAILBOX_QUERY} after:${Math.floor(after.getTime() / 1000)}`
+}
+
+/** Approximate mailbox size for inbound mail (not sent, drafts, chats, spam, or trash). */
+export async function estimateMailboxSize(
+  channelConfigId: string,
+  after?: Date
+): Promise<number> {
+  const auth = await getAuthenticatedClient(channelConfigId)
+  const gmail = google.gmail({ version: 'v1', auth })
+  const listRes = await gmail.users.messages.list({
+    userId: 'me',
+    q: mailboxQuery(after),
+    maxResults: 1,
+  })
+  return listRes.data.resultSizeEstimate ?? 0
+}
+
+/** Gmail message ids for inbound mailbox mail (not sent, drafts, chats, spam, or trash). */
+export async function listMailboxMessageIds(
+  channelConfigId: string,
+  after?: Date
+): Promise<string[]> {
+  const auth = await getAuthenticatedClient(channelConfigId)
+  const gmail = google.gmail({ version: 'v1', auth })
+  const ids: string[] = []
+  let pageToken: string | undefined
+
+  do {
+    const listRes = await gmail.users.messages.list({
+      userId: 'me',
+      q: mailboxQuery(after),
+      maxResults: 500,
+      pageToken,
+    })
+    for (const msg of listRes.data.messages ?? []) {
+      if (msg.id) ids.push(msg.id)
+    }
+    pageToken = listRes.data.nextPageToken ?? undefined
+  } while (pageToken)
+
+  return ids
+}
+
+export async function getParsedMessage(
+  channelConfigId: string,
+  messageId: string
+): Promise<ParsedEmail | null> {
+  const auth = await getAuthenticatedClient(channelConfigId)
+  const gmail = google.gmail({ version: 'v1', auth })
+  const full = await gmail.users.messages.get({
+    userId: 'me',
+    id: messageId,
+    format: 'full',
+  })
+  return parseMessage(gmail, full.data)
+}
+
 /** Fetch inbox messages newer than `afterDate` (used when historyId is stale or ingest was blocked). */
 export async function listRecentInboxMessages(
   channelConfigId: string,

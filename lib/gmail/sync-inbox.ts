@@ -17,12 +17,13 @@ export type GmailSyncResult = {
 const CATCHUP_STALE_MS = 6 * 60 * 60 * 1000
 const CATCHUP_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000
 
-async function ingestInboxEmail(opts: {
+export async function ingestInboxEmail(opts: {
   configId: string
   email: ParsedEmail
   defaultDepartment: string | null
   defaultAssignedTo: string | null
   notify?: boolean
+  categorise?: boolean
 }): Promise<boolean> {
   const supabase = createServiceClient()
 
@@ -76,7 +77,9 @@ async function ingestInboxEmail(opts: {
         }
       : {}),
   })
-  triggerCategorise(result.conversationId, opts.email.body, opts.email.subject)
+  if (opts.categorise !== false) {
+    triggerCategorise(result.conversationId, opts.email.body, opts.email.subject)
+  }
 
   if (opts.notify) {
     const senderName = contactFullName ?? contactEmail
