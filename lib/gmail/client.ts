@@ -126,33 +126,33 @@ export async function fetchMessagesFromHistory(
     for (const record of historyRes.data.history ?? []) {
       for (const added of record.messagesAdded ?? []) {
         if (!added.message?.id) continue
-        const labels = added.message.labelIds ?? []
-        const isInbox = labels.includes('INBOX')
-        const isSent = labels.includes('SENT')
 
-        if (!isInbox && !isSent) continue
-
+        // history.messagesAdded often omits labelIds. Always read the full
+        // message so skip-inbox / unlabeled mail is not dropped.
         const full = await gmail.users.messages.get({
           userId: 'me',
           id: added.message.id,
           format: 'full',
         })
+        const labels = full.data.labelIds ?? added.message.labelIds ?? []
+        if (
+          labels.includes('SPAM') ||
+          labels.includes('TRASH') ||
+          labels.includes('DRAFT') ||
+          labels.includes('CHAT')
+        ) {
+          continue
+        }
+
         const parsed = await parseMessage(gmail, full.data)
         if (!parsed) continue
 
-        if (isInbox && !isSent) {
-          messages.push(parsed)
-        } else if (isSent && !isInbox) {
+        const isSent = labels.includes('SENT')
+        const isInbox = labels.includes('INBOX')
+        if (isSent && !isInbox) {
           sentMessages.push(parsed)
-        }
-        if (isInbox && isSent) {
+        } else {
           messages.push(parsed)
-        }
-      }
-
-      for (const removal of record.labelsRemoved ?? []) {
-        if (removal.message?.threadId && removal.labelIds?.includes('INBOX')) {
-          closedThreadIds.add(removal.message.threadId)
         }
       }
 

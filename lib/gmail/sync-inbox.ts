@@ -14,8 +14,8 @@ export type GmailSyncResult = {
   newHistoryId: string | null
 }
 
-const CATCHUP_STALE_MS = 14 * 24 * 60 * 60 * 1000
-const CATCHUP_LOOKBACK_MS = 40 * 24 * 60 * 60 * 1000
+const CATCHUP_STALE_MS = 6 * 60 * 60 * 1000
+const CATCHUP_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000
 
 async function ingestInboxEmail(opts: {
   configId: string
@@ -212,7 +212,7 @@ export async function catchUpGmailInbox(opts: {
 }
 
 export async function inboxNeedsCatchUp(
-  configId: string,
+  _configId: string,
   metadata: Record<string, string>
 ): Promise<{ needed: boolean; afterDate: Date }> {
   if (metadata.needs_catchup === 'true') {
@@ -224,21 +224,8 @@ export async function inboxNeedsCatchUp(
     return { needed: false, afterDate: new Date() }
   }
 
-  const supabase = createServiceClient()
-  const { data: latest } = await supabase
-    .from('conversations')
-    .select('last_message_at')
-    .eq('channel_config_id', configId)
-    .order('last_message_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const lastMessageAt = latest?.last_message_at ? new Date(latest.last_message_at).getTime() : 0
-  const stale = !lastMessageAt || Date.now() - lastMessageAt > CATCHUP_STALE_MS
-  if (!stale) return { needed: false, afterDate: new Date() }
-
-  const afterMs = lastMessageAt
-    ? Math.max(lastMessageAt - 24 * 60 * 60 * 1000, Date.now() - CATCHUP_LOOKBACK_MS)
+  const afterMs = lastCatchup
+    ? Math.max(lastCatchup - 60 * 60 * 1000, Date.now() - CATCHUP_LOOKBACK_MS)
     : Date.now() - CATCHUP_LOOKBACK_MS
   return { needed: true, afterDate: new Date(afterMs) }
 }

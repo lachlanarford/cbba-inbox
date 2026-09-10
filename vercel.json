@@ -1,6 +1,14 @@
 {
   "crons": [
     {
+      "path": "/api/gmail/poll",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/gmail/watch/renew",
+      "schedule": "0 3 * * *"
+    },
+    {
       "path": "/api/knowledge/drive-sync",
       "schedule": "0 2 * * *"
     }

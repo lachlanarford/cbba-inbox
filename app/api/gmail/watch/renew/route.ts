@@ -39,10 +39,14 @@ async function handleRenew(request: Request) {
     try {
       const historyId = await watchInbox(config.id)
       const metadata = (config.metadata ?? {}) as Record<string, string>
-      await serviceClient
-        .from('channel_configs')
-        .update({ metadata: { ...metadata, history_id: historyId } })
-        .eq('id', config.id)
+      // Keep the stored history cursor. Overwriting it with watch()'s current
+      // historyId skips mail that arrived since the last successful sync.
+      if (!metadata.history_id && historyId) {
+        await serviceClient
+          .from('channel_configs')
+          .update({ metadata: { ...metadata, history_id: historyId } })
+          .eq('id', config.id)
+      }
       results.push({ email: config.identifier, status: 'ok' })
     } catch (err) {
       results.push({ email: config.identifier, status: String(err) })

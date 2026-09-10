@@ -38,13 +38,15 @@ export async function processStaffGmailReply(opts: {
 }): Promise<void> {
   const supabase = createServiceClient()
 
-  const { data: conv } = await supabase
+  const { data: convRows } = await supabase
     .from('conversations')
     .select('id')
     .eq('external_thread_id', opts.externalThreadId)
     .eq('channel_config_id', opts.channelConfigId)
-    .maybeSingle()
+    .order('last_message_at', { ascending: false })
+    .limit(1)
 
+  const conv = convRows?.[0]
   if (!conv) return
 
   const { data: existing } = await supabase
@@ -173,7 +175,10 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
       existingQuery = existingQuery.eq('channel_config_id', msg.channelConfigId)
     }
 
-    const { data: existing } = await existingQuery.maybeSingle()
+    const { data: existingRows } = await existingQuery
+      .order('last_message_at', { ascending: false })
+      .limit(1)
+    const existing = existingRows?.[0]
 
     if (existing) {
       conversationId = existing.id
@@ -243,8 +248,25 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
         })
         .select('id')
         .single()
-      if (!created) throw new Error(`Failed to create conversation: ${error?.message}`)
-      conversationId = created.id
+      if (!created) {
+        let racedQuery = supabase
+          .from('conversations')
+          .select('id')
+          .eq('external_thread_id', msg.externalThreadId)
+        if (msg.channelConfigId) {
+          racedQuery = racedQuery.eq('channel_config_id', msg.channelConfigId)
+        }
+        const { data: raced } = await racedQuery
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+        if (raced?.[0]) {
+          conversationId = raced[0].id
+        } else {
+          throw new Error(`Failed to create conversation: ${error?.message}`)
+        }
+      } else {
+        conversationId = created.id
+      }
     }
   } else {
     const { data: created, error } = await supabase
@@ -296,7 +318,17 @@ export async function processIncomingMessage(msg: IncomingMessage): Promise<Proc
     })
     .select('id')
     .single()
-  if (!message) throw new Error(`Failed to create message: ${msgError?.message}`)
+  if (!message) {
+    if (msg.externalMessageId && msgError?.code === '23505') {
+      const { data: existingMsg } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('external_message_id', msg.externalMessageId)
+        .maybeSingle()
+      if (existingMsg) return { contactId, conversationId, messageId: existingMsg.id }
+    }
+    throw new Error(`Failed to create message: ${msgError?.message}`)
+  }
 
   if (msg.ccAddresses && msg.ccAddresses.length > 0) {
     const { data: conv } = await supabase
