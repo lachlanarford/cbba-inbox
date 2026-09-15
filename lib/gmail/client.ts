@@ -677,7 +677,6 @@ export async function watchInbox(channelConfigId: string): Promise<string> {
     userId: 'me',
     requestBody: {
       topicName: process.env.GMAIL_PUBSUB_TOPIC ?? '',
-      labelIds: ['INBOX', 'SENT'],
     },
   })
   return res.data.historyId ?? ''

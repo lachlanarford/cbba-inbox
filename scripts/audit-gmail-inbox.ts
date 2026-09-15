@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/service'
-import { estimateMailboxSize, getParsedMessage, listMailboxMessageIds } from '@/lib/gmail/client'
+import { getParsedMessage, listMailboxMessageIds } from '@/lib/gmail/client'
 import { ingestInboxEmail } from '@/lib/gmail/sync-inbox'
 
 type AccountResult = {
@@ -66,11 +66,16 @@ async function auditAccount(opts: {
     importedSubjects: [],
   }
 
-  // Inbox only existed from Gmail connect. Older archive is counted, not imported.
-  const after = new Date(opts.connectedAt)
-  after.setUTCDate(after.getUTCDate() - 1)
+  // Default: since this mailbox was connected. AFTER_DAYS=7 limits to recent mail.
+  const afterDays = process.env.AFTER_DAYS ? Number(process.env.AFTER_DAYS) : NaN
+  const after = Number.isFinite(afterDays)
+    ? new Date(Date.now() - afterDays * 24 * 60 * 60 * 1000)
+    : (() => {
+        const connected = new Date(opts.connectedAt)
+        connected.setUTCDate(connected.getUTCDate() - 1)
+        return connected
+      })()
 
-  result.mailboxTotal = await estimateMailboxSize(opts.id)
   const gmailIds = await listMailboxMessageIds(opts.id, after)
   result.scannedSinceInbox = gmailIds.length
   const stored = await storedMessageIds(opts.id)
@@ -82,7 +87,7 @@ async function auditAccount(opts: {
   const concurrency = 2
 
   process.stdout.write(
-    `  mailbox ${result.mailboxTotal}, since inbox started ${gmailIds.length}, missing ${missing.length}\n`
+    `  scanned ${gmailIds.length}, missing ${missing.length}\n`
   )
 
   for (let i = 0; i < missing.length; i += concurrency) {

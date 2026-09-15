@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/service'
-import { fetchMessagesFromHistory, getCurrentHistoryId, listRecentInboxMessages, markAsRead } from '@/lib/gmail/client'
+import { fetchMessagesFromHistory, getParsedMessage, listMailboxMessageIds, markAsRead } from '@/lib/gmail/client'
 import type { ParsedEmail } from '@/lib/gmail/client'
 import { processIncomingMessage, processStaffGmailReply } from '@/lib/channels/processor'
 import { triggerCategorise } from '@/lib/ai/categorise'
@@ -16,6 +16,25 @@ export type GmailSyncResult = {
 
 const CATCHUP_STALE_MS = 6 * 60 * 60 * 1000
 const CATCHUP_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000
+const CATCHUP_RECENT_MS = 2 * 24 * 60 * 60 * 1000
+const CATCHUP_MAX_INGEST = 20
+
+async function unstoredMailboxIds(gmailIds: string[]): Promise<string[]> {
+  const supabase = createServiceClient()
+  const stored = new Set<string>()
+  for (let i = 0; i < gmailIds.length; i += 100) {
+    const chunk = gmailIds.slice(i, i + 100)
+    const { data, error } = await supabase
+      .from('messages')
+      .select('external_message_id')
+      .in('external_message_id', chunk)
+    if (error) throw new Error(error.message)
+    for (const row of data ?? []) {
+      if (row.external_message_id) stored.add(row.external_message_id)
+    }
+  }
+  return gmailIds.filter((id) => !stored.has(id))
+}
 
 export async function ingestInboxEmail(opts: {
   configId: string
@@ -32,8 +51,8 @@ export async function ingestInboxEmail(opts: {
       .from('messages')
       .select('id')
       .eq('external_message_id', opts.email.messageId)
-      .maybeSingle()
-    if (existing) return false
+      .limit(1)
+    if (existing && existing.length > 0) return false
   }
 
   // Bounce / DSN messages create noise and steal Gmail thread IDs from real replies.
@@ -176,14 +195,19 @@ export async function catchUpGmailInbox(opts: {
   email: string
   metadata: Record<string, string>
   afterDate: Date
-}): Promise<{ processed: number; scanned: number }> {
+  maxIngest?: number
+}): Promise<{ processed: number; scanned: number; missing: number }> {
   const defaultDepartment = opts.metadata.default_department ?? null
   const defaultAssignedTo = opts.metadata.default_assigned_to ?? null
-  const messages = await listRecentInboxMessages(opts.configId, opts.afterDate)
+  const gmailIds = await listMailboxMessageIds(opts.configId, opts.afterDate)
+  const missing = await unstoredMailboxIds(gmailIds)
+  const cap = opts.maxIngest ?? CATCHUP_MAX_INGEST
 
   let processed = 0
-  for (const email of messages) {
+  for (const messageId of missing.slice(0, cap)) {
     try {
+      const email = await getParsedMessage(opts.configId, messageId)
+      if (!email) continue
       const ingested = await ingestInboxEmail({
         configId: opts.configId,
         email,
@@ -193,17 +217,15 @@ export async function catchUpGmailInbox(opts: {
       })
       if (ingested) processed++
     } catch (err) {
-      console.error(`[gmail/catch-up] message error for ${opts.email}:`, email.messageId, err)
+      console.error(`[gmail/catch-up] message error for ${opts.email}:`, messageId, err)
     }
   }
 
   const supabase = createServiceClient()
-  const historyId = await getCurrentHistoryId(opts.configId).catch(() => '')
   const metadata: Record<string, string> = {
     ...opts.metadata,
     last_catchup_at: new Date().toISOString(),
   }
-  if (historyId) metadata.history_id = historyId
   delete metadata.needs_catchup
 
   await supabase
@@ -211,24 +233,19 @@ export async function catchUpGmailInbox(opts: {
     .update({ metadata })
     .eq('id', opts.configId)
 
-  return { processed, scanned: messages.length }
+  return { processed, scanned: gmailIds.length, missing: missing.length }
 }
 
 export async function inboxNeedsCatchUp(
   _configId: string,
   metadata: Record<string, string>
-): Promise<{ needed: boolean; afterDate: Date }> {
+): Promise<{ needed: boolean; afterDate: Date; deep: boolean }> {
   if (metadata.needs_catchup === 'true') {
-    return { needed: true, afterDate: new Date(Date.now() - CATCHUP_LOOKBACK_MS) }
+    return { needed: true, afterDate: new Date(Date.now() - CATCHUP_LOOKBACK_MS), deep: true }
   }
 
   const lastCatchup = metadata.last_catchup_at ? new Date(metadata.last_catchup_at).getTime() : 0
-  if (lastCatchup && Date.now() - lastCatchup < CATCHUP_STALE_MS) {
-    return { needed: false, afterDate: new Date() }
-  }
-
-  const afterMs = lastCatchup
-    ? Math.max(lastCatchup - 60 * 60 * 1000, Date.now() - CATCHUP_LOOKBACK_MS)
-    : Date.now() - CATCHUP_LOOKBACK_MS
-  return { needed: true, afterDate: new Date(afterMs) }
+  const deep = !lastCatchup || Date.now() - lastCatchup >= CATCHUP_STALE_MS
+  const lookbackMs = deep ? CATCHUP_LOOKBACK_MS : CATCHUP_RECENT_MS
+  return { needed: true, afterDate: new Date(Date.now() - lookbackMs), deep }
 }

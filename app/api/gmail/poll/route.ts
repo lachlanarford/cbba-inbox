@@ -3,6 +3,8 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentHistoryId } from '@/lib/gmail/client'
 import { catchUpGmailInbox, inboxNeedsCatchUp, syncGmailInbox } from '@/lib/gmail/sync-inbox'
 
+export const maxDuration = 300
+
 // Called by Vercel Cron (or external cron service) every minute.
 // Vercel passes Authorization: Bearer {CRON_SECRET} automatically.
 export async function GET(request: Request) {
@@ -32,43 +34,53 @@ export async function GET(request: Request) {
     const email = config.identifier
     const metadata = (config.metadata ?? {}) as Record<string, string>
     let historyId = metadata.history_id ?? null
+    let processed = 0
+    const statusParts: string[] = []
 
     try {
-      const catchUp = await inboxNeedsCatchUp(config.id, metadata)
-      if (catchUp.needed) {
-        const imported = await catchUpGmailInbox({
-          configId: config.id,
-          email,
-          metadata,
-          afterDate: catchUp.afterDate,
-        })
-        results.push({
-          email,
-          processed: imported.processed,
-          status: `caught_up:${imported.scanned}`,
-        })
-        continue
-      }
-
       if (!historyId) {
         historyId = await getCurrentHistoryId(config.id)
+        metadata.history_id = historyId
         await supabase
           .from('channel_configs')
-          .update({ metadata: { ...metadata, history_id: historyId } })
+          .update({ metadata })
           .eq('id', config.id)
-        results.push({ email, processed: 0, status: 'initialized' })
-        continue
+        statusParts.push('initialized')
+      } else {
+        try {
+          const sync = await syncGmailInbox({
+            configId: config.id,
+            email,
+            metadata,
+            storedHistoryId: historyId,
+            notify: true,
+          })
+          processed += sync.processed
+          if (sync.newHistoryId) metadata.history_id = sync.newHistoryId
+          statusParts.push('ok')
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err)
+          if (errMsg.includes('404') || errMsg.includes('Invalid historyId')) {
+            statusParts.push('stale_history')
+          } else {
+            throw err
+          }
+        }
       }
 
-      const sync = await syncGmailInbox({
+      const catchUp = await inboxNeedsCatchUp(config.id, metadata)
+      const imported = await catchUpGmailInbox({
         configId: config.id,
         email,
         metadata,
-        storedHistoryId: historyId,
-        notify: true,
+        afterDate: catchUp.afterDate,
       })
+      processed += imported.processed
+      statusParts.push(
+        `${catchUp.deep ? 'catchup' : 'recent'}:${imported.processed}/${imported.missing}`
+      )
 
-      results.push({ email, processed: sync.processed, status: 'ok' })
+      results.push({ email, processed, status: statusParts.join(',') })
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err)
 
