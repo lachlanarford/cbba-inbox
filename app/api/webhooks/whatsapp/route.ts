@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       content: messageBody,
       externalThreadId: from,
     })
-    triggerCategorise(result.conversationId, messageBody)
+    await triggerCategorise(result.conversationId, messageBody)
     await notifyInboundMessage({
       conversationId: result.conversationId,
       senderName: profileName ?? from,

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { ConversationListItem, InboxFilters } from '@/types/database'
+import { readTriageScores, scoresNeedAttention } from '@/lib/ai/triage-decision'
+import { shouldUseSemanticSearch } from '@/lib/inbox/semantic-search'
 
 const PAGE_SIZE = 100
 
@@ -28,12 +30,13 @@ function passesFilters(
   if (f.priority && c.priority !== f.priority) return false
   if (f.channel && c.channel !== f.channel) return false
   if (f.channelConfigId && c.channel_config_id !== f.channelConfigId) return false
+  if (f.attention && !scoresNeedAttention(readTriageScores(c.triage_scores))) return false
   if (f.myInbox && f.assignedTo) {
     if (c.assigned_to !== f.assignedTo && !collaboratorIds.has(c.id)) return false
   } else if (f.assignedTo && c.assigned_to !== f.assignedTo) {
     return false
   }
-  if (f.search) {
+  if (f.search && !shouldUseSemanticSearch(f.search)) {
     const term = f.search.toLowerCase()
     if (
       !c.subject?.toLowerCase().includes(term) &&
@@ -127,16 +130,34 @@ export function useConversations(filters: InboxFilters) {
     if (f.dateTo) query = query.lte('last_message_at', f.dateTo + 'T23:59:59')
 
     if (f.search) {
-      const term = f.search.trim()
-      const { data: matchingContacts } = await supabase
-        .from('contacts')
-        .select('id')
-        .or(`full_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`)
-      const contactIds = (matchingContacts ?? []).map((c) => c.id)
-      if (contactIds.length > 0) {
-        query = query.or(`subject.ilike.%${term}%,contact_id.in.(${contactIds.join(',')})`)
-      } else {
-        query = query.ilike('subject', `%${term}%`)
+      let usedSemantic = false
+      if (shouldUseSemanticSearch(f.search)) {
+        try {
+          const res = await fetch(`/api/inbox/search?q=${encodeURIComponent(f.search.trim())}`)
+          if (res.ok) {
+            const body = await res.json() as { mode?: string; ids?: string[] }
+            if (body.mode === 'semantic') {
+              usedSemantic = true
+              if (!body.ids?.length) return { data: [], error: null }
+              query = query.in('id', body.ids)
+            }
+          }
+        } catch (err) {
+          console.error('[inbox] semantic search failed', err)
+        }
+      }
+      if (!usedSemantic) {
+        const term = f.search.trim()
+        const { data: matchingContacts } = await supabase
+          .from('contacts')
+          .select('id')
+          .or(`full_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`)
+        const contactIds = (matchingContacts ?? []).map((c) => c.id)
+        if (contactIds.length > 0) {
+          query = query.or(`subject.ilike.%${term}%,contact_id.in.(${contactIds.join(',')})`)
+        } else {
+          query = query.ilike('subject', `%${term}%`)
+        }
       }
     }
 
@@ -153,7 +174,10 @@ export function useConversations(filters: InboxFilters) {
   // Client-side filters for contact fields (subject search is server-side)
   const applyClientFilters = useCallback((data: ConversationListItem[], f: InboxFilters) => {
     let results = data
-    if (f.search) {
+    if (f.attention) {
+      results = results.filter((c) => scoresNeedAttention(readTriageScores(c.triage_scores)))
+    }
+    if (f.search && !shouldUseSemanticSearch(f.search)) {
       const term = f.search.toLowerCase()
       results = results.filter(
         (c) =>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAdmin } from '@/lib/auth'
+import { judgeBugPriority } from '@/lib/ai/bug-priority'
 
 export async function GET() {
   const supabase = await createClient()
@@ -36,6 +37,13 @@ export async function POST(request: Request) {
   }
 
   const service = createServiceClient()
+  let suggestedPriority: 'low' | 'medium' | 'high' | null = null
+  try {
+    suggestedPriority = await judgeBugPriority(body.title.trim(), body.description.trim())
+  } catch (err) {
+    console.error('[bug-reports] priority suggestion failed', err)
+  }
+
   const { data, error } = await service
     .from('bug_reports')
     .insert({
@@ -43,6 +51,7 @@ export async function POST(request: Request) {
       title: body.title.trim(),
       description: body.description.trim(),
       priority: body.priority ?? 'medium',
+      suggested_priority: suggestedPriority,
     })
     .select()
     .single()

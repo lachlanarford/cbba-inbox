@@ -1,8 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/service'
+import { applyExcerptJudgments, judgeExcerptRelevance } from '@/lib/knowledge/rerank'
 
 export interface KnowledgeSearchOptions {
   conversationContext?: string
   department?: string | null
+  limit?: number
 }
 
 export interface KnowledgeSearchResult {
@@ -87,6 +89,7 @@ const BM25_K1 = 1.5
 const BM25_B = 0.75
 const TITLE_WEIGHT = 4
 const MAX_RESULTS = 5
+const RERANK_SHORTLIST = 8
 const MAX_EXCERPT_CHARS = 1400
 
 function tokenize(text: string): string[] {
@@ -246,7 +249,7 @@ export function rankKnowledgeEntries(
     if (seen.has(key)) continue
     seen.add(key)
     deduped.push(item)
-    if (deduped.length >= MAX_RESULTS) break
+    if (deduped.length >= (options.limit ?? MAX_RESULTS)) break
   }
 
   return deduped
@@ -268,20 +271,25 @@ export async function searchKnowledge(
   const entries = (data ?? []) as unknown as KnowledgeRow[]
   if (!entries.length) return { context: '', sources: [] }
 
-  let ranked = rankKnowledgeEntries(entries, query, options)
+  const shortlist = rankKnowledgeEntries(entries, query, { ...options, limit: RERANK_SHORTLIST })
+  if (!shortlist.length) return { context: '', sources: [] }
 
-  if (ranked.length < 2) {
-    const manuals = entries.filter((e) => e.source_type === 'manual' && isCustomerFacing(e))
-    const already = new Set(ranked.map((r) => r.entry.title))
-    for (const entry of manuals) {
-      if (already.has(entry.title)) continue
-      ranked.push({
-        entry,
-        score: 0,
-        excerpt: bestExcerpt(entry.content, tokenize(query)),
-      })
-    }
-    ranked = ranked.slice(0, MAX_RESULTS)
+  let ranked = shortlist
+  try {
+    const judgments = await judgeExcerptRelevance(
+      [options.conversationContext, query].filter(Boolean).join(' '),
+      shortlist.map((item) => ({ title: item.entry.title, excerpt: item.excerpt })),
+    )
+    ranked = applyExcerptJudgments(
+      shortlist.map((item) => ({ ...item, bm25: item.score })),
+      judgments,
+    )
+  } catch (err) {
+    console.error('[knowledge] excerpt rerank failed', err)
+    ranked = applyExcerptJudgments(
+      shortlist.map((item) => ({ ...item, bm25: item.score })),
+      null,
+    )
   }
 
   if (!ranked.length) return { context: '', sources: [] }

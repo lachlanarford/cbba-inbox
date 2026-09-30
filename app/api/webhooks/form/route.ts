@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       department: department ?? null,
     })
 
-    triggerCategorise(result.conversationId, message, subject)
+    await triggerCategorise(result.conversationId, message, subject)
     await notifyInboundMessage({
       conversationId: result.conversationId,
       senderName: full_name,

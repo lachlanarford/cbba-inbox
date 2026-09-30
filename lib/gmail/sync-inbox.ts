@@ -97,7 +97,7 @@ export async function ingestInboxEmail(opts: {
       : {}),
   })
   if (opts.categorise !== false) {
-    triggerCategorise(result.conversationId, opts.email.body, opts.email.subject)
+    await triggerCategorise(result.conversationId, opts.email.body, opts.email.subject)
   }
 
   if (opts.notify) {

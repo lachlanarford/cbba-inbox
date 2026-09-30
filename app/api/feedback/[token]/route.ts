@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { judgeFeedbackTheme } from '@/lib/ai/feedback-theme'
 
 const PURPLE = '#604484'
 const GOLD = '#FBB33F'
@@ -79,11 +80,22 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid token' }, { status: 404, headers: CORS_HEADERS })
   }
 
-  const updates: { rating: number; responded_at: string; comment?: string } = {
+  const updates: { rating: number; responded_at: string; comment?: string; theme?: string | null; theme_confidence?: number } = {
     rating,
     responded_at: new Date().toISOString(),
   }
-  if (comment?.trim()) updates.comment = comment.trim()
+  if (comment?.trim()) {
+    updates.comment = comment.trim()
+    try {
+      const judged = await judgeFeedbackTheme(comment.trim())
+      if (judged) {
+        updates.theme = judged.theme
+        updates.theme_confidence = judged.confidence
+      }
+    } catch (err) {
+      console.error('[feedback] theme failed', err)
+    }
+  }
 
   await supabase.from('feedback_requests').update(updates).eq('token', params.token)
   return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })

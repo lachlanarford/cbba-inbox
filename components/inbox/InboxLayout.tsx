@@ -156,6 +156,7 @@ export default function InboxLayout() {
     filters.assignedTo !== '',
     filters.dateFrom !== '',
     filters.dateTo !== '',
+    filters.attention,
   ].filter(Boolean).length
 
   // Shared conversation list panel content

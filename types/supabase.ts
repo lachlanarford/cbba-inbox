@@ -197,6 +197,9 @@ export type Database = {
           last_message_at: string
           external_thread_id: string | null
           channel_config_id: string | null
+          department_source: string | null
+          priority_source: string | null
+          triage_scores: Json | null
         }
         Insert: {
           id?: string
@@ -215,6 +218,9 @@ export type Database = {
           last_message_at?: string
           external_thread_id?: string | null
           channel_config_id?: string | null
+          department_source?: string | null
+          priority_source?: string | null
+          triage_scores?: Json | null
         }
         Update: {
           id?: string
@@ -233,6 +239,9 @@ export type Database = {
           last_message_at?: string
           external_thread_id?: string | null
           channel_config_id?: string | null
+          department_source?: string | null
+          priority_source?: string | null
+          triage_scores?: Json | null
         }
         Relationships: []
       }
@@ -536,6 +545,8 @@ export type Database = {
           sent_at: string
           responded_at: string | null
           created_at: string
+          theme: string | null
+          theme_confidence: number | null
         }
         Insert: {
           id?: string
@@ -548,6 +559,8 @@ export type Database = {
           sent_at?: string
           responded_at?: string | null
           created_at?: string
+          theme?: string | null
+          theme_confidence?: number | null
         }
         Update: {
           id?: string
@@ -560,6 +573,8 @@ export type Database = {
           sent_at?: string
           responded_at?: string | null
           created_at?: string
+          theme?: string | null
+          theme_confidence?: number | null
         }
         Relationships: []
       }
@@ -604,6 +619,7 @@ export type Database = {
           description: string
           status: 'open' | 'in_progress' | 'resolved'
           priority: 'low' | 'medium' | 'high'
+          suggested_priority: 'low' | 'medium' | 'high' | null
           created_at: string
           updated_at: string
         }
@@ -614,6 +630,7 @@ export type Database = {
           description: string
           status?: 'open' | 'in_progress' | 'resolved'
           priority?: 'low' | 'medium' | 'high'
+          suggested_priority?: 'low' | 'medium' | 'high' | null
           created_at?: string
           updated_at?: string
         }
@@ -624,6 +641,7 @@ export type Database = {
           description?: string
           status?: 'open' | 'in_progress' | 'resolved'
           priority?: 'low' | 'medium' | 'high'
+          suggested_priority?: 'low' | 'medium' | 'high' | null
           created_at?: string
           updated_at?: string
         }

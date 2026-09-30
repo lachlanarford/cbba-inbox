@@ -3,6 +3,7 @@ import { notifyLiveChat } from '@/lib/push/send'
 import { createServiceClient } from '@/lib/supabase/service'
 import { notifyInboundMessage } from '@/lib/conversations/inbound-notify'
 import aiClient, { AI_MODEL, AI_MAX_TOKENS } from '@/lib/ai/client'
+import { judgeChatOutput, judgeChatTurn } from '@/lib/ai/chat-route'
 import { searchKnowledge } from '@/lib/knowledge/search'
 import { processIncomingMessage } from '@/lib/channels/processor'
 import { getAuthenticatedClient } from '@/lib/gmail/client'
@@ -220,7 +221,7 @@ export async function POST(request: Request) {
         if (contact_info?.department) {
           await supabase
             .from('conversations')
-            .update({ department: contact_info.department })
+            .update({ department: contact_info.department, department_source: 'channel' })
             .eq('id', conversationId)
         }
 
@@ -328,7 +329,7 @@ export async function POST(request: Request) {
       })
       aiConversationId = result.conversationId
       if (contact_info?.department && aiConversationId) {
-        await supabase.from('conversations').update({ department: contact_info.department }).eq('id', aiConversationId)
+        await supabase.from('conversations').update({ department: contact_info.department, department_source: 'channel' }).eq('id', aiConversationId)
       }
     } catch (err) {
       console.error('[api/chat] AI mode failed to create conversation:', err)
@@ -373,35 +374,68 @@ export async function POST(request: Request) {
     department: contact_info?.department ?? null,
   })
 
-  const systemPrompt = buildChatSystemPrompt({
-    knowledgeContext,
-    department: contact_info?.department ?? null,
-  })
-
-  const conversationHistory = toClaudeMessages([
-    ...recentTurns,
-    { role: 'user', content: message },
-  ])
-
-  let aiResponse: string
+  const contactEmail = departmentContactEmail(contact_info?.department ?? null)
+  let judgment: Awaited<ReturnType<typeof judgeChatTurn>> = null
   try {
-    const response = await aiClient.messages.create({
-      model: AI_MODEL,
-      max_tokens: AI_MAX_TOKENS,
-      system: systemPrompt,
-      messages: conversationHistory,
+    judgment = await judgeChatTurn({
+      message,
+      recentUserText,
+      department: contact_info?.department ?? null,
+      knowledgeContext,
     })
-    aiResponse = response.content[0].type === 'text' ? response.content[0].text.trim() : 'Sorry, I could not generate a response.'
   } catch (err) {
-    const status = err && typeof err === 'object' && 'status' in err ? (err as { status?: number }).status : undefined
-    const messageText = err instanceof Error ? err.message : String(err)
-    console.error('[api/chat] AI error:', { status, message: messageText })
-
-    const contactEmail = departmentContactEmail(contact_info?.department ?? null)
-    aiResponse = `Sorry, I cannot answer right now. Please email ${contactEmail} and our team will help.`
+    console.error('[api/chat] route judgment failed', err)
   }
 
-  console.log('[api/chat] retrieved sources:', sources.join(' | ') || '(none)')
+  const action = judgment?.action ?? 'decline'
+  let aiResponse: string
+  let replyModel = judgment?.model ?? 'typesafe-unconfigured'
+
+  if (action === 'generate' && judgment) {
+    const systemPrompt = buildChatSystemPrompt({
+      knowledgeContext,
+      department: contact_info?.department ?? null,
+    })
+    const conversationHistory = toClaudeMessages([
+      ...recentTurns,
+      { role: 'user', content: message },
+    ])
+    try {
+      const response = await aiClient.messages.create({
+        model: AI_MODEL,
+        max_tokens: AI_MAX_TOKENS,
+        system: systemPrompt,
+        messages: conversationHistory,
+      })
+      aiResponse = response.content[0].type === 'text' ? response.content[0].text.trim() : 'Sorry, I could not generate a response.'
+      replyModel = AI_MODEL
+      try {
+        const blocked = await judgeChatOutput({ message, reply: aiResponse, knowledgeContext })
+        if (blocked) {
+          aiResponse = `I don't have that in the information I can use. Please email ${contactEmail} and the team will help.`
+          judgment = { ...judgment, needsReview: true }
+        }
+      } catch (err) {
+        console.error('[api/chat] output screen failed', err)
+        judgment = { ...judgment, needsReview: true }
+      }
+    } catch (err) {
+      const status = err && typeof err === 'object' && 'status' in err ? (err as { status?: number }).status : undefined
+      const messageText = err instanceof Error ? err.message : String(err)
+      console.error('[api/chat] AI error:', { status, message: messageText })
+      aiResponse = `Sorry, I cannot answer right now. Please email ${contactEmail} and our team will help.`
+    }
+  } else if (action === 'handoff') {
+    aiResponse = `This needs a person on the CBBA team. Please email ${contactEmail} and include what you need help with.`
+  } else {
+    aiResponse = `I don't have that in the information I can use. Please email ${contactEmail} and the team will help.`
+  }
+
+  if ((judgment?.needsReview || !judgment) && aiConversationId) {
+    await supabase.from('conversations').update({ needs_review: true }).eq('id', aiConversationId)
+  }
+
+  console.log('[api/chat] route:', action, 'sources:', sources.join(' | ') || '(none)')
 
   await Promise.all([
     supabase.from('chat_messages').insert({
@@ -424,9 +458,9 @@ export async function POST(request: Request) {
           conversation_id: aiConversationId,
           action: 'chat_reply',
           input: message,
-          output: JSON.stringify({ reply: aiResponse, sources }),
-          model: AI_MODEL,
-          confidence: null,
+          output: JSON.stringify({ reply: aiResponse, sources, action }),
+          model: replyModel,
+          confidence: judgment?.confidence ?? null,
         })
       : Promise.resolve(),
   ])

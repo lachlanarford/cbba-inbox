@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { choice, noul } from '@typesafe-ai/sdk'
 import aiClient, { AI_MODEL, AI_MAX_TOKENS } from '@/lib/ai/client'
+import { draftNeedsFactCheck, pickCannedResponse } from '@/lib/ai/reply-decision'
+import { getTypeSafeClient } from '@/lib/ai/typesafe'
+import { searchKnowledge } from '@/lib/knowledge/search'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -42,10 +46,66 @@ export async function POST(request: Request) {
     .map((m) => `${m.sender_type === 'contact' ? 'Customer' : 'Staff'}: ${m.content}`)
     .join('\n\n')
 
-  const prompt = `Draft a reply to the following conversation. The reply will be reviewed and edited by a staff member before sending. Provide one suggested reply only, no preamble, no explanation, just the reply text.
+  const latestCustomer = [...messages].reverse().find((m) => m.sender_type === 'contact')?.content ?? thread
+  const typesafe = getTypeSafeClient()
+
+  const { data: templates } = await service
+    .from('canned_responses')
+    .select('id, title, content')
+    .order('title', { ascending: true })
+    .limit(30)
+
+  if (typesafe && templates?.length) {
+    const criteria: Record<string, string> = {
+      none: 'No saved template is a good reply to this message.',
+    }
+    for (const template of templates) criteria[template.id] = template.title
+
+    try {
+      const picked = await typesafe.systemOne({
+        state: {
+          customer: { message: latestCustomer, subject: conversation.subject ?? '' },
+        },
+        questions: {
+          template: choice(
+            'Which saved template, if any, should be sent as the reply to `customer.message`? Choose none when no template fits.',
+            criteria,
+          ),
+        },
+      })
+      const templateId = pickCannedResponse({
+        choice: picked.answers.template.choice,
+        confidence: picked.answers.template.confidence,
+        ids: templates.map((template) => template.id),
+      })
+      const template = templates.find((item) => item.id === templateId)
+      if (template) {
+        await service.from('ai_logs').insert({
+          conversation_id,
+          action: 'suggest_reply',
+          input: latestCustomer,
+          output: template.content,
+          model: picked.model,
+          confidence: picked.answers.template.confidence,
+        })
+        return NextResponse.json({ suggestion: template.content, source: 'template', needsReview: false })
+      }
+    } catch (err) {
+      console.error('[ai/suggest-reply] template pick failed', err)
+    }
+  }
+
+  const { context: knowledgeContext } = await searchKnowledge(latestCustomer, {
+    department: conversation.department,
+  })
+
+  const prompt = `Draft a reply to the following conversation. The reply will be reviewed and edited by a staff member before sending. Use only facts that appear in the knowledge excerpts. If the excerpts do not contain a fact, say the team will confirm it. Provide one suggested reply only, no preamble, no explanation, just the reply text.
 
 Department: ${conversation.department ?? 'Unknown'}
 Channel: ${conversation.channel}
+
+Knowledge excerpts:
+${knowledgeContext || '(none)'}
 
 Conversation:
 ${thread}`
@@ -64,14 +124,39 @@ ${thread}`
     return NextResponse.json({ error: 'AI error' }, { status: 500 })
   }
 
+  let needsReview = !typesafe
+  if (typesafe && suggestion) {
+    try {
+      const checked = await typesafe.systemOne({
+        state: {
+          draft: suggestion,
+          knowledge: { excerpts: knowledgeContext },
+        },
+        questions: {
+          unsupported: noul(
+            'Does `draft` state a fee, date, time, venue, age group, phone number, or link that is not written in `knowledge.excerpts`?',
+            {
+              true: 'The draft adds a concrete fact the excerpts do not contain.',
+              false: 'Every concrete fact in the draft is in the excerpts, or the draft states no such fact.',
+            },
+          ),
+        },
+      })
+      needsReview = draftNeedsFactCheck(checked.answers.unsupported.noul)
+    } catch (err) {
+      console.error('[ai/suggest-reply] fact check failed', err)
+      needsReview = true
+    }
+  }
+
   await service.from('ai_logs').insert({
     conversation_id,
     action: 'suggest_reply',
     input: thread,
-    output: suggestion,
+    output: JSON.stringify({ suggestion, needsReview }),
     model: AI_MODEL,
     confidence: null,
   })
 
-  return NextResponse.json({ suggestion })
+  return NextResponse.json({ suggestion, source: 'draft', needsReview })
 }

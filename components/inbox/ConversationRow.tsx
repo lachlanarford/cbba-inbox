@@ -1,4 +1,5 @@
 import type { ConversationListItem } from '@/types/database'
+import { readTriageScores, scoresNeedAttention } from '@/lib/ai/triage-decision'
 import { formatTimeAgo } from '@/lib/utils/time'
 import ChannelIcon from '@/components/ui/ChannelIcon'
 import DepartmentBadge from '@/components/ui/DepartmentBadge'
@@ -21,8 +22,9 @@ export default function ConversationRow({
   onClick,
   onCheck,
 }: ConversationRowProps) {
-  const { contact, assigned_user, is_read, needs_review, subject, channel, department, priority, last_message_at, has_attachments, snoozed_until } = conversation
+  const { contact, assigned_user, is_read, needs_review, subject, channel, department, priority, last_message_at, has_attachments, snoozed_until, triage_scores } = conversation
   const isSnoozed = snoozed_until != null && new Date(snoozed_until) > new Date()
+  const attention = scoresNeedAttention(readTriageScores(triage_scores))
 
   return (
     <div
@@ -92,6 +94,11 @@ export default function ConversationRow({
             {needs_review && (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none bg-amber-500/15 text-amber-400 border border-amber-500/20">
                 Review
+              </span>
+            )}
+            {attention && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none bg-orange-500/15 text-orange-300 border border-orange-500/20">
+                Attention
               </span>
             )}
             {assigned_user && (

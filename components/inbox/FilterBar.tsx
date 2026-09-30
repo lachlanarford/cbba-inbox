@@ -68,7 +68,8 @@ export default function FilterBar({
     filters.channelConfigId !== '' ||
     filters.assignedTo !== '' ||
     filters.dateFrom !== '' ||
-    filters.dateTo !== ''
+    filters.dateTo !== '' ||
+    filters.attention
 
   return (
     <div className="flex-shrink-0 border-b border-white/5">
@@ -144,6 +145,17 @@ export default function FilterBar({
               onChange={(v) => onFilterChange('priority', v)}
               options={PRIORITIES}
             />
+            <button
+              type="button"
+              onClick={() => onFilterChange('attention', !filters.attention)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                filters.attention
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  : 'bg-white/5 text-gray-400 border-white/10'
+              }`}
+            >
+              Attention
+            </button>
             <FilterPill
               label="Channel"
               value={filters.channel}

@@ -23,9 +23,11 @@ export async function PATCH(
   }
 
   const ALLOWED_FIELDS = new Set(['status', 'department', 'priority', 'assigned_to', 'needs_review', 'subject', 'snoozed_until'])
-  const sanitised = Object.fromEntries(
+  const sanitised: Record<string, unknown> = Object.fromEntries(
     Object.entries(updates).filter(([key]) => ALLOWED_FIELDS.has(key))
   )
+  if ('department' in sanitised) sanitised.department_source = 'staff'
+  if ('priority' in sanitised) sanitised.priority_source = 'staff'
   if (Object.keys(sanitised).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }

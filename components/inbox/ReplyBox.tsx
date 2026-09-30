@@ -59,6 +59,8 @@ export default function ReplyBox({
   const [error, setError] = useState<string | null>(null)
   const [suggesting, setSuggesting] = useState(false)
   const [aiSuggested, setAiSuggested] = useState(false)
+  const [draftNeedsReview, setDraftNeedsReview] = useState(false)
+  const [draftSource, setDraftSource] = useState<'draft' | 'template' | null>(null)
   const [showCanned, setShowCanned] = useState(false)
   const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([])
   const [cannedSearch, setCannedSearch] = useState('')
@@ -109,7 +111,11 @@ export default function ReplyBox({
 
   function handleNoteChange(value: string) {
     setContent(value)
-    if (aiSuggested) setAiSuggested(false)
+    if (aiSuggested) {
+      setAiSuggested(false)
+      setDraftNeedsReview(false)
+      setDraftSource(null)
+    }
 
     const el = textareaRef.current
     if (!el) return
@@ -466,9 +472,11 @@ export default function ReplyBox({
         body: JSON.stringify({ conversation_id: conversationId }),
       })
       if (!res.ok) throw new Error('Failed to get suggestion')
-      const data = await res.json() as { suggestion: string }
+      const data = await res.json() as { suggestion: string; needsReview?: boolean; source?: string }
       setContent(data.suggestion)
       setAiSuggested(true)
+      setDraftNeedsReview(data.needsReview === true)
+      setDraftSource(data.source === 'template' ? 'template' : 'draft')
       textareaRef.current?.focus()
     } catch {
       setError('Could not generate suggestion')
@@ -479,7 +487,11 @@ export default function ReplyBox({
 
   function handleContentChange(html: string) {
     setContent(html)
-    if (aiSuggested) setAiSuggested(false)
+    if (aiSuggested) {
+      setAiSuggested(false)
+      setDraftNeedsReview(false)
+      setDraftSource(null)
+    }
   }
 
   const isEmpty = !getTextContent(content)
@@ -836,9 +848,9 @@ export default function ReplyBox({
             )}
 
             {aiSuggested && (
-              <span className="flex items-center gap-1 text-xs text-purple-400 ml-1">
+              <span className={`flex items-center gap-1 text-xs ml-1 ${draftNeedsReview ? 'text-amber-400' : 'text-purple-400'}`}>
                 <SparkleIcon className="w-3 h-3" />
-                AI draft
+                {draftNeedsReview ? 'Check facts before sending' : draftSource === 'template' ? 'Template' : 'AI draft'}
               </span>
             )}
           </div>

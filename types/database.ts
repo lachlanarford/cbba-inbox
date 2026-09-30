@@ -51,6 +51,18 @@ export interface Conversation {
   channel_config_id: string | null
   has_attachments: boolean
   snoozed_until: string | null
+  department_source: 'channel' | 'staff' | 'ai' | 'legacy' | null
+  priority_source: 'channel' | 'staff' | 'ai' | 'legacy' | null
+  triage_scores: {
+    safety: number
+    complaint: number
+    payment: number
+    soon: number
+    refund: number
+    missing_details: number
+    frustration: number
+    frustration_confidence: number
+  } | null
 }
 
 export interface KnowledgeBaseEntry {
@@ -163,6 +175,7 @@ export interface InboxFilters {
   dateTo: string
   showSnoozed: boolean
   myInbox: boolean
+  attention: boolean
 }
 
 export const DEFAULT_FILTERS: InboxFilters = {
@@ -178,4 +191,5 @@ export const DEFAULT_FILTERS: InboxFilters = {
   dateTo: '',
   showSnoozed: false,
   myInbox: false,
+  attention: false,
 }

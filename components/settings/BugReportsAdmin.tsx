@@ -8,6 +8,7 @@ interface BugReport {
   description: string
   status: 'open' | 'in_progress' | 'resolved'
   priority: 'low' | 'medium' | 'high'
+  suggested_priority: 'low' | 'medium' | 'high' | null
   created_at: string
   submitted_by_user: { full_name: string | null; email: string } | null
 }
@@ -73,6 +74,9 @@ export default function BugReportsAdmin() {
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${PRIORITY_CLASSES[r.priority]}`}>
                 {r.priority}
               </span>
+              {r.suggested_priority && r.suggested_priority !== r.priority && (
+                <span className="text-[11px] text-gray-500">suggested {r.suggested_priority}</span>
+              )}
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_CLASSES[r.status]}`}>
                 {STATUS_LABELS[r.status]}
               </span>

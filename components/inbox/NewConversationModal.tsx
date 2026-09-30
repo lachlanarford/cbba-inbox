@@ -156,7 +156,9 @@ export default function NewConversationModal({ onClose, onCreated }: NewConversa
         channel,
         subject: subject.trim() || null,
         department: department || null,
+        department_source: department ? 'staff' : null,
         priority,
+        priority_source: 'staff',
         assigned_to: currentUser.id,
       })
       .select('id')

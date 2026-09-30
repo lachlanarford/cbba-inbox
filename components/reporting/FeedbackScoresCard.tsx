@@ -24,6 +24,15 @@ interface FeedbackData {
   overall: number | null
   total: number
   distribution: Record<number, number>
+  themes?: Record<string, number>
+}
+
+const THEME_LABELS: Record<string, string> = {
+  response_time: 'Response time',
+  wrong_information: 'Wrong information',
+  staff_helpfulness: 'Staff helpfulness',
+  unresolved: 'Unresolved',
+  other: 'Other',
 }
 
 export default function FeedbackScoresCard({ filters }: { filters: ReportFilters }) {
@@ -84,6 +93,17 @@ export default function FeedbackScoresCard({ filters }: { filters: ReportFilters
               )
             })}
             <p className="text-xs text-gray-600 pt-2">{data.total} total responses</p>
+            {data.themes && Object.keys(data.themes).length > 0 && (
+              <div className="pt-3 space-y-1">
+                <p className="text-xs text-gray-500">Comment themes</p>
+                {Object.entries(data.themes).map(([theme, count]) => (
+                  <p key={theme} className="text-xs text-gray-400 flex justify-between">
+                    <span>{THEME_LABELS[theme] ?? theme}</span>
+                    <span>{count}</span>
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right: weekly trend */}

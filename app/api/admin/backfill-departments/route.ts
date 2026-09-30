@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const service = createServiceClient()
   const { data, error } = await service
     .from('conversations')
-    .update({ department })
+    .update({ department, department_source: 'staff' })
     .eq('channel_config_id', channelConfigId)
     .select('id')
 

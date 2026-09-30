@@ -111,7 +111,7 @@ export async function POST(request: Request) {
           externalThreadId: sender,
           externalMessageId: mid,
         })
-        triggerCategorise(result.conversationId, content)
+        await triggerCategorise(result.conversationId, content)
         const displayName = senderName ?? sender
         await notifyInboundMessage({
           conversationId: result.conversationId,
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
           externalThreadId: senderId,
           externalMessageId: mid,
         })
-        triggerCategorise(result.conversationId, content)
+        await triggerCategorise(result.conversationId, content)
         const displayName = senderName ?? senderId
         await notifyInboundMessage({
           conversationId: result.conversationId,

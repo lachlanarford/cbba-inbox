@@ -134,7 +134,9 @@ export async function POST(request: Request) {
             last_message_at: new Date().toISOString(),
             is_read: true,
             department: (department ?? null) as unknown as string,
+            department_source: department ? 'staff' : null,
             priority: (priority ?? 'low') as unknown as string,
+            priority_source: 'staff',
             assigned_to: (assignedTo ?? null) as unknown as string,
           })
           .select('id')
@@ -215,7 +217,9 @@ export async function POST(request: Request) {
       last_message_at: new Date().toISOString(),
       is_read: true,
       department: (department ?? null) as unknown as string,
+      department_source: department ? 'staff' : null,
       priority: (priority ?? 'low') as unknown as string,
+      priority_source: 'staff',
       assigned_to: (assignedTo ?? null) as unknown as string,
     })
     .select('id')

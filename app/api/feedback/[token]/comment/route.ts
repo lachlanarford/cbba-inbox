@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { judgeFeedbackTheme } from '@/lib/ai/feedback-theme'
 
 export async function GET(
   _request: Request,
@@ -44,9 +45,16 @@ export async function POST(
   }
 
   if (comment.trim()) {
+    let themeUpdate: { theme?: string | null; theme_confidence?: number } = {}
+    try {
+      const judged = await judgeFeedbackTheme(comment.trim())
+      if (judged) themeUpdate = { theme: judged.theme, theme_confidence: judged.confidence }
+    } catch (err) {
+      console.error('[feedback] theme failed', err)
+    }
     await supabase
       .from('feedback_requests')
-      .update({ comment: comment.trim() })
+      .update({ comment: comment.trim(), ...themeUpdate })
       .eq('token', params.token)
   }
 

@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   let feedbackQuery = supabase
     .from('feedback_requests')
-    .select('rating, responded_at')
+    .select('rating, responded_at, theme')
     .not('rating', 'is', null)
     .gte('responded_at', from)
     .lte('responded_at', to + 'T23:59:59')
@@ -58,7 +58,13 @@ export async function GET(request: Request) {
     dist[star]++
   }
 
-  return NextResponse.json({ weekly: result, overall, total: allRatings.length, distribution: dist })
+  const themes: Record<string, number> = {}
+  for (const row of rows ?? []) {
+    if (!row.theme) continue
+    themes[row.theme] = (themes[row.theme] ?? 0) + 1
+  }
+
+  return NextResponse.json({ weekly: result, overall, total: allRatings.length, distribution: dist, themes })
 }
 
 function getMonday(isoDate: string): string {
