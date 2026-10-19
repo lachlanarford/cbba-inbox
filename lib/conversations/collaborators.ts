@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { notifyCollaboratorAdded } from '@/lib/push/send'
+import { emailMentionedUsers } from '@/lib/email/mention'
 
 export interface CollaboratorRow {
   user_id: string
@@ -144,6 +145,18 @@ export async function notifyMentionedUsers(opts: {
   const { notifyMention } = await import('@/lib/push/send')
   for (const userId of uniqueIds) {
     notifyMention(userId, opts.authorName, opts.subject, opts.conversationId).catch(() => {})
+  }
+
+  try {
+    await emailMentionedUsers({
+      userIds: uniqueIds,
+      authorName: opts.authorName,
+      conversationId: opts.conversationId,
+      subject: opts.subject,
+      excerpt: opts.excerpt,
+    })
+  } catch (err) {
+    console.error('[mention] email failed', err)
   }
 }
 
