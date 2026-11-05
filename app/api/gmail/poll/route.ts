@@ -5,8 +5,8 @@ import { catchUpGmailInbox, inboxNeedsCatchUp, syncGmailInbox } from '@/lib/gmai
 
 export const maxDuration = 300
 
-// Called by Vercel Cron (or external cron service) every minute.
-// Vercel passes Authorization: Bearer {CRON_SECRET} automatically.
+// Hourly safety net behind the Gmail webhook. Vercel sends Authorization: Bearer {CRON_SECRET}.
+// Mailbox catch-up is skipped unless it is due — a full scan on every tick burns Fluid CPU.
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) {
@@ -69,16 +69,20 @@ export async function GET(request: Request) {
       }
 
       const catchUp = await inboxNeedsCatchUp(config.id, metadata)
-      const imported = await catchUpGmailInbox({
-        configId: config.id,
-        email,
-        metadata,
-        afterDate: catchUp.afterDate,
-      })
-      processed += imported.processed
-      statusParts.push(
-        `${catchUp.deep ? 'catchup' : 'recent'}:${imported.processed}/${imported.missing}`
-      )
+      if (catchUp.needed) {
+        const imported = await catchUpGmailInbox({
+          configId: config.id,
+          email,
+          metadata,
+          afterDate: catchUp.afterDate,
+        })
+        processed += imported.processed
+        statusParts.push(
+          `${catchUp.deep ? 'catchup' : 'recent'}:${imported.processed}/${imported.missing}`
+        )
+      } else {
+        statusParts.push('catchup:skipped')
+      }
 
       results.push({ email, processed, status: statusParts.join(',') })
     } catch (err: unknown) {
