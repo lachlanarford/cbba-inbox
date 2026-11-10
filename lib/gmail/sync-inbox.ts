@@ -245,8 +245,7 @@ export async function inboxNeedsCatchUp(
   }
 
   const lastCatchup = metadata.last_catchup_at ? new Date(metadata.last_catchup_at).getTime() : 0
-  if (lastCatchup && Date.now() - lastCatchup < CATCHUP_STALE_MS) {
-    return { needed: false, afterDate: new Date(Date.now() - CATCHUP_RECENT_MS), deep: false }
-  }
-  return { needed: true, afterDate: new Date(Date.now() - CATCHUP_LOOKBACK_MS), deep: true }
+  const deep = !lastCatchup || Date.now() - lastCatchup >= CATCHUP_STALE_MS
+  const lookbackMs = deep ? CATCHUP_LOOKBACK_MS : CATCHUP_RECENT_MS
+  return { needed: true, afterDate: new Date(Date.now() - lookbackMs), deep }
 }

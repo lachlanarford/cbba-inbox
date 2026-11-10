@@ -5,8 +5,8 @@ import { catchUpGmailInbox, inboxNeedsCatchUp, syncGmailInbox } from '@/lib/gmai
 
 export const maxDuration = 300
 
-// Hourly safety net behind the Gmail webhook. Vercel sends Authorization: Bearer {CRON_SECRET}.
-// Mailbox catch-up is skipped unless it is due — a full scan on every tick burns Fluid CPU.
+// Safety net behind the Gmail webhook. Vercel sends Authorization: Bearer {CRON_SECRET}.
+// History sync runs every tick. ID catch-up always runs so a dead webhook cannot drop mail.
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) {
@@ -63,26 +63,23 @@ export async function GET(request: Request) {
           if (errMsg.includes('404') || errMsg.includes('Invalid historyId')) {
             statusParts.push('stale_history')
           } else {
-            throw err
+            console.error(`[gmail/poll] history error for ${email}:`, err)
+            statusParts.push(`history_error:${errMsg}`)
           }
         }
       }
 
       const catchUp = await inboxNeedsCatchUp(config.id, metadata)
-      if (catchUp.needed) {
-        const imported = await catchUpGmailInbox({
-          configId: config.id,
-          email,
-          metadata,
-          afterDate: catchUp.afterDate,
-        })
-        processed += imported.processed
-        statusParts.push(
-          `${catchUp.deep ? 'catchup' : 'recent'}:${imported.processed}/${imported.missing}`
-        )
-      } else {
-        statusParts.push('catchup:skipped')
-      }
+      const imported = await catchUpGmailInbox({
+        configId: config.id,
+        email,
+        metadata,
+        afterDate: catchUp.afterDate,
+      })
+      processed += imported.processed
+      statusParts.push(
+        `${catchUp.deep ? 'catchup' : 'recent'}:${imported.processed}/${imported.missing}`
+      )
 
       results.push({ email, processed, status: statusParts.join(',') })
     } catch (err: unknown) {
